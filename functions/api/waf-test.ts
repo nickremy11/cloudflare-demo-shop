@@ -3,6 +3,9 @@
 // No actual vulnerabilities — pattern matching only, no DB or filesystem access.
 // When Cloudflare WAF rules are enabled, requests are blocked at the edge
 // and this function never executes (Cloudflare returns 403 directly).
+//
+// Also echoes back select request headers so the Request Inspector
+// panel on the frontend can display real HTTP context.
 
 export const onRequestGet: PagesFunction = async ({ request }) => {
   const url = new URL(request.url);
@@ -11,6 +14,36 @@ export const onRequestGet: PagesFunction = async ({ request }) => {
   const headers = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
+  };
+
+  // Capture real incoming request headers for the inspector
+  const receivedHeaders: Record<string, string> = {};
+  const inspectKeys = [
+    "host",
+    "user-agent",
+    "accept",
+    "cf-ray",
+    "cf-connecting-ip",
+    "cf-ipcountry",
+    "x-forwarded-for",
+    "x-forwarded-proto",
+    // Demo injection headers (sent by the frontend for header injection demo)
+    "x-test-injection",
+    "x-override-host",
+    "x-cache-poison",
+  ];
+  for (const key of inspectKeys) {
+    const val = request.headers.get(key);
+    if (val) receivedHeaders[key] = val;
+  }
+
+  // Shared inspector metadata appended to every response
+  const inspector = {
+    request: {
+      method: request.method,
+      url: request.url,
+      headers: receivedHeaders,
+    },
   };
 
   switch (attack) {
@@ -24,11 +57,12 @@ export const onRequestGet: PagesFunction = async ({ request }) => {
             query_used: "SELECT * FROM users WHERE id='' OR '1'='1'",
             rows_returned: 3,
             users: [
-              { username: "demo_user",   password: "fake_pass_123",    cc: "4532-0000-1111-2222" },
-              { username: "test_admin",  password: "demo_password",    cc: "5105-0000-3333-4444" },
-              { username: "john_sample", password: "sample_pass_456",  cc: "4916-0000-5555-6666" },
+              { username: "demo_user",   password: "fake_pass_123",   cc: "4532-0000-1111-2222" },
+              { username: "test_admin",  password: "demo_password",   cc: "5105-0000-3333-4444" },
+              { username: "john_sample", password: "sample_pass_456", cc: "4916-0000-5555-6666" },
             ],
           },
+          inspector,
         }),
         { status: 200, headers }
       );
@@ -47,6 +81,7 @@ export const onRequestGet: PagesFunction = async ({ request }) => {
               auth_cookie: "auth=demo_cookie_789ghi",
             },
           },
+          inspector,
         }),
         { status: 200, headers }
       );
@@ -66,6 +101,7 @@ export const onRequestGet: PagesFunction = async ({ request }) => {
               "nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin",
             ],
           },
+          inspector,
         }),
         { status: 200, headers }
       );
@@ -78,19 +114,20 @@ export const onRequestGet: PagesFunction = async ({ request }) => {
           message: "Malicious headers accepted. Cache poisoned for all visitors.",
           data: {
             injected_headers: {
-              "X-Forwarded-For":  "127.0.0.1\r\nX-Injected: malicious-payload",
-              "X-Override-Host":  "evil.demo-attacker.com",
-              "X-Cache-Poison":   "true",
+              "X-Test-Injection":  receivedHeaders["x-test-injection"]  || "malicious-payload (simulated)",
+              "X-Override-Host":   receivedHeaders["x-override-host"]   || "evil.demo-attacker.com (simulated)",
+              "X-Cache-Poison":    receivedHeaders["x-cache-poison"]    || "true (simulated)",
             },
             effect: "All cached responses now serve attacker-controlled content to every visitor.",
           },
+          inspector,
         }),
         { status: 200, headers }
       );
 
     default:
       return new Response(
-        JSON.stringify({ error: "Unknown attack type." }),
+        JSON.stringify({ error: "Unknown attack type.", inspector }),
         { status: 400, headers }
       );
   }
