@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WAF / L7 Attacks + Rate Limiting — Cloudflare Demo Shop</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            pine: {
+              50:  '#f2f7f2',
+              100: '#e0ece0',
+              200: '#c1d9c1',
+              400: '#5e975e',
+              500: '#2F4F2F',
+              600: '#274427',
+              700: '#1f381f',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['Courier New', 'Courier', 'monospace'],
+            retro: ['Times New Roman', 'Times', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/public/styles/main.css" />
+
+  <style>
+    /* ── CloudMart retro store ─────────────────────────────── */
+    .cloudmart-wrap {
+      background: #fdf8f0;
+      border: 2px solid #999;
+      font-family: 'Times New Roman', Times, serif;
+    }
+    .cloudmart-header {
+      background: #c0c0c0;
+      border-bottom: 2px solid #999;
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      color: #333;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    .cloudmart-title {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #000080;
+      text-align: center;
+      text-decoration: underline;
+      letter-spacing: 1px;
+    }
+    .cloudmart-tagline {
+      text-align: center;
+      font-size: 0.875rem;
+      color: #666;
+      font-style: italic;
+      margin-top: 2px;
+    }
+    .cloudmart-divider {
+      border: none;
+      border-top: 2px solid #999;
+      margin: 10px 0;
+    }
+    .cloudmart-search-bar {
+      background: #fff;
+      border: 2px inset #999;
+      padding: 4px 8px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.8125rem;
+      width: 260px;
+      color: #444;
+    }
+    .cloudmart-search-btn {
+      background: #c0c0c0;
+      border: 2px outset #fff;
+      padding: 3px 12px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.8125rem;
+      cursor: default;
+      margin-left: 6px;
+    }
+    .cloudmart-search-btn:active {
+      border: 2px inset #fff;
+    }
+    .product-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+    }
+    .product-table th {
+      background: #000080;
+      color: #fff;
+      padding: 4px 10px;
+      text-align: left;
+      font-weight: bold;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    .product-table td {
+      padding: 4px 10px;
+      border-bottom: 1px solid #ccc;
+      font-family: 'Times New Roman', Times, serif;
+    }
+    .product-table tr:nth-child(even) td {
+      background: #f0f0f0;
+    }
+    .product-link {
+      color: #000080;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    /* ── Attack result panels ──────────────────────────────── */
+    .result-panel {
+      border-radius: 0.375rem;
+      padding: 1rem 1.25rem;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.8125rem;
+      line-height: 1.6;
+    }
+    .result-panel.exploited {
+      background: #fff5f5;
+      border-left: 4px solid #dc2626;
+    }
+    .result-panel.blocked {
+      background: #f0fdf4;
+      border-left: 4px solid #2F4F2F;
+    }
+    .result-label {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+    .result-label.exploited { color: #dc2626; }
+    .result-label.blocked   { color: #2F4F2F; }
+
+    /* ── Payload display ───────────────────────────────────── */
+    .payload-box {
+      background: #f5f5f5;
+      border: 1px solid #d4d4d4;
+      border-radius: 0.25rem;
+      padding: 0.5rem 0.875rem;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.8125rem;
+      color: #1a1a1a;
+      user-select: none;
+    }
+
+    /* ── Rate limit counter ────────────────────────────────── */
+    .counter-bar-bg {
+      background: #e5e5e5;
+      border-radius: 9999px;
+      height: 6px;
+      width: 100%;
+    }
+    .counter-bar-fill {
+      background: #2F4F2F;
+      border-radius: 9999px;
+      height: 6px;
+      transition: width 0.2s ease;
+    }
+    .counter-bar-fill.danger {
+      background: #dc2626;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 min-h-screen" style="font-family: Inter, system-ui, sans-serif;">
+
+  <!-- Header -->
+  <header class="bg-pine-500 text-white sticky top-0 z-50 shadow-md">
+    <div class="max-w-screen-xl mx-auto px-8 py-4 flex items-center gap-4">
+      <a href="/" class="text-sm text-pine-200 hover:text-white transition-colors">&larr; Demo Shop</a>
+      <span class="text-pine-400">/</span>
+      <span class="text-sm font-medium">WAF / L7 Attacks + Rate Limiting</span>
+    </div>
+  </header>
+
+  <!-- Page intro -->
+  <div class="bg-pine-500 text-white pb-10 pt-8">
+    <div class="max-w-screen-xl mx-auto px-8">
+      <h1 class="text-3xl font-bold tracking-tight mb-2">WAF / L7 Attacks + Rate Limiting</h1>
+      <p class="text-pine-200 max-w-2xl text-sm leading-relaxed">
+        Layer 7 attacks target application logic rather than infrastructure. Test four common exploit types against CloudMart below.
+        With Cloudflare's Managed Ruleset and OWASP Core Ruleset disabled, each attack succeeds.
+        Enable the rulesets in the dashboard, refresh, and try again — every request is blocked at the edge before reaching the origin.
+      </p>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <main class="max-w-screen-xl mx-auto px-8 py-10 space-y-10"
+        x-data="wafDemo()"
+        x-init="init()">
+
+    <!-- ── CloudMart Demo Store ─────────────────────────────────── -->
+    <section>
+      <div class="cloudmart-wrap rounded overflow-hidden" style="max-width: 680px;">
+        <div class="cloudmart-header">
+          CloudMart™ Online Shopping Portal &nbsp;|&nbsp; Established 1997 &nbsp;|&nbsp; Secure Shopping*
+        </div>
+        <div class="p-5">
+          <div class="cloudmart-title">CloudMart</div>
+          <div class="cloudmart-tagline">Your #1 Source for Technology Products on the World Wide Web</div>
+          <hr class="cloudmart-divider" />
+
+          <!-- Search -->
+          <div class="flex items-center mb-4">
+            <span style="font-family: 'Courier New'; font-size: 0.8125rem; margin-right: 8px;">Search:</span>
+            <input type="text" class="cloudmart-search-bar" value="Find products..." readonly />
+            <button class="cloudmart-search-btn">Go</button>
+          </div>
+
+          <!-- Products -->
+          <table class="product-table">
+            <thead>
+              <tr>
+                <th>Item #</th>
+                <th>Product Name</th>
+                <th>Price</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>CM-001</td>
+                <td><span class="product-link">56K Dial-Up Modem (Vintage)</span></td>
+                <td>$49.99</td>
+                <td>In Stock</td>
+              </tr>
+              <tr>
+                <td>CM-002</td>
+                <td><span class="product-link">Y2K Compliance Software Suite</span></td>
+                <td>$199.99</td>
+                <td>In Stock</td>
+              </tr>
+              <tr>
+                <td>CM-003</td>
+                <td><span class="product-link">Beige Desktop Tower (256MB RAM)</span></td>
+                <td>$899.99</td>
+                <td>Limited</td>
+              </tr>
+              <tr>
+                <td>CM-004</td>
+                <td><span class="product-link">3.5" Floppy Disk 10-Pack</span></td>
+                <td>$12.99</td>
+                <td>In Stock</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="font-family: 'Courier New'; font-size: 0.7rem; color: #888; margin-top: 10px;">
+            *SSL encryption coming soon. Do not enter real payment information.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Section divider ───────────────────────────────────────── -->
+    <div class="flex items-center gap-4">
+      <h2 class="text-base font-semibold text-pine-500 uppercase tracking-widest whitespace-nowrap">Attack Tests</h2>
+      <div class="flex-1 h-px bg-pine-200"></div>
+    </div>
+
+    <!-- ── Attack #1: SQL Injection ──────────────────────────────── -->
+    <section class="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
+      <div>
+        <span class="text-xs font-semibold uppercase tracking-widest text-gray-400">Attack 01</span>
+        <h3 class="text-lg font-semibold text-gray-800 mt-0.5">SQL Injection</h3>
+        <p class="text-sm text-gray-500 mt-1">
+          Manipulates a database query by injecting SQL syntax into a user input field.
+          A successful injection can return all rows from a table, bypassing authentication
+          or exposing the entire database.
+        </p>
+      </div>
+
+      <div class="space-y-2">
+        <div class="text-xs font-semibold uppercase tracking-widest text-gray-400">Test Payload</div>
+        <div class="payload-box">' OR '1'='1</div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <button
+          @click="tryAttack('sqli')"
+          :disabled="loading"
+          class="btn-primary inline-block w-auto px-6 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+          <span x-show="loading && currentAttack === 'sqli'">Running...</span>
+          <span x-show="!(loading && currentAttack === 'sqli')">Try Attack</span>
+        </button>
+        <span class="text-xs text-gray-400">Targets: <span class="font-mono">GET /api/waf-test?attack=sqli</span></span>
+      </div>
+
+      <!-- Result -->
+      <div x-show="currentAttack === 'sqli' && result !== null" x-transition>
+        <template x-if="result && result.status === 'exploited'">
+          <div class="result-panel exploited">
+            <div class="result-label exploited">&#9888; Attack Succeeded — No WAF Protection</div>
+            <div class="font-semibold mb-2" style="font-family: Inter, sans-serif; font-size: 0.875rem; color: #dc2626;" x-text="result.message"></div>
+            <template x-if="result.data && result.data.users">
+              <div>
+                <div class="text-gray-500 mb-1">-- Returned rows:</div>
+                <template x-for="user in result.data.users" :key="user.username">
+                  <div x-text="`username: ${user.username}  |  password: ${user.password}  |  cc: ${user.cc}`"></div>
+                </template>
+                <div class="mt-2 text-gray-500" x-text="`-- Query used: ${result.data.query_used}`"></div>
+              </div>
+            </template>
+          </div>
+        </template>
+        <template x-if="result && result.status === 'blocked'">
+          <div class="result-panel blocked">
+            <div class="result-label blocked">&#128737; Blocked by Cloudflare WAF</div>
+            <div x-text="result.message"></div>
+            <div class="mt-1 text-pine-500" x-text="result.rule"></div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- ── Attack #2: XSS ────────────────────────────────────────── -->
+    <section class="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
+      <div>
+        <span class="text-xs font-semibold uppercase tracking-widest text-gray-400">Attack 02</span>
+        <h3 class="text-lg font-semibold text-gray-800 mt-0.5">Cross-Site Scripting (XSS)</h3>
+        <p class="text-sm text-gray-500 mt-1">
+          Injects a malicious script into a page viewed by other users. When executed in a victim's
+          browser, the script can steal session cookies, redirect to phishing pages, or perform
+          actions on behalf of the victim.
+        </p>
+      </div>
+
+      <div class="space-y-2">
+        <div class="text-xs font-semibold uppercase tracking-widest text-gray-400">Test Payload</div>
+        <div class="payload-box">&lt;script&gt;alert('XSS')&lt;/script&gt;</div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <button
+          @click="tryAttack('xss')"
+          :disabled="loading"
+          class="btn-primary inline-block w-auto px-6 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+          <span x-show="loading && currentAttack === 'xss'">Running...</span>
+          <span x-show="!(loading && currentAttack === 'xss')">Try Attack</span>
+        </button>
+        <span class="text-xs text-gray-400">Targets: <span class="font-mono">GET /api/waf-test?attack=xss</span></span>
+      </div>
+
+      <!-- Result -->
+      <div x-show="currentAttack === 'xss' && result !== null" x-transition>
+        <template x-if="result && result.status === 'exploited'">
+          <div class="result-panel exploited">
+            <div class="result-label exploited">&#9888; Attack Succeeded — No WAF Protection</div>
+            <div class="font-semibold mb-2" style="font-family: Inter, sans-serif; font-size: 0.875rem; color: #dc2626;" x-text="result.message"></div>
+            <template x-if="result.data && result.data.stolen">
+              <div>
+                <div class="text-gray-500 mb-1">-- Stolen from victim browser:</div>
+                <div x-text="`session_id:  ${result.data.stolen.session_id}`"></div>
+                <div x-text="`user_token:  ${result.data.stolen.user_token}`"></div>
+                <div x-text="`auth_cookie: ${result.data.stolen.auth_cookie}`"></div>
+                <div class="mt-2 text-gray-500" x-text="`-- Script injected: ${result.data.script_executed}`"></div>
+              </div>
+            </template>
+          </div>
+        </template>
+        <template x-if="result && result.status === 'blocked'">
+          <div class="result-panel blocked">
+            <div class="result-label blocked">&#128737; Blocked by Cloudflare WAF</div>
+            <div x-text="result.message"></div>
+            <div class="mt-1 text-pine-500" x-text="result.rule"></div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- ── Attack #3: Command Injection ─────────────────────────── -->
+    <section class="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
+      <div>
+        <span class="text-xs font-semibold uppercase tracking-widest text-gray-400">Attack 03</span>
+        <h3 class="text-lg font-semibold text-gray-800 mt-0.5">Command Injection</h3>
+        <p class="text-sm text-gray-500 mt-1">
+          Appends operating system commands to an application input that gets passed to a system
+          shell. A successful injection allows an attacker to execute arbitrary commands on the
+          origin server, exposing files, credentials, and internal network data.
+        </p>
+      </div>
+
+      <div class="space-y-2">
+        <div class="text-xs font-semibold uppercase tracking-widest text-gray-400">Test Payload</div>
+        <div class="payload-box">; cat /etc/passwd</div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <button
+          @click="tryAttack('cmdi')"
+          :disabled="loading"
+          class="btn-primary inline-block w-auto px-6 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+          <span x-show="loading && currentAttack === 'cmdi'">Running...</span>
+          <span x-show="!(loading && currentAttack === 'cmdi')">Try Attack</span>
+        </button>
+        <span class="text-xs text-gray-400">Targets: <span class="font-mono">GET /api/waf-test?attack=cmdi</span></span>
+      </div>
+
+      <!-- Result -->
+      <div x-show="currentAttack === 'cmdi' && result !== null" x-transition>
+        <template x-if="result && result.status === 'exploited'">
+          <div class="result-panel exploited">
+            <div class="result-label exploited">&#9888; Attack Succeeded — No WAF Protection</div>
+            <div class="font-semibold mb-2" style="font-family: Inter, sans-serif; font-size: 0.875rem; color: #dc2626;" x-text="result.message"></div>
+            <template x-if="result.data && result.data.output">
+              <div>
+                <div class="text-gray-500 mb-1" x-text="`-- $ ${result.data.command_run}`"></div>
+                <template x-for="line in result.data.output" :key="line">
+                  <div x-text="line"></div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+        <template x-if="result && result.status === 'blocked'">
+          <div class="result-panel blocked">
+            <div class="result-label blocked">&#128737; Blocked by Cloudflare WAF</div>
+            <div x-text="result.message"></div>
+            <div class="mt-1 text-pine-500" x-text="result.rule"></div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- ── Attack #4: HTTP Header Injection ──────────────────────── -->
+    <section class="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
+      <div>
+        <span class="text-xs font-semibold uppercase tracking-widest text-gray-400">Attack 04</span>
+        <h3 class="text-lg font-semibold text-gray-800 mt-0.5">HTTP Header Injection</h3>
+        <p class="text-sm text-gray-500 mt-1">
+          Injects malicious HTTP headers — often using CRLF sequences — to manipulate server
+          responses, poison shared caches, or override trusted headers like
+          <span class="font-mono text-xs">X-Forwarded-For</span> to spoof IP addresses and
+          bypass access controls. All visitors to a poisoned cache receive attacker-controlled content.
+        </p>
+      </div>
+
+      <div class="space-y-2">
+        <div class="text-xs font-semibold uppercase tracking-widest text-gray-400">Test Payload</div>
+        <div class="payload-box">X-Forwarded-For: 127.0.0.1&#13;&#10;X-Injected: malicious-payload</div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <button
+          @click="tryAttack('header')"
+          :disabled="loading"
+          class="btn-primary inline-block w-auto px-6 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+          <span x-show="loading && currentAttack === 'header'">Running...</span>
+          <span x-show="!(loading && currentAttack === 'header')">Try Attack</span>
+        </button>
+        <span class="text-xs text-gray-400">Targets: <span class="font-mono">GET /api/waf-test?attack=header</span></span>
+      </div>
+
+      <!-- Result -->
+      <div x-show="currentAttack === 'header' && result !== null" x-transition>
+        <template x-if="result && result.status === 'exploited'">
+          <div class="result-panel exploited">
+            <div class="result-label exploited">&#9888; Attack Succeeded — No WAF Protection</div>
+            <div class="font-semibold mb-2" style="font-family: Inter, sans-serif; font-size: 0.875rem; color: #dc2626;" x-text="result.message"></div>
+            <template x-if="result.data && result.data.injected_headers">
+              <div>
+                <div class="text-gray-500 mb-1">-- Injected headers accepted by server:</div>
+                <template x-for="[key, val] in Object.entries(result.data.injected_headers)" :key="key">
+                  <div x-text="`${key}: ${val}`"></div>
+                </template>
+                <div class="mt-2 text-gray-500" x-text="result.data.effect"></div>
+              </div>
+            </template>
+          </div>
+        </template>
+        <template x-if="result && result.status === 'blocked'">
+          <div class="result-panel blocked">
+            <div class="result-label blocked">&#128737; Blocked by Cloudflare WAF</div>
+            <div x-text="result.message"></div>
+            <div class="mt-1 text-pine-500" x-text="result.rule"></div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- ── Rate Limiting ─────────────────────────────────────────── -->
+    <div class="flex items-center gap-4">
+      <h2 class="text-base font-semibold text-pine-500 uppercase tracking-widest whitespace-nowrap">Rate Limiting</h2>
+      <div class="flex-1 h-px bg-pine-200"></div>
+    </div>
+
+    <section class="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
+      <p class="text-sm text-gray-500 max-w-2xl">
+        Rate limiting controls how many requests a single IP can make within a time window.
+        Two methods are shown below. Configure a rate limiting rule in the dashboard targeting
+        this page or the API endpoint, then trigger it by refreshing rapidly or clicking the button repeatedly.
+      </p>
+
+      <!-- Method A: Page Refresh -->
+      <div class="border border-gray-100 rounded-md p-5 space-y-3">
+        <div class="text-xs font-semibold uppercase tracking-widest text-gray-400">Method A — Page Refresh</div>
+        <p class="text-sm text-gray-500">
+          Refresh this page rapidly (F5 / Cmd+R). With a rate limiting rule applied to
+          <span class="font-mono text-xs">/demos/waf-attacks.html</span>, Cloudflare will return a
+          <span class="font-mono text-xs">429</span> response after your configured threshold.
+        </p>
+        <div class="flex items-center gap-6">
+          <div>
+            <div class="text-xs text-gray-400 mb-1">Page loads this session</div>
+            <div class="text-2xl font-bold text-gray-700 font-mono" x-text="pageLoadCount"></div>
+          </div>
+          <div class="flex-1">
+            <div class="counter-bar-bg">
+              <div class="counter-bar-fill"
+                   :class="{ 'danger': pageLoadCount >= 8 }"
+                   :style="`width: ${Math.min((pageLoadCount / 10) * 100, 100)}%`"></div>
+            </div>
+            <div class="text-xs text-gray-400 mt-1">Threshold example: 10 loads / 30 seconds</div>
+          </div>
+        </div>
+        <div x-show="pageLoadCount >= 8 && pageLoadCount < 10"
+             class="text-xs font-semibold text-amber-600">
+          Approaching threshold — a rate limit rule would trigger soon.
+        </div>
+      </div>
+
+      <!-- Method B: API Button -->
+      <div class="border border-gray-100 rounded-md p-5 space-y-3">
+        <div class="text-xs font-semibold uppercase tracking-widest text-gray-400">Method B — API Endpoint</div>
+        <p class="text-sm text-gray-500">
+          Click the button below repeatedly. With a rate limiting rule applied to
+          <span class="font-mono text-xs">/api/rate-limit-test</span>, the endpoint returns
+          <span class="font-mono text-xs">429 Rate Limited</span> after 10 requests per 30 seconds per IP.
+        </p>
+
+        <!-- Counter + bar -->
+        <div class="flex items-center gap-6">
+          <div>
+            <div class="text-xs text-gray-400 mb-1">Requests in window</div>
+            <div class="text-2xl font-bold font-mono"
+                 :class="apiStatus === 'limited' ? 'text-red-600' : 'text-gray-700'"
+                 x-text="`${apiRequestCount}/10`"></div>
+          </div>
+          <div class="flex-1">
+            <div class="counter-bar-bg">
+              <div class="counter-bar-fill"
+                   :class="{ 'danger': apiStatus === 'limited' || apiRequestCount >= 8 }"
+                   :style="`width: ${Math.min((apiRequestCount / 10) * 100, 100)}%`"></div>
+            </div>
+            <div class="text-xs text-gray-400 mt-1">Resets every 30 seconds</div>
+          </div>
+        </div>
+
+        <!-- Status badge -->
+        <div class="flex items-center gap-3">
+          <div x-show="apiStatus === 'allowed'"
+               class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-pine-100 text-pine-600">
+            &#10003; Allowed
+          </div>
+          <div x-show="apiStatus === 'limited'"
+               class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-red-100 text-red-600">
+            &#10007; Rate Limited (429)
+          </div>
+          <div x-show="apiStatus === 'limited' && resetCountdown > 0"
+               class="text-xs text-gray-400"
+               x-text="`Resets in ${resetCountdown}s`"></div>
+        </div>
+
+        <!-- Button -->
+        <button
+          @click="makeApiRequest()"
+          :disabled="apiLoading"
+          class="btn-primary inline-block w-auto px-6 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+          <span x-show="apiLoading">Requesting...</span>
+          <span x-show="!apiLoading">Make API Request</span>
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-200 mt-16 py-8 text-center text-sm text-gray-400">
+    <p>Cloudflare Demo Shop &mdash; Internal Use Only</p>
+  </footer>
+
+  <script>
+    function wafDemo() {
+      return {
+        // ── Attack state ──────────────────────────────
+        currentAttack: null,
+        result: null,
+        loading: false,
+
+        // ── Page refresh tracking ─────────────────────
+        pageLoadCount: 0,
+
+        // ── API rate limit state ──────────────────────
+        apiRequestCount: 0,
+        apiStatus: 'allowed',   // 'allowed' | 'limited'
+        apiLoading: false,
+        resetCountdown: 0,
+        resetInterval: null,
+        windowStart: null,
+
+        // ─────────────────────────────────────────────
+        init() {
+          // Track page refreshes via sessionStorage
+          const key = 'waf_demo_loads';
+          const stored = parseInt(sessionStorage.getItem(key) || '0', 10);
+          this.pageLoadCount = stored + 1;
+          sessionStorage.setItem(key, this.pageLoadCount);
+
+          // Reset page counter after 30s from first load in session
+          const tsKey = 'waf_demo_load_ts';
+          const firstLoad = parseInt(sessionStorage.getItem(tsKey) || '0', 10);
+          const now = Date.now();
+          if (!firstLoad || now - firstLoad > 30000) {
+            sessionStorage.setItem(tsKey, now);
+            sessionStorage.setItem(key, '1');
+            this.pageLoadCount = 1;
+          }
+
+          // Init API window start
+          this.windowStart = Date.now();
+        },
+
+        // ─────────────────────────────────────────────
+        async tryAttack(attackType) {
+          // Clear previous result immediately
+          this.result = null;
+          this.currentAttack = attackType;
+          this.loading = true;
+
+          try {
+            const res = await fetch(`/api/waf-test?attack=${attackType}`);
+
+            if (res.status === 403) {
+              // Cloudflare WAF blocked the request at the edge
+              this.result = {
+                status: 'blocked',
+                message: '403 Forbidden — Request blocked at the Cloudflare edge.',
+                rule: this.getRuleLabel(attackType),
+              };
+            } else if (res.ok) {
+              this.result = await res.json();
+            } else {
+              this.result = {
+                status: 'blocked',
+                message: `Unexpected response: HTTP ${res.status}`,
+                rule: '',
+              };
+            }
+          } catch (err) {
+            this.result = {
+              status: 'blocked',
+              message: 'Request failed or was intercepted. Check network.',
+              rule: '',
+            };
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        // ─────────────────────────────────────────────
+        getRuleLabel(attackType) {
+          const labels = {
+            sqli:   'Ruleset: Cloudflare OWASP Core Ruleset — Rule ID 942100 (SQL Injection)',
+            xss:    'Ruleset: Cloudflare OWASP Core Ruleset — Rule ID 941100 (XSS)',
+            cmdi:   'Ruleset: Cloudflare Managed Ruleset — Rule ID 100015 (Command Injection)',
+            header: 'Ruleset: Cloudflare Managed Ruleset — Rule ID 100020B (Header Injection)',
+          };
+          return labels[attackType] || 'Ruleset: Cloudflare Managed Rules';
+        },
+
+        // ─────────────────────────────────────────────
+        async makeApiRequest() {
+          // Reset counter if 30s window has passed
+          if (Date.now() - this.windowStart > 30000) {
+            this.apiRequestCount = 0;
+            this.apiStatus = 'allowed';
+            this.windowStart = Date.now();
+            clearInterval(this.resetInterval);
+            this.resetCountdown = 0;
+          }
+
+          this.apiLoading = true;
+
+          try {
+            const res = await fetch('/api/rate-limit-test');
+
+            if (res.status === 429) {
+              this.apiStatus = 'limited';
+              this.apiRequestCount = 10;
+              this.startResetCountdown();
+            } else if (res.ok) {
+              this.apiRequestCount = Math.min(this.apiRequestCount + 1, 10);
+              this.apiStatus = 'allowed';
+            }
+          } catch (err) {
+            // If request is intercepted (network-level block)
+            this.apiStatus = 'limited';
+            this.apiRequestCount = 10;
+            this.startResetCountdown();
+          } finally {
+            this.apiLoading = false;
+          }
+        },
+
+        // ─────────────────────────────────────────────
+        startResetCountdown() {
+          clearInterval(this.resetInterval);
+          this.resetCountdown = 30;
+          this.resetInterval = setInterval(() => {
+            this.resetCountdown--;
+            if (this.resetCountdown <= 0) {
+              clearInterval(this.resetInterval);
+              this.resetCountdown = 0;
+              this.apiRequestCount = 0;
+              this.apiStatus = 'allowed';
+              this.windowStart = Date.now();
+            }
+          }, 1000);
+        },
+      };
+    }
+  </script>
+
+</body>
+</html>
