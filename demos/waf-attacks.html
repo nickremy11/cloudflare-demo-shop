@@ -438,91 +438,89 @@
         <div class="flex items-center gap-4">
           <button @click="tryAttack('sqli')" :disabled="loading"
                   class="btn-primary inline-block w-auto px-5 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-            <span x-show="loading && currentAttack === 'sqli'">Running...</span>
-            <span x-show="!(loading && currentAttack === 'sqli')">Try Attack</span>
+            <span x-show="loadingAttacks.sqli">Running...</span>
+            <span x-show="!loadingAttacks.sqli">Try Attack</span>
           </button>
           <span class="text-xs text-gray-400 font-mono">GET /api/waf-test?attack=sqli</span>
         </div>
 
         <!-- Result -->
-        <template x-if="currentAttack === 'sqli' && result !== null">
+        <template x-if="results.sqli !== null">
           <div class="space-y-3" x-transition>
-            <template x-if="result.status === 'exploited'">
+            <template x-if="results.sqli.status === 'exploited'">
               <div class="result-panel exploited">
                 <div class="result-label exploited">&#9888; Attack Succeeded — No WAF Protection</div>
-                <div class="mb-2" style="font-family:Inter,sans-serif;font-size:0.8rem;color:#dc2626;font-weight:600;" x-text="result.message"></div>
-                <template x-if="result.data && result.data.users">
+                <div class="mb-2" style="font-family:Inter,sans-serif;font-size:0.8rem;color:#dc2626;font-weight:600;" x-text="results.sqli.message"></div>
+                <template x-if="results.sqli.data && results.sqli.data.users">
                   <div>
-                    <div class="text-gray-500 mb-1" x-text="`-- Query: ${result.data.query_used}`"></div>
-                    <template x-for="u in result.data.users" :key="u.username">
+                    <div class="text-gray-500 mb-1" x-text="`-- Query: ${results.sqli.data.query_used}`"></div>
+                    <template x-for="u in results.sqli.data.users" :key="u.username">
                       <div x-text="`username: ${u.username}  |  password: ${u.password}  |  cc: ${u.cc}`"></div>
                     </template>
                   </div>
                 </template>
               </div>
             </template>
-            <template x-if="result.status === 'blocked'">
+            <template x-if="results.sqli.status === 'blocked'">
               <div class="result-panel blocked">
                 <div class="result-label blocked">&#128737; Blocked by Cloudflare WAF</div>
-                <div x-text="result.message"></div>
-                <div class="mt-1 text-pine-600 text-xs" x-text="result.rule"></div>
+                <div x-text="results.sqli.message"></div>
+                <div class="mt-1 text-pine-600 text-xs" x-text="results.sqli.rule"></div>
               </div>
             </template>
             <!-- Request Inspector -->
-            <div x-show="result.inspector || result.status === 'blocked'" x-transition>
-              <div class="inspector-wrap">
-                <div class="inspector-tab-bar">
-                  <div class="inspector-tab"
-                       :class="{ active: inspectorTab === 'request' }"
-                       @click="inspectorTab = 'request'">Request</div>
-                  <div class="inspector-tab"
-                       :class="{ active: inspectorTab === 'response' }"
-                       @click="inspectorTab = 'response'">Response</div>
-                  <div class="inspector-tab"
-                       :class="{ active: inspectorTab === 'headers' }"
-                       @click="inspectorTab = 'headers'">Headers Received</div>
-                </div>
-                <div class="inspector-body">
-                  <template x-if="inspectorTab === 'request'">
+            <div class="inspector-wrap">
+              <div class="inspector-tab-bar">
+                <div class="inspector-tab"
+                     :class="{ active: inspectorTabs.sqli === 'request' }"
+                     @click="inspectorTabs.sqli = 'request'">Request</div>
+                <div class="inspector-tab"
+                     :class="{ active: inspectorTabs.sqli === 'response' }"
+                     @click="inspectorTabs.sqli = 'response'">Response</div>
+                <div class="inspector-tab"
+                     :class="{ active: inspectorTabs.sqli === 'headers' }"
+                     @click="inspectorTabs.sqli = 'headers'">Headers Received</div>
+              </div>
+              <div class="inspector-body">
+                <template x-if="inspectorTabs.sqli === 'request'">
+                  <div>
+                    <div><span class="label">Method:</span>  <span class="val" x-text="lastRequests.sqli.method"></span></div>
+                    <div><span class="label">URL:</span>     <span class="val" x-text="lastRequests.sqli.url"></span></div>
+                    <div><span class="label">Payload:</span> <span class="val">' OR '1'='1</span></div>
+                    <div class="muted mt-1"># Payload sent via query string parameter</div>
+                  </div>
+                </template>
+                <template x-if="inspectorTabs.sqli === 'response'">
+                  <div>
                     <div>
-                      <div><span class="label">Method:</span>  <span class="val" x-text="lastRequest.method"></span></div>
-                      <div><span class="label">URL:</span>     <span class="val" x-text="lastRequest.url"></span></div>
-                      <div><span class="label">Payload:</span> <span class="val">' OR '1'='1</span></div>
-                      <div class="muted mt-1"># Payload sent via query string parameter</div>
+                      <span class="label">Status:</span>
+                      <span :class="results.sqli.status === 'blocked' ? 'err' : 'ok'"
+                            x-text="results.sqli.status === 'blocked' ? '403 Forbidden' : '200 OK'"></span>
                     </div>
-                  </template>
-                  <template x-if="inspectorTab === 'response'">
-                    <div>
+                    <div><span class="label">Blocked at edge:</span> <span class="val" x-text="results.sqli.status === 'blocked' ? 'Yes — origin never reached' : 'No — request reached origin'"></span></div>
+                    <template x-if="results.sqli.status === 'blocked'">
+                      <div><span class="label">Blocked by:</span> <span class="val" x-text="results.sqli.rule || 'Cloudflare WAF'"></span></div>
+                    </template>
+                    <template x-if="results.sqli.status === 'exploited'">
+                      <div><span class="label">Rows returned:</span> <span class="val" x-text="results.sqli.data && results.sqli.data.rows_returned"></span></div>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="inspectorTabs.sqli === 'headers'">
+                  <div>
+                    <template x-if="results.sqli.inspector && results.sqli.inspector.request && results.sqli.inspector.request.headers">
                       <div>
-                        <span class="label">Status:</span>
-                        <span :class="result.status === 'blocked' ? 'err' : 'ok'"
-                              x-text="result.status === 'blocked' ? '403 Forbidden' : '200 OK'"></span>
+                        <div class="muted mb-1"># Headers received by origin server</div>
+                        <template x-for="[k, v] in Object.entries(results.sqli.inspector.request.headers)" :key="k">
+                          <div><span class="key" x-text="k + ':'"></span> <span class="val" x-text="v"></span></div>
+                        </template>
                       </div>
-                      <div><span class="label">Blocked at edge:</span> <span class="val" x-text="result.status === 'blocked' ? 'Yes — origin never reached' : 'No — request reached origin'"></span></div>
-                      <template x-if="result.status === 'blocked'">
-                        <div><span class="label">Blocked by:</span> <span class="val" x-text="result.rule || 'Cloudflare WAF'"></span></div>
-                      </template>
-                      <template x-if="result.status === 'exploited'">
-                        <div><span class="label">Rows returned:</span> <span class="val" x-text="result.data && result.data.rows_returned"></span></div>
-                      </template>
-                    </div>
-                  </template>
-                  <template x-if="inspectorTab === 'headers'">
-                    <div>
-                      <template x-if="result.inspector && result.inspector.request && result.inspector.request.headers">
-                        <div>
-                          <div class="muted mb-1"># Headers received by origin server</div>
-                          <template x-for="[k, v] in Object.entries(result.inspector.request.headers)" :key="k">
-                            <div><span class="key" x-text="k + ':'"></span> <span class="val" x-text="v"></span></div>
-                          </template>
-                        </div>
-                      </template>
-                      <template x-if="!result.inspector || !result.inspector.request">
-                        <div class="muted">Request was blocked at the edge — no headers reached the origin.</div>
-                      </template>
-                    </div>
-                  </template>
-                </div>
+                    </template>
+                    <template x-if="!results.sqli.inspector || !results.sqli.inspector.request">
+                      <div class="muted">Request was blocked at the edge — no headers reached the origin.</div>
+                    </template>
+                  </div>
+                </template>
               </div>
             </div>
           </div>
@@ -549,76 +547,74 @@
         <div class="flex items-center gap-4">
           <button @click="tryAttack('xss')" :disabled="loading"
                   class="btn-primary inline-block w-auto px-5 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-            <span x-show="loading && currentAttack === 'xss'">Running...</span>
-            <span x-show="!(loading && currentAttack === 'xss')">Try Attack</span>
+            <span x-show="loadingAttacks.xss">Running...</span>
+            <span x-show="!loadingAttacks.xss">Try Attack</span>
           </button>
           <span class="text-xs text-gray-400 font-mono">GET /api/waf-test?attack=xss</span>
         </div>
 
-        <template x-if="currentAttack === 'xss' && result !== null">
+        <template x-if="results.xss !== null">
           <div class="space-y-3" x-transition>
-            <template x-if="result.status === 'exploited'">
+            <template x-if="results.xss.status === 'exploited'">
               <div class="result-panel exploited">
                 <div class="result-label exploited">&#9888; Attack Succeeded — No WAF Protection</div>
-                <div class="mb-2" style="font-family:Inter,sans-serif;font-size:0.8rem;color:#dc2626;font-weight:600;" x-text="result.message"></div>
-                <template x-if="result.data && result.data.stolen">
+                <div class="mb-2" style="font-family:Inter,sans-serif;font-size:0.8rem;color:#dc2626;font-weight:600;" x-text="results.xss.message"></div>
+                <template x-if="results.xss.data && results.xss.data.stolen">
                   <div>
-                    <div class="text-gray-500 mb-1" x-text="`-- Script injected: ${result.data.script_executed}`"></div>
-                    <div x-text="`session_id:  ${result.data.stolen.session_id}`"></div>
-                    <div x-text="`user_token:  ${result.data.stolen.user_token}`"></div>
-                    <div x-text="`auth_cookie: ${result.data.stolen.auth_cookie}`"></div>
+                    <div class="text-gray-500 mb-1" x-text="`-- Script injected: ${results.xss.data.script_executed}`"></div>
+                    <div x-text="`session_id:  ${results.xss.data.stolen.session_id}`"></div>
+                    <div x-text="`user_token:  ${results.xss.data.stolen.user_token}`"></div>
+                    <div x-text="`auth_cookie: ${results.xss.data.stolen.auth_cookie}`"></div>
                   </div>
                 </template>
               </div>
             </template>
-            <template x-if="result.status === 'blocked'">
+            <template x-if="results.xss.status === 'blocked'">
               <div class="result-panel blocked">
                 <div class="result-label blocked">&#128737; Blocked by Cloudflare WAF</div>
-                <div x-text="result.message"></div>
-                <div class="mt-1 text-pine-600 text-xs" x-text="result.rule"></div>
+                <div x-text="results.xss.message"></div>
+                <div class="mt-1 text-pine-600 text-xs" x-text="results.xss.rule"></div>
               </div>
             </template>
-            <div x-show="result.inspector || result.status === 'blocked'" x-transition>
-              <div class="inspector-wrap">
-                <div class="inspector-tab-bar">
-                  <div class="inspector-tab" :class="{ active: inspectorTab === 'request' }" @click="inspectorTab = 'request'">Request</div>
-                  <div class="inspector-tab" :class="{ active: inspectorTab === 'response' }" @click="inspectorTab = 'response'">Response</div>
-                  <div class="inspector-tab" :class="{ active: inspectorTab === 'headers' }" @click="inspectorTab = 'headers'">Headers Received</div>
-                </div>
-                <div class="inspector-body">
-                  <template x-if="inspectorTab === 'request'">
-                    <div>
-                      <div><span class="label">Method:</span>  <span class="val" x-text="lastRequest.method"></span></div>
-                      <div><span class="label">URL:</span>     <span class="val" x-text="lastRequest.url"></span></div>
-                      <div><span class="label">Payload:</span> <span class="val">&lt;script&gt;alert('XSS')&lt;/script&gt;</span></div>
-                      <div class="muted mt-1"># Script tag injected into a page field rendered to other users</div>
-                    </div>
-                  </template>
-                  <template x-if="inspectorTab === 'response'">
-                    <div>
-                      <div><span class="label">Status:</span> <span :class="result.status === 'blocked' ? 'err' : 'ok'" x-text="result.status === 'blocked' ? '403 Forbidden' : '200 OK'"></span></div>
-                      <div><span class="label">Blocked at edge:</span> <span class="val" x-text="result.status === 'blocked' ? 'Yes — origin never reached' : 'No — request reached origin'"></span></div>
-                      <template x-if="result.status === 'blocked'">
-                        <div><span class="label">Blocked by:</span> <span class="val" x-text="result.rule || 'Cloudflare WAF'"></span></div>
-                      </template>
-                    </div>
-                  </template>
-                  <template x-if="inspectorTab === 'headers'">
-                    <div>
-                      <template x-if="result.inspector && result.inspector.request && result.inspector.request.headers">
-                        <div>
-                          <div class="muted mb-1"># Headers received by origin server</div>
-                          <template x-for="[k, v] in Object.entries(result.inspector.request.headers)" :key="k">
-                            <div><span class="key" x-text="k + ':'"></span> <span class="val" x-text="v"></span></div>
-                          </template>
-                        </div>
-                      </template>
-                      <template x-if="!result.inspector || !result.inspector.request">
-                        <div class="muted">Request was blocked at the edge — no headers reached the origin.</div>
-                      </template>
-                    </div>
-                  </template>
-                </div>
+            <div class="inspector-wrap">
+              <div class="inspector-tab-bar">
+                <div class="inspector-tab" :class="{ active: inspectorTabs.xss === 'request' }" @click="inspectorTabs.xss = 'request'">Request</div>
+                <div class="inspector-tab" :class="{ active: inspectorTabs.xss === 'response' }" @click="inspectorTabs.xss = 'response'">Response</div>
+                <div class="inspector-tab" :class="{ active: inspectorTabs.xss === 'headers' }" @click="inspectorTabs.xss = 'headers'">Headers Received</div>
+              </div>
+              <div class="inspector-body">
+                <template x-if="inspectorTabs.xss === 'request'">
+                  <div>
+                    <div><span class="label">Method:</span>  <span class="val" x-text="lastRequests.xss.method"></span></div>
+                    <div><span class="label">URL:</span>     <span class="val" x-text="lastRequests.xss.url"></span></div>
+                    <div><span class="label">Payload:</span> <span class="val">&lt;script&gt;alert('XSS')&lt;/script&gt;</span></div>
+                    <div class="muted mt-1"># Script tag injected into a page field rendered to other users</div>
+                  </div>
+                </template>
+                <template x-if="inspectorTabs.xss === 'response'">
+                  <div>
+                    <div><span class="label">Status:</span> <span :class="results.xss.status === 'blocked' ? 'err' : 'ok'" x-text="results.xss.status === 'blocked' ? '403 Forbidden' : '200 OK'"></span></div>
+                    <div><span class="label">Blocked at edge:</span> <span class="val" x-text="results.xss.status === 'blocked' ? 'Yes — origin never reached' : 'No — request reached origin'"></span></div>
+                    <template x-if="results.xss.status === 'blocked'">
+                      <div><span class="label">Blocked by:</span> <span class="val" x-text="results.xss.rule || 'Cloudflare WAF'"></span></div>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="inspectorTabs.xss === 'headers'">
+                  <div>
+                    <template x-if="results.xss.inspector && results.xss.inspector.request && results.xss.inspector.request.headers">
+                      <div>
+                        <div class="muted mb-1"># Headers received by origin server</div>
+                        <template x-for="[k, v] in Object.entries(results.xss.inspector.request.headers)" :key="k">
+                          <div><span class="key" x-text="k + ':'"></span> <span class="val" x-text="v"></span></div>
+                        </template>
+                      </div>
+                    </template>
+                    <template x-if="!results.xss.inspector || !results.xss.inspector.request">
+                      <div class="muted">Request was blocked at the edge — no headers reached the origin.</div>
+                    </template>
+                  </div>
+                </template>
               </div>
             </div>
           </div>
@@ -645,76 +641,74 @@
         <div class="flex items-center gap-4">
           <button @click="tryAttack('cmdi')" :disabled="loading"
                   class="btn-primary inline-block w-auto px-5 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-            <span x-show="loading && currentAttack === 'cmdi'">Running...</span>
-            <span x-show="!(loading && currentAttack === 'cmdi')">Try Attack</span>
+            <span x-show="loadingAttacks.cmdi">Running...</span>
+            <span x-show="!loadingAttacks.cmdi">Try Attack</span>
           </button>
           <span class="text-xs text-gray-400 font-mono">GET /api/waf-test?attack=cmdi</span>
         </div>
 
-        <template x-if="currentAttack === 'cmdi' && result !== null">
+        <template x-if="results.cmdi !== null">
           <div class="space-y-3" x-transition>
-            <template x-if="result.status === 'exploited'">
+            <template x-if="results.cmdi.status === 'exploited'">
               <div class="result-panel exploited">
                 <div class="result-label exploited">&#9888; Attack Succeeded — No WAF Protection</div>
-                <div class="mb-2" style="font-family:Inter,sans-serif;font-size:0.8rem;color:#dc2626;font-weight:600;" x-text="result.message"></div>
-                <template x-if="result.data && result.data.output">
+                <div class="mb-2" style="font-family:Inter,sans-serif;font-size:0.8rem;color:#dc2626;font-weight:600;" x-text="results.cmdi.message"></div>
+                <template x-if="results.cmdi.data && results.cmdi.data.output">
                   <div>
-                    <div class="text-gray-500 mb-1" x-text="`-- $ ${result.data.command_run}`"></div>
-                    <template x-for="line in result.data.output" :key="line">
+                    <div class="text-gray-500 mb-1" x-text="`-- $ ${results.cmdi.data.command_run}`"></div>
+                    <template x-for="line in results.cmdi.data.output" :key="line">
                       <div x-text="line"></div>
                     </template>
                   </div>
                 </template>
               </div>
             </template>
-            <template x-if="result.status === 'blocked'">
+            <template x-if="results.cmdi.status === 'blocked'">
               <div class="result-panel blocked">
                 <div class="result-label blocked">&#128737; Blocked by Cloudflare WAF</div>
-                <div x-text="result.message"></div>
-                <div class="mt-1 text-pine-600 text-xs" x-text="result.rule"></div>
+                <div x-text="results.cmdi.message"></div>
+                <div class="mt-1 text-pine-600 text-xs" x-text="results.cmdi.rule"></div>
               </div>
             </template>
-            <div x-show="result.inspector || result.status === 'blocked'" x-transition>
-              <div class="inspector-wrap">
-                <div class="inspector-tab-bar">
-                  <div class="inspector-tab" :class="{ active: inspectorTab === 'request' }" @click="inspectorTab = 'request'">Request</div>
-                  <div class="inspector-tab" :class="{ active: inspectorTab === 'response' }" @click="inspectorTab = 'response'">Response</div>
-                  <div class="inspector-tab" :class="{ active: inspectorTab === 'headers' }" @click="inspectorTab = 'headers'">Headers Received</div>
-                </div>
-                <div class="inspector-body">
-                  <template x-if="inspectorTab === 'request'">
-                    <div>
-                      <div><span class="label">Method:</span>  <span class="val" x-text="lastRequest.method"></span></div>
-                      <div><span class="label">URL:</span>     <span class="val" x-text="lastRequest.url"></span></div>
-                      <div><span class="label">Payload:</span> <span class="val">; cat /etc/passwd</span></div>
-                      <div class="muted mt-1"># Shell metacharacter appended to a system command</div>
-                    </div>
-                  </template>
-                  <template x-if="inspectorTab === 'response'">
-                    <div>
-                      <div><span class="label">Status:</span> <span :class="result.status === 'blocked' ? 'err' : 'ok'" x-text="result.status === 'blocked' ? '403 Forbidden' : '200 OK'"></span></div>
-                      <div><span class="label">Blocked at edge:</span> <span class="val" x-text="result.status === 'blocked' ? 'Yes — origin never reached' : 'No — request reached origin'"></span></div>
-                      <template x-if="result.status === 'blocked'">
-                        <div><span class="label">Blocked by:</span> <span class="val" x-text="result.rule || 'Cloudflare WAF'"></span></div>
-                      </template>
-                    </div>
-                  </template>
-                  <template x-if="inspectorTab === 'headers'">
-                    <div>
-                      <template x-if="result.inspector && result.inspector.request && result.inspector.request.headers">
-                        <div>
-                          <div class="muted mb-1"># Headers received by origin server</div>
-                          <template x-for="[k, v] in Object.entries(result.inspector.request.headers)" :key="k">
-                            <div><span class="key" x-text="k + ':'"></span> <span class="val" x-text="v"></span></div>
-                          </template>
-                        </div>
-                      </template>
-                      <template x-if="!result.inspector || !result.inspector.request">
-                        <div class="muted">Request was blocked at the edge — no headers reached the origin.</div>
-                      </template>
-                    </div>
-                  </template>
-                </div>
+            <div class="inspector-wrap">
+              <div class="inspector-tab-bar">
+                <div class="inspector-tab" :class="{ active: inspectorTabs.cmdi === 'request' }" @click="inspectorTabs.cmdi = 'request'">Request</div>
+                <div class="inspector-tab" :class="{ active: inspectorTabs.cmdi === 'response' }" @click="inspectorTabs.cmdi = 'response'">Response</div>
+                <div class="inspector-tab" :class="{ active: inspectorTabs.cmdi === 'headers' }" @click="inspectorTabs.cmdi = 'headers'">Headers Received</div>
+              </div>
+              <div class="inspector-body">
+                <template x-if="inspectorTabs.cmdi === 'request'">
+                  <div>
+                    <div><span class="label">Method:</span>  <span class="val" x-text="lastRequests.cmdi.method"></span></div>
+                    <div><span class="label">URL:</span>     <span class="val" x-text="lastRequests.cmdi.url"></span></div>
+                    <div><span class="label">Payload:</span> <span class="val">; cat /etc/passwd</span></div>
+                    <div class="muted mt-1"># Shell metacharacter appended to a system command</div>
+                  </div>
+                </template>
+                <template x-if="inspectorTabs.cmdi === 'response'">
+                  <div>
+                    <div><span class="label">Status:</span> <span :class="results.cmdi.status === 'blocked' ? 'err' : 'ok'" x-text="results.cmdi.status === 'blocked' ? '403 Forbidden' : '200 OK'"></span></div>
+                    <div><span class="label">Blocked at edge:</span> <span class="val" x-text="results.cmdi.status === 'blocked' ? 'Yes — origin never reached' : 'No — request reached origin'"></span></div>
+                    <template x-if="results.cmdi.status === 'blocked'">
+                      <div><span class="label">Blocked by:</span> <span class="val" x-text="results.cmdi.rule || 'Cloudflare WAF'"></span></div>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="inspectorTabs.cmdi === 'headers'">
+                  <div>
+                    <template x-if="results.cmdi.inspector && results.cmdi.inspector.request && results.cmdi.inspector.request.headers">
+                      <div>
+                        <div class="muted mb-1"># Headers received by origin server</div>
+                        <template x-for="[k, v] in Object.entries(results.cmdi.inspector.request.headers)" :key="k">
+                          <div><span class="key" x-text="k + ':'"></span> <span class="val" x-text="v"></span></div>
+                        </template>
+                      </div>
+                    </template>
+                    <template x-if="!results.cmdi.inspector || !results.cmdi.inspector.request">
+                      <div class="muted">Request was blocked at the edge — no headers reached the origin.</div>
+                    </template>
+                  </div>
+                </template>
               </div>
             </div>
           </div>
@@ -742,85 +736,82 @@
         <div class="flex items-center gap-4">
           <button @click="tryAttack('header')" :disabled="loading"
                   class="btn-primary inline-block w-auto px-5 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-            <span x-show="loading && currentAttack === 'header'">Running...</span>
-            <span x-show="!(loading && currentAttack === 'header')">Try Attack</span>
+            <span x-show="loadingAttacks.header">Running...</span>
+            <span x-show="!loadingAttacks.header">Try Attack</span>
           </button>
           <span class="text-xs text-gray-400 font-mono">GET /api/waf-test?attack=header</span>
         </div>
 
-        <template x-if="currentAttack === 'header' && result !== null">
+        <template x-if="results.header !== null">
           <div class="space-y-3" x-transition>
-            <template x-if="result.status === 'exploited'">
+            <template x-if="results.header.status === 'exploited'">
               <div class="result-panel exploited">
                 <div class="result-label exploited">&#9888; Attack Succeeded — No WAF Protection</div>
-                <div class="mb-2" style="font-family:Inter,sans-serif;font-size:0.8rem;color:#dc2626;font-weight:600;" x-text="result.message"></div>
-                <template x-if="result.data && result.data.injected_headers">
+                <div class="mb-2" style="font-family:Inter,sans-serif;font-size:0.8rem;color:#dc2626;font-weight:600;" x-text="results.header.message"></div>
+                <template x-if="results.header.data && results.header.data.injected_headers">
                   <div>
                     <div class="text-gray-500 mb-1">-- Injected headers accepted by server:</div>
-                    <template x-for="[k, v] in Object.entries(result.data.injected_headers)" :key="k">
+                    <template x-for="[k, v] in Object.entries(results.header.data.injected_headers)" :key="k">
                       <div x-text="`${k}: ${v}`"></div>
                     </template>
-                    <div class="mt-2 text-gray-500" x-text="result.data.effect"></div>
+                    <div class="mt-2 text-gray-500" x-text="results.header.data.effect"></div>
                   </div>
                 </template>
               </div>
             </template>
-            <template x-if="result.status === 'blocked'">
+            <template x-if="results.header.status === 'blocked'">
               <div class="result-panel blocked">
                 <div class="result-label blocked">&#128737; Blocked by Cloudflare WAF</div>
-                <div x-text="result.message"></div>
-                <div class="mt-1 text-pine-600 text-xs" x-text="result.rule"></div>
+                <div x-text="results.header.message"></div>
+                <div class="mt-1 text-pine-600 text-xs" x-text="results.header.rule"></div>
               </div>
             </template>
-            <div x-show="result.inspector || result.status === 'blocked'" x-transition>
-              <div class="inspector-wrap">
-                <div class="inspector-tab-bar">
-                  <div class="inspector-tab" :class="{ active: inspectorTab === 'request' }" @click="inspectorTab = 'request'">Request</div>
-                  <div class="inspector-tab" :class="{ active: inspectorTab === 'response' }" @click="inspectorTab = 'response'">Response</div>
-                  <div class="inspector-tab" :class="{ active: inspectorTab === 'headers' }" @click="inspectorTab = 'headers'">Headers Received</div>
-                </div>
-                <div class="inspector-body">
-                  <template x-if="inspectorTab === 'request'">
-                    <div>
-                      <div><span class="label">Method:</span>  <span class="val" x-text="lastRequest.method"></span></div>
-                      <div><span class="label">URL:</span>     <span class="val" x-text="lastRequest.url"></span></div>
-                      <div class="muted mt-1"># Custom headers sent with this request:</div>
-                      <div><span class="key">x-test-injection:</span>  <span class="val">malicious-payload</span></div>
-                      <div><span class="key">x-override-host:</span>   <span class="val">evil.demo-attacker.com</span></div>
-                      <div><span class="key">x-cache-poison:</span>    <span class="val">true</span></div>
-                      <div class="muted mt-1"># Open DevTools → Network tab to verify headers were sent</div>
-                    </div>
-                  </template>
-                  <template x-if="inspectorTab === 'response'">
-                    <div>
-                      <div><span class="label">Status:</span> <span :class="result.status === 'blocked' ? 'err' : 'ok'" x-text="result.status === 'blocked' ? '403 Forbidden' : '200 OK'"></span></div>
-                      <div><span class="label">Blocked at edge:</span> <span class="val" x-text="result.status === 'blocked' ? 'Yes — origin never reached' : 'No — request reached origin'"></span></div>
-                      <template x-if="result.status === 'blocked'">
-                        <div><span class="label">Blocked by:</span> <span class="val" x-text="result.rule || 'Cloudflare WAF'"></span></div>
-                      </template>
-                    </div>
-                  </template>
-                  <template x-if="inspectorTab === 'headers'">
-                    <div>
-                      <template x-if="result.inspector && result.inspector.request && result.inspector.request.headers">
-                        <div>
-                          <div class="muted mb-1"># Headers received by origin — check for injected values</div>
-                          <template x-for="[k, v] in Object.entries(result.inspector.request.headers)" :key="k">
-                            <div>
-                              <span :class="['x-test-injection','x-override-host','x-cache-poison'].includes(k) ? 'err' : 'key'"
-                                    x-text="k + ':'"></span>
-                              <span :class="['x-test-injection','x-override-host','x-cache-poison'].includes(k) ? 'val' : 'val'"
-                                    x-text="v"></span>
-                            </div>
-                          </template>
-                        </div>
-                      </template>
-                      <template x-if="!result.inspector || !result.inspector.request">
-                        <div class="muted">Request was blocked at the edge — no headers reached the origin.</div>
-                      </template>
-                    </div>
-                  </template>
-                </div>
+            <div class="inspector-wrap">
+              <div class="inspector-tab-bar">
+                <div class="inspector-tab" :class="{ active: inspectorTabs.header === 'request' }" @click="inspectorTabs.header = 'request'">Request</div>
+                <div class="inspector-tab" :class="{ active: inspectorTabs.header === 'response' }" @click="inspectorTabs.header = 'response'">Response</div>
+                <div class="inspector-tab" :class="{ active: inspectorTabs.header === 'headers' }" @click="inspectorTabs.header = 'headers'">Headers Received</div>
+              </div>
+              <div class="inspector-body">
+                <template x-if="inspectorTabs.header === 'request'">
+                  <div>
+                    <div><span class="label">Method:</span>  <span class="val" x-text="lastRequests.header.method"></span></div>
+                    <div><span class="label">URL:</span>     <span class="val" x-text="lastRequests.header.url"></span></div>
+                    <div class="muted mt-1"># Custom headers sent with this request:</div>
+                    <div><span class="key">x-test-injection:</span>  <span class="val">malicious-payload</span></div>
+                    <div><span class="key">x-override-host:</span>   <span class="val">evil.demo-attacker.com</span></div>
+                    <div><span class="key">x-cache-poison:</span>    <span class="val">true</span></div>
+                    <div class="muted mt-1"># Open DevTools → Network tab to verify headers were sent</div>
+                  </div>
+                </template>
+                <template x-if="inspectorTabs.header === 'response'">
+                  <div>
+                    <div><span class="label">Status:</span> <span :class="results.header.status === 'blocked' ? 'err' : 'ok'" x-text="results.header.status === 'blocked' ? '403 Forbidden' : '200 OK'"></span></div>
+                    <div><span class="label">Blocked at edge:</span> <span class="val" x-text="results.header.status === 'blocked' ? 'Yes — origin never reached' : 'No — request reached origin'"></span></div>
+                    <template x-if="results.header.status === 'blocked'">
+                      <div><span class="label">Blocked by:</span> <span class="val" x-text="results.header.rule || 'Cloudflare WAF'"></span></div>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="inspectorTabs.header === 'headers'">
+                  <div>
+                    <template x-if="results.header.inspector && results.header.inspector.request && results.header.inspector.request.headers">
+                      <div>
+                        <div class="muted mb-1"># Headers received by origin — check for injected values</div>
+                        <template x-for="[k, v] in Object.entries(results.header.inspector.request.headers)" :key="k">
+                          <div>
+                            <span :class="['x-test-injection','x-override-host','x-cache-poison'].includes(k) ? 'err' : 'key'"
+                                  x-text="k + ':'"></span>
+                            <span class="val" x-text="v"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+                    <template x-if="!results.header.inspector || !results.header.inspector.request">
+                      <div class="muted">Request was blocked at the edge — no headers reached the origin.</div>
+                    </template>
+                  </div>
+                </template>
               </div>
             </div>
           </div>
@@ -927,14 +918,31 @@
   <script>
     function wafDemo() {
       return {
-        // Attack state
-        currentAttack:  null,
-        result:         null,
-        loading:        false,
-        inspectorTab:   'request',
-        lastRequest:    { method: 'GET', url: '' },
+        // Per-attack independent state — results persist until page refresh
+        results: {
+          sqli:   null,   // each holds: { status, message, rule, data, inspector }
+          xss:    null,
+          cmdi:   null,
+          header: null,
+        },
+        // Per-attack inspector tab state (independent per section)
+        inspectorTabs: {
+          sqli:   'request',
+          xss:    'request',
+          cmdi:   'request',
+          header: 'request',
+        },
+        // Per-attack last request metadata
+        lastRequests: {
+          sqli:   { method: 'GET', url: '' },
+          xss:    { method: 'GET', url: '' },
+          cmdi:   { method: 'GET', url: '' },
+          header: { method: 'GET', url: '' },
+        },
+        // Which attacks are currently loading
+        loadingAttacks: { sqli: false, xss: false, cmdi: false, header: false },
 
-        // CloudMart store state
+        // CloudMart store state — driven by most recent attack
         searchValue:    'Find products...',
         searchInjected: false,
         storeState:     'idle',    // 'idle' | 'attacked' | 'blocked'
@@ -953,7 +961,6 @@
 
         // ──────────────────────────────────────────────────────
         init() {
-          // Track page loads in sessionStorage (30s window)
           const key   = 'waf_demo_loads';
           const tsKey = 'waf_demo_load_ts';
           const now   = Date.now();
@@ -974,25 +981,23 @@
 
         // ──────────────────────────────────────────────────────
         async tryAttack(attackType) {
-          // Clear previous result
-          this.result        = null;
-          this.currentAttack = attackType;
-          this.loading       = true;
-          this.inspectorTab  = 'request';
-          this.storeState    = 'idle';
-          this.storeMessage  = '';
+          this.loadingAttacks[attackType] = true;
+          this.inspectorTabs[attackType]  = 'request';
 
-          // Animate SQLi payload into search bar
+          // Animate SQLi payload into search bar; reset for other attacks
           if (attackType === 'sqli') {
             this.searchInjected = false;
             this.searchValue    = '';
             await this.typeIntoSearch("' OR '1'='1");
           } else {
-            this.searchValue    = 'Find products...';
-            this.searchInjected = false;
+            // Only reset search bar if SQLi hasn't already run
+            if (!this.results.sqli) {
+              this.searchValue    = 'Find products...';
+              this.searchInjected = false;
+            }
           }
 
-          // Build fetch options — for header injection, send real custom headers
+          // For header injection, send real custom headers
           const fetchOptions = { method: 'GET', headers: {} };
           if (attackType === 'header') {
             fetchOptions.headers = {
@@ -1003,13 +1008,13 @@
           }
 
           const url = `/api/waf-test?attack=${attackType}`;
-          this.lastRequest = { method: 'GET', url };
+          this.lastRequests[attackType] = { method: 'GET', url };
 
           try {
             const res = await fetch(url, fetchOptions);
 
             if (res.status === 403) {
-              this.result = {
+              this.results[attackType] = {
                 status:  'blocked',
                 message: '403 Forbidden — Request blocked at the Cloudflare edge.',
                 rule:    this.getRuleLabel(attackType),
@@ -1021,29 +1026,28 @@
                 this.searchValue    = 'Find products...';
               }
             } else if (res.ok) {
-              this.result = await res.json();
+              this.results[attackType] = await res.json();
               this.storeState   = 'attacked';
               this.storeMessage = attackType === 'sqli' ? 'ERROR: All database records returned!' : '';
             } else {
-              this.result = {
+              this.results[attackType] = {
                 status:  'blocked',
                 message: `Unexpected response: HTTP ${res.status}`,
                 rule:    '',
               };
             }
           } catch (err) {
-            this.result = {
+            this.results[attackType] = {
               status:  'blocked',
               message: 'Request failed or was intercepted.',
               rule:    '',
             };
           } finally {
-            this.loading = false;
+            this.loadingAttacks[attackType] = false;
           }
         },
 
         // ──────────────────────────────────────────────────────
-        // Typing animation for SQLi payload in search bar
         async typeIntoSearch(text) {
           this.searchInjected = true;
           for (let i = 0; i <= text.length; i++) {
@@ -1070,7 +1074,7 @@
             this.apiStatus       = 'allowed';
             this.windowStart     = Date.now();
             clearInterval(this.resetInterval);
-            this.resetCountdown = 0;
+            this.resetCountdown  = 0;
           }
 
           this.apiLoading = true;
