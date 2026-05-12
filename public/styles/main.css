@@ -1,0 +1,157 @@
+/* ============================================================
+   Cloudflare Demo Shop — Global Styles
+   Pine green (#2F4F2F) + light gray color scheme
+   ============================================================ */
+
+/* Button styles — used across all pages */
+.btn-primary {
+  display: block;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: #2F4F2F;
+  color: #ffffff;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  text-decoration: none;
+}
+
+.btn-primary:hover {
+  background-color: #1f381f;
+  box-shadow: 0 2px 6px rgba(47, 79, 47, 0.3);
+}
+
+.btn-secondary {
+  display: block;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: transparent;
+  color: #2F4F2F;
+  border: 1px solid #2F4F2F;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  text-decoration: none;
+}
+
+.btn-secondary:hover {
+  background-color: #2F4F2F;
+  color: #ffffff;
+}
+
+/* Demo tile hover lift */
+.demo-tile {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.demo-tile:hover {
+  transform: translateY(-2px);
+}
+
+/* ============================================================
+   Demo sub-page styles — shared layout for /demos/*.html
+   ============================================================ */
+
+/* Two-column comparison layout (Without CF vs With CF) */
+.demo-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .demo-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.demo-panel {
+  background: #ffffff;
+  border: 1px solid #E5E5E5;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+}
+
+.demo-panel.danger {
+  border-top: 3px solid #dc2626;
+}
+
+.demo-panel.safe {
+  border-top: 3px solid #2F4F2F;
+}
+
+.demo-panel h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.demo-panel.danger h3 {
+  color: #dc2626;
+}
+
+.demo-panel.safe h3 {
+  color: #2F4F2F;
+}
+
+/* Status badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+}
+
+.status-badge.blocked {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.allowed {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* Code / monospace output blocks */
+.code-output {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8125rem;
+  background: #F5F5F5;
+  border: 1px solid #E5E5E5;
+  border-radius: 0.375rem;
+  padding: 0.75rem 1rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  min-height: 3rem;
+}
+
+/* Input fields */
+.demo-input {
+  width: 100%;
+  border: 1px solid #D4D4D4;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.demo-input:focus {
+  border-color: #2F4F2F;
+  box-shadow: 0 0 0 2px rgba(47, 79, 47, 0.15);
+}
+
+/* Section headings on demo pages */
+.section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2F4F2F;
+  margin-bottom: 0.5rem;
+}

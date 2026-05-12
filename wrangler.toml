@@ -1,0 +1,17 @@
+name = "cloudflare-demo-shop"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "."
+
+# workers_dev intentionally not set (defaults to false for Pages projects)
+# This site is served via Cloudflare Pages, not workers.dev
+
+# ── Future bindings (uncomment when ready) ──────────────────
+# For interactive storage demo (Phase 3-4):
+# [[kv_namespaces]]
+# binding = "DEMO_KV"
+# id = "YOUR_KV_NAMESPACE_ID"
+
+# [[d1_databases]]
+# binding = "DEMO_DB"
+# database_name = "demo-db"
+# database_id = "YOUR_D1_DATABASE_ID"

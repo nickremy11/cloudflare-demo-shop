@@ -1,0 +1,13 @@
+{
+  "name": "cloudflare-demo-shop",
+  "version": "1.0.0",
+  "description": "Cloudflare product and feature demo site — hosted on Cloudflare Pages",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev . --live-reload",
+    "deploy": "wrangler pages deploy ."
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
