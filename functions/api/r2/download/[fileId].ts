@@ -1,6 +1,14 @@
-// /functions/api/r2/download.ts
-// Generates presigned URLs for file downloads
+// /functions/api/r2/download/[fileId].ts
+// Streams file downloads directly from R2
 // Validates user ownership before allowing access
+//
+// NOTE: Future Enhancement - Presigned URLs
+// If you need to generate shareable presigned URLs instead of streaming:
+// 1. Install AWS SDK: npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
+// 2. Create R2 API token with read access
+// 3. Use getSignedUrl() from @aws-sdk/s3-request-presigner
+// 4. See: https://developers.cloudflare.com/r2/api/s3/presigned-urls/
+// Trade-off: Presigned URLs offload bandwidth to R2 but require AWS SDK dependencies
 
 interface Env {
   STORAGE_BUCKET: R2Bucket;
@@ -66,24 +74,25 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
       return new Response('File blocked - Malicious content detected', { status: 403 });
     }
 
-    // Generate presigned URL (valid for 5 minutes)
-    const expiresIn = 5 * 60; // 5 minutes in seconds
-    const presignedUrl = await env.STORAGE_BUCKET.sign(metadata.r2Key, {
-      method: 'GET',
-      expires: Date.now() + (expiresIn * 1000)
-    });
+    // Fetch the file from R2
+    const object = await env.STORAGE_BUCKET.get(metadata.r2Key);
+    
+    if (!object) {
+      return new Response('File not found in storage', { status: 404 });
+    }
 
-    return Response.json({
-      url: presignedUrl,
-      filename: metadata.originalName,
-      size: metadata.size,
-      contentType: metadata.contentType,
-      expiresIn,
-      message: 'Download link generated successfully'
+    // Stream the file directly to the user
+    return new Response(object.body, {
+      headers: {
+        'Content-Type': metadata.contentType,
+        'Content-Disposition': `attachment; filename="${metadata.originalName}"`,
+        'Content-Length': object.size.toString(),
+        'Cache-Control': 'private, no-cache'
+      }
     });
 
   } catch (error) {
     console.error('Download error:', error);
-    return new Response('Failed to generate download link: ' + error.message, { status: 500 });
+    return new Response('Failed to download file: ' + error.message, { status: 500 });
   }
 };

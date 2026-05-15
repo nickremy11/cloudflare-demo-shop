@@ -763,18 +763,27 @@
         async downloadFile(file) {
           try {
             const response = await fetch(`/api/r2/download/${file.fileId}`);
-            if (response.ok) {
-              const data = await response.json();
-              // Create a temporary link to download the file
-              const link = document.createElement('a');
-              link.href = data.url;
-              link.download = file.originalName;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-            } else {
-              throw new Error('Failed to generate download link');
+            
+            if (!response.ok) {
+              throw new Error('Failed to download file');
             }
+            
+            // Get file as blob (streamed from R2)
+            const blob = await response.blob();
+            
+            // Create temporary download link
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = file.originalName;
+            document.body.appendChild(link);
+            link.click();
+            
+            // Cleanup
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            this.showMessage(`Downloaded: ${file.originalName}`, 'success');
           } catch (error) {
             this.showMessage(error.message, 'error');
           }
