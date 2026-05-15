@@ -14,7 +14,7 @@ bucket_name = "demo-shop-storage"
 # KV namespace for file metadata
 [[kv_namespaces]]
 binding = "DEMO_KV"
-id = "718464f9865547c68d5e62aaefe9db85"  # Replace with actual KV namespace ID after creation
+id = "718464f9865547c68d5e62aaefe9db85"
 
 # ── Future bindings (not yet needed) ────────────────────────
 # [[d1_databases]]
