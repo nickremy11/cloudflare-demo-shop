@@ -620,19 +620,30 @@
         uploadStatus: '', // 'success', 'error', 'info'
 
         // ──────────────────────────────────────────────────────
-        init() {
-          // Get authenticated user email from Access header
-          // In a real implementation, this would be injected by the server
-          // For now, we'll simulate it
-          this.userEmail = this.getAuthenticatedUser();
+        async init() {
+          // Get authenticated user email from Access
+          await this.getAuthenticatedUser();
           this.loadFiles();
         },
 
         // ──────────────────────────────────────────────────────
-        getAuthenticatedUser() {
-          // In real implementation, this would come from the server
-          // For now, return a placeholder
-          return 'nremy@cloudflare.com';
+        async getAuthenticatedUser() {
+          try {
+            const response = await fetch('/api/auth/whoami');
+            if (response.ok) {
+              const data = await response.json();
+              this.userEmail = data.email;
+            } else {
+              const errorData = await response.json();
+              console.error('Auth error:', errorData);
+              this.userEmail = 'Authentication Error';
+              this.showMessage('Failed to get authenticated user: ' + errorData.error, 'error');
+            }
+          } catch (error) {
+            console.error('Failed to get authenticated user:', error);
+            this.userEmail = 'Authentication Error';
+            this.showMessage('Failed to connect to authentication service', 'error');
+          }
         },
 
         // ──────────────────────────────────────────────────────

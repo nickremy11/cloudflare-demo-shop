@@ -26,11 +26,25 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
       return new Response('File ID required', { status: 400 });
     }
 
-    // Get authenticated user email from Cloudflare Access header
-    const userEmail = request.headers.get('cf-access-authenticated-user-email');
+    // Try different possible header names for Access user email
+    const possibleHeaders = [
+      'cf-access-authenticated-user-email',
+      'Cf-Access-Authenticated-User-Email', 
+      'CF-Access-Authenticated-User-Email',
+      'x-forwarded-user'
+    ];
+    
+    let userEmail = null;
+    
+    for (const headerName of possibleHeaders) {
+      userEmail = request.headers.get(headerName);
+      if (userEmail) {
+        break;
+      }
+    }
     
     if (!userEmail) {
-      return new Response('Unauthorized - No authenticated user', { status: 401 });
+      return new Response('Unauthorized - No authenticated user found', { status: 401 });
     }
 
     // Get file metadata from KV
