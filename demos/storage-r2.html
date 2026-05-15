@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>R2 Storage Solutions — Cloudflare Demo Shop</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            pine: {
+              50:  '#f2f7f2',
+              100: '#e0ece0',
+              200: '#c1d9c1',
+              400: '#5e975e',
+              500: '#2F4F2F',
+              600: '#274427',
+              700: '#1f381f',
+            }
+          },
+          fontFamily: {
+            sans:  ['Inter', 'system-ui', 'sans-serif'],
+            mono:  ['Courier New', 'Courier', 'monospace'],
+            retro: ['Times New Roman', 'Times', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/public/styles/main.css" />
+
+  <style>
+    /* ── Page layout ──────────────────────────────────────────── */
+    :root { --header-total: 167px; }
+
+    .demo-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 2rem;
+      align-items: start;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem;
+    }
+
+    .storage-panel-sticky {
+      position: sticky;
+      top: var(--header-total);
+      max-height: calc(100vh - var(--header-total) - 2rem);
+      overflow-y: auto;
+    }
+
+    /* ── CloudFile retro file manager ─────────────────────────── */
+    .cloudfile-wrap {
+      background: #fdf8f0;
+      border: 2px solid #999;
+      font-family: 'Times New Roman', Times, serif;
+    }
+    .cloudfile-chrome {
+      background: #c0c0c0;
+      border-bottom: 2px solid #999;
+      padding: 5px 8px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .chrome-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      border: 1px solid #888;
+    }
+    .cloudfile-header-bar {
+      background: #c0c0c0;
+      border-bottom: 1px solid #999;
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      color: #444;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    .cloudfile-title {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #000080;
+      text-align: center;
+      text-decoration: underline;
+      letter-spacing: 1px;
+    }
+    .cloudfile-tagline {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #666;
+      font-style: italic;
+      margin-top: 2px;
+    }
+    .cloudfile-divider {
+      border: none;
+      border-top: 2px solid #bbb;
+      margin: 8px 0;
+    }
+
+    /* User info panel */
+    .user-info {
+      background: #fff;
+      border: 2px inset #999;
+      padding: 8px;
+      margin-bottom: 12px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.75rem;
+    }
+    .user-email {
+      color: #000080;
+      font-weight: bold;
+    }
+    .sign-out-btn {
+      background: #c0c0c0;
+      border: 2px outset #fff;
+      padding: 2px 8px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.7rem;
+      cursor: pointer;
+      margin-top: 4px;
+      text-decoration: none;
+      color: #000;
+      display: inline-block;
+    }
+    .sign-out-btn:hover { border: 2px inset #fff; }
+
+    /* File browser */
+    .file-browser {
+      font-size: 0.75rem;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border-bottom: 1px solid #ccc;
+      cursor: pointer;
+    }
+    .file-item:hover { background: #f0f0f0; }
+    .file-icon {
+      width: 16px;
+      height: 16px;
+      background: #ccc;
+      border: 1px solid #999;
+    }
+    .file-icon.pdf { background: #dc2626; }
+    .file-icon.jpg, .file-icon.png { background: #059669; }
+    .file-name {
+      flex: 1;
+      color: #000080;
+      text-decoration: underline;
+    }
+    .file-size {
+      color: #666;
+      font-size: 0.65rem;
+    }
+    .file-actions {
+      display: flex;
+      gap: 4px;
+    }
+    .file-btn {
+      background: #c0c0c0;
+      border: 1px outset #fff;
+      padding: 1px 4px;
+      font-size: 0.6rem;
+      cursor: pointer;
+      text-decoration: none;
+      color: #000;
+    }
+    .file-btn:hover { border: 1px inset #fff; }
+
+    /* Storage tier badges */
+    .tier-badge {
+      font-size: 0.6rem;
+      padding: 1px 4px;
+      border: 1px solid;
+      margin-left: 4px;
+    }
+    .tier-badge.standard {
+      background: #fef3c7;
+      border-color: #f59e0b;
+      color: #92400e;
+    }
+    .tier-badge.infrequent {
+      background: #dbeafe;
+      border-color: #3b82f6;
+      color: #1e40af;
+    }
+
+    /* ── Upload zone ────────────────────────────────────────── */
+    .upload-zone {
+      border: 2px dashed #d1d5db;
+      border-radius: 0.5rem;
+      padding: 3rem 2rem;
+      text-align: center;
+      background: #fafafa;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      border-color: #2F4F2F;
+      background: #f0fdf4;
+    }
+    .upload-zone.uploading {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      background: #e5e7eb;
+      border-radius: 9999px;
+      height: 8px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      background: #2F4F2F;
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+
+    /* ── Section dividers ─────────────────────────────────────── */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0;
+    }
+    .section-divider h2 {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #2F4F2F;
+      white-space: nowrap;
+    }
+    .section-divider .line {
+      flex: 1;
+      height: 1px;
+      background: #c1d9c1;
+    }
+
+    /* Alert messages */
+    .alert {
+      border-radius: 0.375rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+    .alert.success {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+    .alert.error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+    }
+    .alert.info {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      color: #666;
+      font-style: italic;
+      padding: 2rem 1rem;
+      border: 1px dashed #ccc;
+      border-radius: 0.375rem;
+      background: #fafafa;
+    }
+
+    /* Coming soon badge */
+    .coming-soon {
+      display: inline-block;
+      background: #fbbf24;
+      color: #92400e;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 min-h-screen" style="font-family: Inter, system-ui, sans-serif;">
+
+  <!-- ── Sticky header ──────────────────────────────────────────── -->
+  <header class="bg-pine-500 text-white sticky top-0 z-50 shadow-md">
+    <div class="max-w-screen-xl mx-auto px-8 py-4 flex items-center gap-3">
+      <a href="/" class="text-sm text-pine-200 hover:text-white transition-colors">&larr; Demo Shop</a>
+      <span class="text-pine-400">/</span>
+      <span class="text-sm font-medium">R2 Storage Solutions</span>
+    </div>
+  </header>
+
+  <!-- ── Intro banner ───────────────────────────────────────────── -->
+  <div class="bg-pine-500 text-white pb-8 pt-7">
+    <div class="max-w-screen-xl mx-auto px-8">
+      <h1 class="text-2xl font-bold tracking-tight mb-1.5">R2 Storage Solutions</h1>
+      <p class="text-pine-200 max-w-2xl text-sm leading-relaxed">
+        Secure file storage with email-based access control. Upload documents and images to
+        Cloudflare R2, manage access permissions, and leverage automatic lifecycle policies
+        to optimize costs. Includes real-time malware scanning for enterprise security.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Two-column layout ─────────────────────────────────────── -->
+  <div class="demo-layout" x-data="storageDemo()" x-init="init()">
+
+    <!-- ════════════════════════════════════════════════════════
+         LEFT COLUMN — sticky file manager
+         ════════════════════════════════════════════════════════ -->
+    <aside class="storage-panel-sticky">
+
+      <!-- Browser chrome decoration -->
+      <div class="cloudfile-chrome rounded-t overflow-hidden">
+        <div class="chrome-dot" style="background:#ff5f57;"></div>
+        <div class="chrome-dot" style="background:#ffbd2e;"></div>
+        <div class="chrome-dot" style="background:#28c840;"></div>
+        <div class="cloudfile-header-bar flex-1 ml-2 rounded px-2" style="background:#e0e0e0; font-size:0.65rem;">
+          cloudfile://my-documents/secure-storage/
+        </div>
+      </div>
+
+      <div class="cloudfile-wrap">
+        <div class="cloudfile-header-bar">
+          CloudFile&trade; Secure Document Manager &nbsp;&bull;&nbsp; Enterprise Edition &nbsp;&bull;&nbsp; V3.2
+        </div>
+
+        <div class="p-4">
+          <div class="cloudfile-title">CloudFile</div>
+          <div class="cloudfile-tagline">Professional Document Storage & Access Control</div>
+          <hr class="cloudfile-divider" />
+
+          <!-- User authentication info -->
+          <div class="user-info">
+            <div>Authenticated User:</div>
+            <div class="user-email" x-text="userEmail"></div>
+            <a href="https://cloudflare-demo-shop.pages.dev/cdn-cgi/access/logout" class="sign-out-btn">Sign Out</a>
+          </div>
+
+          <!-- File browser -->
+          <div class="file-browser">
+            <div style="font-family:'Courier New';font-size:0.7rem;margin-bottom:6px;color:#000080;font-weight:bold;">
+              My Documents (<span x-text="files.length"></span> files)
+            </div>
+
+            <!-- Files list -->
+            <template x-if="files.length > 0">
+              <div>
+                <template x-for="file in files" :key="file.fileId">
+                  <div class="file-item">
+                    <div class="file-icon" :class="getFileTypeClass(file.contentType)"></div>
+                    <div class="file-name" x-text="file.originalName"></div>
+                    <div class="file-size" x-text="formatFileSize(file.size)"></div>
+                    <div class="tier-badge" :class="file.tier" x-text="file.tier.toUpperCase()"></div>
+                    <div class="file-actions">
+                      <button @click="downloadFile(file)" class="file-btn" title="Download">↓</button>
+                      <button @click="deleteFile(file)" class="file-btn" title="Delete">×</button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <!-- Empty state -->
+            <template x-if="files.length === 0">
+              <div class="empty-state">
+                <div style="font-size:0.7rem;">No files uploaded yet.</div>
+                <div style="font-size:0.65rem;margin-top:4px;color:#999;">
+                  Drop files in the upload zone to get started.
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <div style="font-family:'Courier New';font-size:0.65rem;color:#999;margin-top:8px;">
+            *Files automatically move to Infrequent Access after 30 days
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ════════════════════════════════════════════════════════
+         RIGHT COLUMN — scrollable storage sections
+         ════════════════════════════════════════════════════════ -->
+    <div class="space-y-8">
+
+      <!-- ── Upload Section ─────────────────────────────────── -->
+      <section class="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
+        <div>
+          <div class="section-label">File Upload</div>
+          <h3 class="text-base font-semibold text-gray-800">Secure Document Storage</h3>
+          <p class="text-sm text-gray-500 mt-1 leading-relaxed">
+            Upload PDF documents and images (JPG, PNG) to your secure R2 bucket.
+            Files are encrypted at rest and protected by email-based access control.
+          </p>
+        </div>
+
+        <!-- Upload zone -->
+        <div class="upload-zone"
+             :class="{ 'dragover': isDragOver, 'uploading': isUploading }"
+             @dragover.prevent="isDragOver = true"
+             @dragleave.prevent="isDragOver = false"
+             @drop.prevent="handleFileDrop($event)"
+             @click="$refs.fileInput.click()">
+          
+          <template x-if="!isUploading">
+            <div>
+              <div class="text-2xl mb-2">📄</div>
+              <div class="text-base font-medium text-gray-700 mb-1">Drop files here or click to browse</div>
+              <div class="text-sm text-gray-500">Supports: PDF, JPG, PNG • Max size: 5MB per file</div>
+            </div>
+          </template>
+
+          <template x-if="isUploading">
+            <div>
+              <div class="text-xl mb-2">⏳</div>
+              <div class="text-base font-medium text-gray-700 mb-2">Uploading...</div>
+              <div class="progress-bar w-full max-w-xs mx-auto">
+                <div class="progress-fill" :style="`width: ${uploadProgress}%`"></div>
+              </div>
+              <div class="text-sm text-gray-500 mt-2" x-text="`${uploadProgress}% complete`"></div>
+            </div>
+          </template>
+
+          <input type="file" x-ref="fileInput" @change="handleFileSelect($event)" 
+                 accept=".pdf,.jpg,.jpeg,.png" multiple style="display: none;">
+        </div>
+
+        <!-- Upload feedback -->
+        <div x-show="uploadMessage" x-transition>
+          <div class="alert" :class="uploadStatus" x-text="uploadMessage"></div>
+        </div>
+
+        <!-- File restrictions -->
+        <div class="text-xs text-gray-400 space-y-1">
+          <div><strong>Supported formats:</strong> PDF, JPEG, PNG</div>
+          <div><strong>Size limit:</strong> 5MB per file</div>
+          <div><strong>Access control:</strong> Email whitelist verification required</div>
+        </div>
+      </section>
+
+      <!-- ── Access Control ─────────────────────────────────── -->
+      <div class="section-divider">
+        <h2>Access Control</h2>
+        <div class="line"></div>
+      </div>
+
+      <section class="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
+        <div>
+          <h3 class="text-base font-semibold text-gray-800">Email-Based Permissions</h3>
+          <p class="text-sm text-gray-500 mt-1 leading-relaxed">
+            Files are tied to your authenticated email address. Only approved email domains
+            can upload and access files. This simulates a customer database where access
+            is granted after purchase or subscription.
+          </p>
+        </div>
+
+        <div class="bg-gray-50 border border-gray-200 rounded p-4">
+          <div class="text-sm font-semibold text-gray-700 mb-2">Approved Email Domains</div>
+          <div class="text-xs font-mono text-gray-600 space-y-1">
+            <div>✅ @cloudflare.com</div>
+            <div>✅ nickremy11@gmail.com</div>
+            <div>❌ Other domains (access denied)</div>
+          </div>
+          <div class="text-xs text-gray-500 mt-2">
+            In production, this list would be managed through your customer database
+            and updated when new subscriptions are activated.
+          </div>
+        </div>
+
+        <div class="border border-gray-100 rounded p-4">
+          <div class="text-sm font-semibold text-gray-700 mb-2">Your Access Level</div>
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+            <span class="text-sm text-gray-600">Full Access (Upload, Download, Delete)</span>
+          </div>
+          <div class="text-xs text-gray-500 mt-1">
+            Authenticated as: <span class="font-mono" x-text="userEmail"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Storage Tiers ──────────────────────────────────── -->
+      <div class="section-divider">
+        <h2>Storage Optimization</h2>
+        <div class="line"></div>
+      </div>
+
+      <section class="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
+        <div>
+          <h3 class="text-base font-semibold text-gray-800">Automatic Lifecycle Policies</h3>
+          <p class="text-sm text-gray-500 mt-1 leading-relaxed">
+            R2 automatically transitions files to Infrequent Access storage after 30 days
+            to reduce costs. Files remain fully accessible with slightly higher latency.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="border border-gray-100 rounded p-4 text-center">
+            <div class="tier-badge standard mb-2">STANDARD</div>
+            <div class="text-sm font-semibold text-gray-700">Days 1-30</div>
+            <div class="text-xs text-gray-500">Optimized for frequent access</div>
+          </div>
+          <div class="border border-gray-100 rounded p-4 text-center">
+            <div class="tier-badge infrequent mb-2">INFREQUENT</div>
+            <div class="text-sm font-semibold text-gray-700">Day 31+</div>
+            <div class="text-xs text-gray-500">Lower cost, on-demand retrieval</div>
+          </div>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 rounded p-4">
+          <div class="text-sm font-semibold text-blue-800 mb-1">💡 Cost Optimization</div>
+          <div class="text-xs text-blue-700">
+            Files automatically transition to reduce storage costs while maintaining full accessibility.
+            No action required from users - the transition is seamless and automatic.
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Malware Scanning ──────────────────────────────── -->
+      <div class="section-divider">
+        <h2>Security Scanning <span class="coming-soon ml-2">Active</span></h2>
+        <div class="line"></div>
+      </div>
+
+      <section class="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
+        <div>
+          <h3 class="text-base font-semibold text-gray-800">Real-time Malware Detection</h3>
+          <p class="text-sm text-gray-500 mt-1 leading-relaxed">
+            All uploaded files are automatically scanned for malicious content using
+            Cloudflare's enterprise-grade security scanning. Infected files are quarantined
+            and blocked from download.
+          </p>
+        </div>
+
+        <div class="bg-green-50 border border-green-200 rounded p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+            <div class="text-sm font-semibold text-green-800">Content Scanning Enabled</div>
+          </div>
+          <div class="text-xs text-green-700 space-y-1">
+            <div>✅ Malware signature detection</div>
+            <div>✅ Behavioral analysis</div>
+            <div>✅ File type validation</div>
+            <div>✅ Size limit enforcement</div>
+          </div>
+        </div>
+
+        <div class="border border-gray-100 rounded p-4">
+          <div class="text-sm font-semibold text-gray-700 mb-2">Scan Process</div>
+          <div class="text-xs text-gray-600 space-y-1">
+            <div><strong>1. Upload:</strong> File is temporarily quarantined</div>
+            <div><strong>2. Scan:</strong> Real-time malware analysis (2-5 seconds)</div>
+            <div><strong>3. Result:</strong> Clean files are released, malicious files blocked</div>
+            <div><strong>4. Access:</strong> Only verified clean files can be downloaded</div>
+          </div>
+        </div>
+
+        <!-- Sample scan results display -->
+        <template x-if="files.length > 0">
+          <div class="border border-gray-100 rounded p-4">
+            <div class="text-sm font-semibold text-gray-700 mb-2">Recent Scan Results</div>
+            <div class="space-y-1">
+              <template x-for="file in files.slice(0, 3)" :key="file.fileId">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="font-mono text-gray-600" x-text="file.originalName"></span>
+                  <div class="flex items-center gap-1 text-green-600">
+                    <span>✓</span>
+                    <span>Clean</span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </section>
+
+    </div><!-- end right column -->
+  </div><!-- end demo-layout -->
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-200 mt-10 py-8 text-center text-sm text-gray-400">
+    <p>Cloudflare Demo Shop &mdash; Internal Use Only</p>
+  </footer>
+
+  <!-- ── Alpine.js component ────────────────────────────────────── -->
+  <script>
+    function storageDemo() {
+      return {
+        // User state
+        userEmail: '',
+        
+        // File management
+        files: [],
+        
+        // Upload state
+        isDragOver: false,
+        isUploading: false,
+        uploadProgress: 0,
+        uploadMessage: '',
+        uploadStatus: '', // 'success', 'error', 'info'
+
+        // ──────────────────────────────────────────────────────
+        init() {
+          // Get authenticated user email from Access header
+          // In a real implementation, this would be injected by the server
+          // For now, we'll simulate it
+          this.userEmail = this.getAuthenticatedUser();
+          this.loadFiles();
+        },
+
+        // ──────────────────────────────────────────────────────
+        getAuthenticatedUser() {
+          // In real implementation, this would come from the server
+          // For now, return a placeholder
+          return 'nremy@cloudflare.com';
+        },
+
+        // ──────────────────────────────────────────────────────
+        async loadFiles() {
+          try {
+            const response = await fetch('/api/r2/list');
+            if (response.ok) {
+              const data = await response.json();
+              this.files = data.files || [];
+            }
+          } catch (error) {
+            console.error('Failed to load files:', error);
+          }
+        },
+
+        // ──────────────────────────────────────────────────────
+        handleFileDrop(event) {
+          this.isDragOver = false;
+          const files = Array.from(event.dataTransfer.files);
+          this.processFiles(files);
+        },
+
+        // ──────────────────────────────────────────────────────
+        handleFileSelect(event) {
+          const files = Array.from(event.target.files);
+          this.processFiles(files);
+          // Clear the input
+          event.target.value = '';
+        },
+
+        // ──────────────────────────────────────────────────────
+        processFiles(files) {
+          // Validate files before upload
+          const validFiles = [];
+          const errors = [];
+
+          for (const file of files) {
+            const validation = this.validateFile(file);
+            if (validation.valid) {
+              validFiles.push(file);
+            } else {
+              errors.push(`${file.name}: ${validation.error}`);
+            }
+          }
+
+          if (errors.length > 0) {
+            this.showMessage(errors.join('\n'), 'error');
+            return;
+          }
+
+          if (validFiles.length > 0) {
+            this.uploadFiles(validFiles);
+          }
+        },
+
+        // ──────────────────────────────────────────────────────
+        validateFile(file) {
+          const allowedTypes = [
+            'application/pdf',
+            'image/jpeg',
+            'image/jpg',
+            'image/png'
+          ];
+          const maxSize = 5 * 1024 * 1024; // 5MB
+
+          if (!allowedTypes.includes(file.type)) {
+            return { valid: false, error: 'Only PDF, JPG, and PNG files are allowed' };
+          }
+
+          if (file.size > maxSize) {
+            return { valid: false, error: 'File must be under 5MB' };
+          }
+
+          return { valid: true };
+        },
+
+        // ──────────────────────────────────────────────────────
+        async uploadFiles(files) {
+          this.isUploading = true;
+          this.uploadProgress = 0;
+          
+          try {
+            for (let i = 0; i < files.length; i++) {
+              const file = files[i];
+              const formData = new FormData();
+              formData.append('file', file);
+
+              const response = await fetch('/api/r2/upload', {
+                method: 'POST',
+                body: formData
+              });
+
+              if (response.ok) {
+                const result = await response.json();
+                this.showMessage(`Successfully uploaded: ${file.name}`, 'success');
+              } else {
+                const error = await response.text();
+                throw new Error(`Failed to upload ${file.name}: ${error}`);
+              }
+
+              // Update progress
+              this.uploadProgress = Math.round(((i + 1) / files.length) * 100);
+            }
+
+            // Reload file list
+            await this.loadFiles();
+
+          } catch (error) {
+            this.showMessage(error.message, 'error');
+          } finally {
+            this.isUploading = false;
+            this.uploadProgress = 0;
+          }
+        },
+
+        // ──────────────────────────────────────────────────────
+        async downloadFile(file) {
+          try {
+            const response = await fetch(`/api/r2/download/${file.fileId}`);
+            if (response.ok) {
+              const data = await response.json();
+              // Create a temporary link to download the file
+              const link = document.createElement('a');
+              link.href = data.url;
+              link.download = file.originalName;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            } else {
+              throw new Error('Failed to generate download link');
+            }
+          } catch (error) {
+            this.showMessage(error.message, 'error');
+          }
+        },
+
+        // ──────────────────────────────────────────────────────
+        async deleteFile(file) {
+          if (!confirm(`Delete "${file.originalName}"? This action cannot be undone.`)) {
+            return;
+          }
+
+          try {
+            const response = await fetch(`/api/r2/delete/${file.fileId}`, {
+              method: 'DELETE'
+            });
+
+            if (response.ok) {
+              this.showMessage(`Deleted: ${file.originalName}`, 'success');
+              await this.loadFiles();
+            } else {
+              throw new Error('Failed to delete file');
+            }
+          } catch (error) {
+            this.showMessage(error.message, 'error');
+          }
+        },
+
+        // ──────────────────────────────────────────────────────
+        showMessage(message, type) {
+          this.uploadMessage = message;
+          this.uploadStatus = type;
+          
+          // Auto-hide after 5 seconds
+          setTimeout(() => {
+            this.uploadMessage = '';
+          }, 5000);
+        },
+
+        // ──────────────────────────────────────────────────────
+        formatFileSize(bytes) {
+          if (bytes < 1024) return bytes + ' B';
+          if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+          return Math.round(bytes / (1024 * 1024)) + ' MB';
+        },
+
+        // ──────────────────────────────────────────────────────
+        getFileTypeClass(contentType) {
+          if (contentType === 'application/pdf') return 'pdf';
+          if (contentType.startsWith('image/')) return contentType.includes('png') ? 'png' : 'jpg';
+          return '';
+        },
+      };
+    }
+  </script>
+
+</body>
+</html>
