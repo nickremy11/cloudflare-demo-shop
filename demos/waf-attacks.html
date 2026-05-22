@@ -441,7 +441,7 @@
             <span x-show="loadingAttacks.sqli">Running...</span>
             <span x-show="!loadingAttacks.sqli">Try Attack</span>
           </button>
-          <span class="text-xs text-gray-400 font-mono">GET /api/waf-test?attack=sqli</span>
+          <span class="text-xs text-gray-400 font-mono">GET /api/waf-test?attack=sqli&payload=' OR '1'='1</span>
         </div>
 
         <!-- Result -->
@@ -550,7 +550,7 @@
             <span x-show="loadingAttacks.xss">Running...</span>
             <span x-show="!loadingAttacks.xss">Try Attack</span>
           </button>
-          <span class="text-xs text-gray-400 font-mono">GET /api/waf-test?attack=xss</span>
+          <span class="text-xs text-gray-400 font-mono">GET /api/waf-test?attack=xss&payload=&lt;script&gt;alert('XSS')&lt;/script&gt;</span>
         </div>
 
         <template x-if="results.xss !== null">
@@ -644,7 +644,7 @@
             <span x-show="loadingAttacks.cmdi">Running...</span>
             <span x-show="!loadingAttacks.cmdi">Try Attack</span>
           </button>
-          <span class="text-xs text-gray-400 font-mono">GET /api/waf-test?attack=cmdi</span>
+          <span class="text-xs text-gray-400 font-mono">GET /api/waf-test?attack=cmdi&payload=; cat /etc/passwd</span>
         </div>
 
         <template x-if="results.cmdi !== null">
@@ -730,7 +730,7 @@
 
         <div class="space-y-1.5">
           <div class="text-xs font-semibold uppercase tracking-widest text-gray-400">Test Payload</div>
-          <div class="payload-box">X-Forwarded-For: 127.0.0.1&#13;&#10;X-Injected: malicious-payload</div>
+          <div class="payload-box">/safe-url%0d%0aX-Injected: malicious-payload</div>
         </div>
 
         <div class="flex items-center gap-4">
@@ -739,7 +739,7 @@
             <span x-show="loadingAttacks.header">Running...</span>
             <span x-show="!loadingAttacks.header">Try Attack</span>
           </button>
-          <span class="text-xs text-gray-400 font-mono">GET /api/waf-test?attack=header</span>
+          <span class="text-xs text-gray-400 font-mono">GET /api/waf-test?attack=header&redirect=/safe-url%0d%0aX-Injected: malicious-payload</span>
         </div>
 
         <template x-if="results.header !== null">
@@ -781,7 +781,8 @@
                     <div><span class="key">x-test-injection:</span>  <span class="val">malicious-payload</span></div>
                     <div><span class="key">x-override-host:</span>   <span class="val">evil.demo-attacker.com</span></div>
                     <div><span class="key">x-cache-poison:</span>    <span class="val">true</span></div>
-                    <div class="muted mt-1"># Open DevTools → Network tab to verify headers were sent</div>
+                    <div class="muted mt-1"># CRLF injection payload in URL: %0d%0a = carriage return + line feed</div>
+                    <div class="muted"># Custom headers also sent (see above)</div>
                   </div>
                 </template>
                 <template x-if="inspectorTabs.header === 'response'">
@@ -997,7 +998,13 @@
             }
           }
 
-          // For header injection, send real custom headers
+          // Real malicious payloads that Cloudflare WAF detects in the request
+          const payloads = {
+            sqli:   "' OR '1'='1",
+            xss:    "<script>alert('XSS')</script>",
+            cmdi:   "; cat /etc/passwd",
+          };
+
           const fetchOptions = { method: 'GET', headers: {} };
           if (attackType === 'header') {
             fetchOptions.headers = {
@@ -1007,7 +1014,14 @@
             };
           }
 
-          const url = `/api/waf-test?attack=${attackType}`;
+          let url;
+          if (attackType === 'header') {
+            // CRLF injection — keep %0d%0a literal so WAF detects it
+            url = '/api/waf-test?attack=header&redirect=/safe-url%0d%0aX-Injected:%20malicious-payload';
+          } else {
+            const payload = payloads[attackType] || '';
+            url = `/api/waf-test?attack=${attackType}&payload=${encodeURIComponent(payload)}`;
+          }
           this.lastRequests[attackType] = { method: 'GET', url };
 
           try {
@@ -1062,7 +1076,7 @@
             sqli:   'Ruleset: Cloudflare OWASP Core Ruleset — Rule ID 942100 (SQL Injection)',
             xss:    'Ruleset: Cloudflare OWASP Core Ruleset — Rule ID 941100 (XSS)',
             cmdi:   'Ruleset: Cloudflare Managed Ruleset — Rule ID 100015 (Command Injection)',
-            header: 'Ruleset: Cloudflare Managed Ruleset — Rule ID 100020B (Header Injection)',
+            header: 'Ruleset: Cloudflare OWASP Core Ruleset — Rule ID 921120 (HTTP Response Splitting / CRLF Injection)',
           };
           return labels[attackType] || 'Ruleset: Cloudflare Managed Rules';
         },
