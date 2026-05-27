@@ -488,12 +488,11 @@ Network Services:
 When users ask about security demos, performance, storage, or networking, suggest the relevant interactive demo page. Answer Cloudflare product questions accurately based on your knowledge. Keep responses concise and helpful.`;
 
     const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/e2e9b1cd0acebaaf2aee23d918eee2b1/ai/v1/chat/completions`,
+      `https://gateway.ai.cloudflare.com/v1/e2e9b1cd0acebaaf2aee23d918eee2b1/demo-shop-gateway/compat/chat/completions`,
       {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${c.env.AIG_TOKEN}`,
-          "cf-aig-gateway-id": "demo-shop-gateway",
+          "cf-aig-authorization": `Bearer ${c.env.AIG_TOKEN}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
