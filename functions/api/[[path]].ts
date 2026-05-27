@@ -11,6 +11,8 @@ import { cors } from "hono/cors";
 type Bindings = {
   STORAGE_BUCKET: R2Bucket;
   DEMO_KV: KVNamespace;
+  AI: Ai;
+  AIG_TOKEN: string;
 };
 
 type Variables = {
@@ -433,6 +435,79 @@ app.delete("/api/r2/delete/:fileId", requireAccessAuth, async (c) => {
   } catch (error: any) {
     console.error("Delete error:", error);
     return c.json({ error: "Failed to delete file: " + error.message }, 500);
+  }
+});
+
+// ── AI Chatbot ────────────────────────────────────────────
+// POST /api/chat
+
+app.post("/api/chat", async (c) => {
+  try {
+    const { messages } = await c.req.json();
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return c.json({ error: "Messages array required" }, 400);
+    }
+
+    const systemPrompt = `You are a helpful assistant for the Cloudflare Demo Shop at remydemo.com. You help users find demos and answer Cloudflare product questions.
+
+Available demos on this site:
+
+SASE / Workspace Security:
+- Zero Trust Access: /demos/zero-trust.html
+- Secure Web Gateway: /demos/swg.html
+- Email Security: /demos/email-security.html
+- Browser Isolation: /demos/browser-isolation.html
+
+App Security & Performance:
+- WAF / L7 Attacks: /demos/waf-attacks.html (interactive - try SQL injection, XSS, etc.)
+- DDoS Protection: /demos/ddos.html
+- Bot Management: /demos/bot-management.html
+- Rate Limiting: /demos/rate-limiting.html
+- CDN & DNS: /demos/cdn-dns.html
+
+Developer Platform:
+- Workers: /demos/workers.html
+- Pages: /demos/pages.html
+- Storage Solutions: /demos/storage-r2.html (interactive - upload files to R2)
+
+Network Services:
+- Magic Transit: /demos/magic-transit.html
+- Load Balancing: /demos/load-balancing.html
+
+When users ask about security demos, performance, storage, or networking, suggest the relevant interactive demo page. Answer Cloudflare product questions accurately based on your knowledge. Keep responses concise and helpful.`;
+
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/e2e9b1cd0acebaaf2aee23d918eee2b1/ai/v1/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${c.env.AIG_TOKEN}`,
+          "cf-aig-gateway-id": "demo-shop-gateway",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "@cf/meta/llama-3.1-8b-instruct",
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...messages,
+          ],
+          stream: false,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("AI Gateway error:", errorText);
+      return c.json({ error: "AI request failed" }, 500);
+    }
+
+    const result = await response.json();
+    return c.json(result);
+  } catch (error: any) {
+    console.error("Chat error:", error);
+    return c.json({ error: "Chat failed: " + error.message }, 500);
   }
 });
 
