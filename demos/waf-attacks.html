@@ -1001,7 +1001,7 @@
           // Real malicious payloads that Cloudflare WAF detects in the request
           const payloads = {
             sqli:   "' OR '1'='1",
-            xss:    "<script>alert('XSS')</script>",
+            xss:    "<script>alert('XSS')<\/script>",
             cmdi:   "; cat /etc/passwd",
           };
 
