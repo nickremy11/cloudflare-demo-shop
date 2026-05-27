@@ -449,6 +449,14 @@ app.post("/api/chat", async (c) => {
       return c.json({ error: "Messages array required" }, 400);
     }
 
+    // Validate AIG_TOKEN is configured
+    if (!c.env.AIG_TOKEN) {
+      console.error("CRITICAL: AIG_TOKEN is not configured in environment");
+      return c.json({ 
+        error: "AI Gateway authentication token is not configured. Please check Cloudflare Pages secrets." 
+      }, 500);
+    }
+
     console.log("Chat request received with", messages.length, "messages");
 
     const systemPrompt = `You are a helpful assistant for the Cloudflare Demo Shop at remydemo.com. You help users find demos and answer Cloudflare product questions.
@@ -489,7 +497,7 @@ When users ask about security demos, performance, storage, or networking, sugges
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "@cf/meta/llama-3.1-8b-instruct",
+          model: "workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
           messages: [
             { role: "system", content: systemPrompt },
             ...messages,
@@ -502,14 +510,28 @@ When users ask about security demos, performance, storage, or networking, sugges
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI Gateway error - Status:", response.status, "Body:", errorText);
-      return c.json({ error: "AI request failed", status: response.status, details: errorText }, 500);
+      
+      // Provide specific error messages based on status code
+      if (response.status === 401 || response.status === 403) {
+        console.error("Authentication failed - check AIG_TOKEN value and AI Gateway permissions");
+        return c.json({ 
+          error: "AI Gateway authentication failed. Please verify the gateway token is valid.",
+          status: response.status 
+        }, 500);
+      }
+      
+      return c.json({ 
+        error: "AI Gateway request failed", 
+        status: response.status, 
+        details: errorText 
+      }, 500);
     }
 
     const result = await response.json();
-    console.log("AI Gateway response received:", JSON.stringify(result).substring(0, 200));
+    console.log("AI Gateway response received successfully");
     return c.json(result);
   } catch (error: any) {
-    console.error("Chat error:", error);
+    console.error("Chat endpoint error:", error);
     return c.json({ error: "Chat failed: " + error.message }, 500);
   }
 });

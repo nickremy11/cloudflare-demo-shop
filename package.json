@@ -8,6 +8,7 @@
     "deploy": "wrangler pages deploy ."
   },
   "devDependencies": {
+    "typescript": "^6.0.3",
     "wrangler": "^4.91.0"
   },
   "dependencies": {
