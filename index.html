@@ -400,15 +400,17 @@
               })
             });
             
+            const data = await response.json();
+            console.log('API response:', data);
+            
             if (!response.ok) {
-              throw new Error('Request failed');
+              throw new Error(data.error || 'Request failed');
             }
             
-            const data = await response.json();
             const assistantMsg = {
               id: Date.now() + 1, 
               role: 'assistant', 
-              content: data.choices?.[0]?.message?.content || 'Sorry, I encountered an error.'
+              content: data.choices?.[0]?.message?.content || data.error || 'Sorry, I encountered an error.'
             };
             this.messages.push(assistantMsg);
           } catch (error) {
@@ -416,7 +418,7 @@
             const errorMsg = {
               id: Date.now() + 1, 
               role: 'assistant', 
-              content: 'Sorry, I encountered an error. Please try again.'
+              content: 'Error: ' + error.message
             };
             this.messages.push(errorMsg);
           } finally {

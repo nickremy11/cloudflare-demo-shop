@@ -449,6 +449,8 @@ app.post("/api/chat", async (c) => {
       return c.json({ error: "Messages array required" }, 400);
     }
 
+    console.log("Chat request received with", messages.length, "messages");
+
     const systemPrompt = `You are a helpful assistant for the Cloudflare Demo Shop at remydemo.com. You help users find demos and answer Cloudflare product questions.
 
 Available demos on this site:
@@ -499,11 +501,12 @@ When users ask about security demos, performance, storage, or networking, sugges
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI Gateway error:", errorText);
-      return c.json({ error: "AI request failed" }, 500);
+      console.error("AI Gateway error - Status:", response.status, "Body:", errorText);
+      return c.json({ error: "AI request failed", status: response.status, details: errorText }, 500);
     }
 
     const result = await response.json();
+    console.log("AI Gateway response received:", JSON.stringify(result).substring(0, 200));
     return c.json(result);
   } catch (error: any) {
     console.error("Chat error:", error);
