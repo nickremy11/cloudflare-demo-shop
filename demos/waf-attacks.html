@@ -485,9 +485,10 @@
                 <template x-if="inspectorTabs.sqli === 'request'">
                   <div>
                     <div><span class="label">Method:</span>  <span class="val" x-text="lastRequests.sqli.method"></span></div>
-                    <div><span class="label">URL:</span>     <span class="val" x-text="lastRequests.sqli.url"></span></div>
-                    <div><span class="label">Payload:</span> <span class="val">' OR '1'='1</span></div>
-                    <div class="muted mt-1"># Payload sent via query string parameter</div>
+                    <div><span class="label">Full URL:</span> <span class="val" x-text="lastRequests.sqli.url"></span></div>
+                    <div class="muted mt-1"># Complete request information below</div>
+                    <div><span class="label">Attack Type:</span> <span class="val">SQL Injection</span></div>
+                    <div><span class="label">Payload (decoded):</span> <span class="val" x-text="decodePayloadParam(lastRequests.sqli.url)"></span></div>
                   </div>
                 </template>
                 <template x-if="inspectorTabs.sqli === 'response'">
@@ -500,6 +501,7 @@
                     <div><span class="label">Blocked at edge:</span> <span class="val" x-text="results.sqli.status === 'blocked' ? 'Yes — origin never reached' : 'No — request reached origin'"></span></div>
                     <template x-if="results.sqli.status === 'blocked'">
                       <div><span class="label">Blocked by:</span> <span class="val" x-text="results.sqli.rule || 'Cloudflare WAF'"></span></div>
+                      <div class="mt-1 text-xs text-gray-400">→ Check Security → Events in Cloudflare Dashboard for exact rule details</div>
                     </template>
                     <template x-if="results.sqli.status === 'exploited'">
                       <div><span class="label">Rows returned:</span> <span class="val" x-text="results.sqli.data && results.sqli.data.rows_returned"></span></div>
@@ -586,9 +588,10 @@
                 <template x-if="inspectorTabs.xss === 'request'">
                   <div>
                     <div><span class="label">Method:</span>  <span class="val" x-text="lastRequests.xss.method"></span></div>
-                    <div><span class="label">URL:</span>     <span class="val" x-text="lastRequests.xss.url"></span></div>
-                    <div><span class="label">Payload:</span> <span class="val">&lt;script&gt;alert('XSS')&lt;/script&gt;</span></div>
-                    <div class="muted mt-1"># Script tag injected into a page field rendered to other users</div>
+                    <div><span class="label">Full URL:</span> <span class="val" x-text="lastRequests.xss.url"></span></div>
+                    <div class="muted mt-1"># Complete request information below</div>
+                    <div><span class="label">Attack Type:</span> <span class="val">Cross-Site Scripting (XSS)</span></div>
+                    <div><span class="label">Payload (decoded):</span> <span class="val" x-text="decodePayloadParam(lastRequests.xss.url)"></span></div>
                   </div>
                 </template>
                 <template x-if="inspectorTabs.xss === 'response'">
@@ -597,6 +600,7 @@
                     <div><span class="label">Blocked at edge:</span> <span class="val" x-text="results.xss.status === 'blocked' ? 'Yes — origin never reached' : 'No — request reached origin'"></span></div>
                     <template x-if="results.xss.status === 'blocked'">
                       <div><span class="label">Blocked by:</span> <span class="val" x-text="results.xss.rule || 'Cloudflare WAF'"></span></div>
+                      <div class="mt-1 text-xs text-gray-400">→ Check Security → Events in Cloudflare Dashboard for exact rule details</div>
                     </template>
                   </div>
                 </template>
@@ -680,9 +684,10 @@
                 <template x-if="inspectorTabs.cmdi === 'request'">
                   <div>
                     <div><span class="label">Method:</span>  <span class="val" x-text="lastRequests.cmdi.method"></span></div>
-                    <div><span class="label">URL:</span>     <span class="val" x-text="lastRequests.cmdi.url"></span></div>
-                    <div><span class="label">Payload:</span> <span class="val">; cat /etc/passwd</span></div>
-                    <div class="muted mt-1"># Shell metacharacter appended to a system command</div>
+                    <div><span class="label">Full URL:</span> <span class="val" x-text="lastRequests.cmdi.url"></span></div>
+                    <div class="muted mt-1"># Complete request information below</div>
+                    <div><span class="label">Attack Type:</span> <span class="val">Command Injection</span></div>
+                    <div><span class="label">Payload (decoded):</span> <span class="val" x-text="decodePayloadParam(lastRequests.cmdi.url)"></span></div>
                   </div>
                 </template>
                 <template x-if="inspectorTabs.cmdi === 'response'">
@@ -691,6 +696,7 @@
                     <div><span class="label">Blocked at edge:</span> <span class="val" x-text="results.cmdi.status === 'blocked' ? 'Yes — origin never reached' : 'No — request reached origin'"></span></div>
                     <template x-if="results.cmdi.status === 'blocked'">
                       <div><span class="label">Blocked by:</span> <span class="val" x-text="results.cmdi.rule || 'Cloudflare WAF'"></span></div>
+                      <div class="mt-1 text-xs text-gray-400">→ Check Security → Events in Cloudflare Dashboard for exact rule details</div>
                     </template>
                   </div>
                 </template>
@@ -791,6 +797,7 @@
                     <div><span class="label">Blocked at edge:</span> <span class="val" x-text="results.header.status === 'blocked' ? 'Yes — origin never reached' : 'No — request reached origin'"></span></div>
                     <template x-if="results.header.status === 'blocked'">
                       <div><span class="label">Blocked by:</span> <span class="val" x-text="results.header.rule || 'Cloudflare WAF'"></span></div>
+                      <div class="mt-1 text-xs text-gray-400">→ Check Security → Events in Cloudflare Dashboard for exact rule details</div>
                     </template>
                   </div>
                 </template>
@@ -1072,13 +1079,18 @@
 
         // ──────────────────────────────────────────────────────
         getRuleLabel(attackType) {
-          const labels = {
-            sqli:   'Ruleset: Cloudflare OWASP Core Ruleset — Rule ID 942100 (SQL Injection)',
-            xss:    'Ruleset: Cloudflare OWASP Core Ruleset — Rule ID 941100 (XSS)',
-            cmdi:   'Ruleset: Cloudflare Managed Ruleset — Rule ID 100015 (Command Injection)',
-            header: 'Ruleset: Cloudflare OWASP Core Ruleset — Rule ID 921120 (HTTP Response Splitting / CRLF Injection)',
-          };
-          return labels[attackType] || 'Ruleset: Cloudflare Managed Rules';
+          return 'Blocked by Cloudflare WAF';
+        },
+
+        // ──────────────────────────────────────────────────────
+        decodePayloadParam(url) {
+          try {
+            const urlObj = new URL(url, window.location.origin);
+            const payload = urlObj.searchParams.get('payload');
+            return payload ? decodeURIComponent(payload) : 'N/A';
+          } catch {
+            return 'N/A';
+          }
         },
 
         // ──────────────────────────────────────────────────────
