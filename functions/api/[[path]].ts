@@ -455,7 +455,8 @@ app.get("/api/diagrams/list", async (c) => {
     const diagrams: DiagramMetadata[] = [];
 
     for (const obj of objects.objects) {
-      const tagsRaw = obj.customMetadata?.tags || "";
+      // Read tags from KV instead of R2 custom metadata
+      const tagsRaw = await c.env.DEMO_KV.get(`diagram_tags:${obj.key}`) || "";
       const tags = tagsRaw
         .split(",")
         .map((t) => t.trim())
@@ -473,6 +474,38 @@ app.get("/api/diagrams/list", async (c) => {
   } catch (error: any) {
     console.error("Diagrams list error:", error);
     return c.json({ error: "Failed to list diagrams: " + error.message }, 500);
+  }
+});
+
+// ── Diagrams: Set Tags ────────────────────────────────────────
+// PUT /api/diagrams/:name/tags
+// Body: { "tags": "AppSec,Zero Trust" }
+
+app.put("/api/diagrams/:name/tags", async (c) => {
+  try {
+    const name = c.req.param("name");
+    const { tags } = await c.req.json();
+
+    if (typeof tags !== "string") {
+      return c.json({ error: "Tags must be a comma-separated string" }, 400);
+    }
+
+    // Verify the diagram exists in R2
+    const object = await c.env.DIAGRAMS_BUCKET.head(name);
+    if (!object) {
+      return c.json({ error: "Diagram not found" }, 404);
+    }
+
+    await c.env.DEMO_KV.put(`diagram_tags:${name}`, tags);
+
+    return c.json({
+      success: true,
+      name,
+      tags: tags.split(",").map((t) => t.trim()).filter((t) => t.length > 0),
+    });
+  } catch (error: any) {
+    console.error("Set tags error:", error);
+    return c.json({ error: "Failed to set tags: " + error.message }, 500);
   }
 });
 
