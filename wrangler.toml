@@ -11,6 +11,11 @@ pages_build_output_dir = "."
 binding = "STORAGE_BUCKET"
 bucket_name = "demo-shop-storage"
 
+# R2 bucket for architecture diagrams
+[[r2_buckets]]
+binding = "DIAGRAMS_BUCKET"
+bucket_name = "demo-shop-diagrams"
+
 # KV namespace for file metadata
 [[kv_namespaces]]
 binding = "DEMO_KV"

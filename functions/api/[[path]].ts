@@ -10,6 +10,7 @@ import { cors } from "hono/cors";
 
 type Bindings = {
   STORAGE_BUCKET: R2Bucket;
+  DIAGRAMS_BUCKET: R2Bucket;
   DEMO_KV: KVNamespace;
   AI: Ai;
   AIG_TOKEN: string;
@@ -435,6 +436,67 @@ app.delete("/api/r2/delete/:fileId", requireAccessAuth, async (c) => {
   } catch (error: any) {
     console.error("Delete error:", error);
     return c.json({ error: "Failed to delete file: " + error.message }, 500);
+  }
+});
+
+// ── Diagrams: List ────────────────────────────────────────────
+// GET /api/diagrams/list
+
+interface DiagramMetadata {
+  name: string;
+  tags: string[];
+  size: number;
+  uploaded: string | null;
+}
+
+app.get("/api/diagrams/list", async (c) => {
+  try {
+    const objects = await c.env.DIAGRAMS_BUCKET.list();
+    const diagrams: DiagramMetadata[] = [];
+
+    for (const obj of objects.objects) {
+      const tagsRaw = obj.customMetadata?.tags || "";
+      const tags = tagsRaw
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+
+      diagrams.push({
+        name: obj.key,
+        tags,
+        size: obj.size,
+        uploaded: obj.uploaded?.toISOString() || null,
+      });
+    }
+
+    return c.json({ diagrams, count: diagrams.length });
+  } catch (error: any) {
+    console.error("Diagrams list error:", error);
+    return c.json({ error: "Failed to list diagrams: " + error.message }, 500);
+  }
+});
+
+// ── Diagrams: View ────────────────────────────────────────────
+// GET /api/diagrams/:name
+
+app.get("/api/diagrams/:name", async (c) => {
+  try {
+    const name = c.req.param("name");
+    const object = await c.env.DIAGRAMS_BUCKET.get(name);
+
+    if (!object) {
+      return c.json({ error: "Diagram not found" }, 404);
+    }
+
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set("Content-Type", "image/png");
+    headers.set("Cache-Control", "public, max-age=3600");
+
+    return new Response(object.body, { headers });
+  } catch (error: any) {
+    console.error("Diagram view error:", error);
+    return c.json({ error: "Failed to fetch diagram: " + error.message }, 500);
   }
 });
 
