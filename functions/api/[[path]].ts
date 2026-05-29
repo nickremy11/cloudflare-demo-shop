@@ -53,6 +53,150 @@ const ACCESS_HEADER_VARIANTS = [
   "x-forwarded-user",
 ];
 
+// ── JWT Verification Helpers ──────────────────────────────────
+
+function getCookie(request: Request, name: string): string | undefined {
+  const cookieHeader = request.headers.get("Cookie");
+  if (!cookieHeader) return undefined;
+
+  const cookies = cookieHeader.split(";");
+  for (const cookie of cookies) {
+    const [key, value] = cookie.trim().split("=");
+    if (key === name) return value;
+  }
+  return undefined;
+}
+
+function base64UrlDecode(str: string): string {
+  // Convert base64url to base64
+  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  // Add padding if needed
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  base64 += padding;
+  return atob(base64);
+}
+
+function base64UrlDecodeToBytes(str: string): Uint8Array {
+  const decoded = base64UrlDecode(str);
+  const bytes = new Uint8Array(decoded.length);
+  for (let i = 0; i < decoded.length; i++) {
+    bytes[i] = decoded.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function verifyAccessToken(
+  token: string,
+  domain: string
+): Promise<{ email: string } | null> {
+  try {
+    // Split JWT into header, payload, signature
+    const parts = token.split(".");
+    if (parts.length !== 3) {
+      console.error("Invalid JWT format: expected 3 parts");
+      return null;
+    }
+
+    const [headerB64, payloadB64, signatureB64] = parts;
+
+    // Decode header to get kid
+    const headerJson = base64UrlDecode(headerB64);
+    const header = JSON.parse(headerJson);
+
+    if (!header.kid || !header.alg) {
+      console.error("JWT header missing kid or alg");
+      return null;
+    }
+
+    // Fetch JWKS from Cloudflare Access
+    const jwksUrl = `https://${domain}/cdn-cgi/access/certs`;
+    const jwksResponse = await fetch(jwksUrl);
+
+    if (!jwksResponse.ok) {
+      console.error(`Failed to fetch JWKS from ${jwksUrl}:`, jwksResponse.status);
+      return null;
+    }
+
+    const jwks = await jwksResponse.json();
+
+    if (!jwks.keys || !Array.isArray(jwks.keys)) {
+      console.error("Invalid JWKS response: missing keys array");
+      return null;
+    }
+
+    // Find matching key by kid
+    const key = jwks.keys.find((k: any) => k.kid === header.kid);
+    if (!key) {
+      console.error(`No key found for kid: ${header.kid}`);
+      return null;
+    }
+
+    // Import the RSA public key
+    const publicKey = await crypto.subtle.importKey(
+      "jwk",
+      {
+        kty: key.kty,
+        n: key.n,
+        e: key.e,
+        alg: key.alg,
+      },
+      {
+        name: "RSASSA-PKCS1-v1_5",
+        hash: "SHA-256",
+      },
+      false,
+      ["verify"]
+    );
+
+    // Prepare data and signature for verification
+    const encoder = new TextEncoder();
+    const data = encoder.encode(`${headerB64}.${payloadB64}`);
+    const signature = base64UrlDecodeToBytes(signatureB64);
+
+    // Verify the signature
+    const isValid = await crypto.subtle.verify(
+      "RSASSA-PKCS1-v1_5",
+      publicKey,
+      signature,
+      data
+    );
+
+    if (!isValid) {
+      console.error("JWT signature verification failed");
+      return null;
+    }
+
+    // Decode payload
+    const payloadJson = base64UrlDecode(payloadB64);
+    const payload = JSON.parse(payloadJson);
+
+    // Check expiration
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      console.error("JWT token expired");
+      return null;
+    }
+
+    // Check not-before time
+    if (payload.nbf && payload.nbf * 1000 > Date.now()) {
+      console.error("JWT token not yet valid");
+      return null;
+    }
+
+    // Extract email (try both direct email and custom.email)
+    const email = payload.email || payload.custom?.email;
+
+    if (!email) {
+      console.error("No email found in JWT payload");
+      return null;
+    }
+
+    return { email };
+  } catch (error) {
+    console.error("JWT verification error:", error);
+    return null;
+  }
+}
+
 // ── Middleware ────────────────────────────────────────────────
 
 // CORS applied once for every route
@@ -72,18 +216,37 @@ app.use("*", async (c: Context<{ Bindings: Bindings; Variables: Variables }>, ne
   await next();
 });
 
-// Auth helper: tries all Access header variants, sets userEmail on success
+// Auth helper: tries Access headers first, falls back to JWT cookie verification
 const requireAccessAuth = async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
-  const userEmail = ACCESS_HEADER_VARIANTS
+  // Try Access header variants first (for backwards compatibility)
+  let userEmail = ACCESS_HEADER_VARIANTS
     .map((h) => c.req.header(h))
     .find((v) => !!v);
 
+  // If no header found, try JWT cookie verification
+  if (!userEmail) {
+    const token = getCookie(c.req.raw, "CF_Authorization");
+    
+    if (token) {
+      const host = c.req.header("host") || "remydemo.com";
+      const verified = await verifyAccessToken(token, host);
+      
+      if (verified) {
+        userEmail = verified.email;
+      }
+    }
+  }
+
+  // If both methods failed, return 401
   if (!userEmail) {
     return c.json(
       {
         authenticated: false,
         error: "No authenticated user found",
-        debug: { headers: Object.fromEntries(c.req.raw.headers) },
+        debug: { 
+          headers: Object.fromEntries(c.req.raw.headers),
+          hasCookie: !!getCookie(c.req.raw, "CF_Authorization")
+        },
       },
       401
     );
