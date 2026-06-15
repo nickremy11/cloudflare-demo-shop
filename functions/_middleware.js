@@ -17,6 +17,6 @@ window.dataLayer.push({
 </script>`;
 
   return new HTMLRewriter()
-    .on('head', { element(el) { el.prepend(script, { html: true }); } })
+    .on('title', { element(el) { el.before(script, { html: true }); } })
     .transform(response);
 }
