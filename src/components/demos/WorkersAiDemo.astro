@@ -1,0 +1,82 @@
+---
+// Workers AI demo — sends a prompt to /api/chat which routes through
+// AI Gateway → Workers AI (Llama 3.3 70B). Same backend as the floating chatbot.
+---
+
+<div x-data="workersAiDemo()" class="space-y-4">
+  <p class="text-sm text-gray-600">
+    Send a prompt below. Behind the scenes, the request goes:
+    <code>browser → Worker (/api/chat) → Cloudflare AI Gateway → Workers AI (Llama 3.3 70B fast)</code>.
+    Try asking the model about something Cloudflare-specific.
+  </p>
+
+  <div class="space-y-2">
+    <label class="text-xs text-gray-600">Prompt</label>
+    <textarea
+      x-model="prompt"
+      class="demo-input"
+      rows="3"
+      placeholder="Explain in one paragraph what Cloudflare Workers are good for."
+    ></textarea>
+  </div>
+
+  <button type="button" @click="send" :disabled="loading || !prompt.trim()" class="btn-primary">
+    <span x-show="!loading">Send to Llama 3.3 70B</span>
+    <span x-show="loading">Generating...</span>
+  </button>
+
+  <div x-show="response" x-transition class="demo-panel safe">
+    <h3>Response</h3>
+    <div class="whitespace-pre-wrap text-sm leading-relaxed" x-text="response"></div>
+    <div class="mt-3 text-xs text-gray-500 flex flex-wrap gap-3">
+      <span x-show="latencyMs !== null" x-text="'Latency: ' + latencyMs + ' ms'"></span>
+      <span class="text-pine-600">Routed via AI Gateway</span>
+    </div>
+  </div>
+
+  <div x-show="error" x-transition class="demo-panel danger">
+    <h3>Error</h3>
+    <p class="text-sm" x-text="error"></p>
+  </div>
+</div>
+
+<script is:inline>
+  function workersAiDemo() {
+    return {
+      prompt: "Explain in one paragraph what Cloudflare Workers are good for.",
+      response: "",
+      error: "",
+      loading: false,
+      latencyMs: null,
+
+      async send() {
+        if (!this.prompt.trim()) return;
+        this.loading = true;
+        this.response = "";
+        this.error = "";
+        this.latencyMs = null;
+        const start = performance.now();
+
+        try {
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: [{ role: "user", content: this.prompt }],
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          this.response = data.choices?.[0]?.message?.content
+            ?? data.error
+            ?? "(empty response)";
+        } catch (e) {
+          this.error = e?.message ?? String(e);
+        } finally {
+          this.latencyMs = Math.round(performance.now() - start);
+          this.loading = false;
+        }
+      },
+    };
+  }
+</script>

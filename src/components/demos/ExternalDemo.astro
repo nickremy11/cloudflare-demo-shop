@@ -1,0 +1,23 @@
+---
+interface Props {
+  url: string;
+  solutionTitle: string;
+}
+
+const { url, solutionTitle } = Astro.props;
+---
+
+<div class="coming-soon" style="background: #f2f7f2; border-style: solid; border-color: #93bc93;">
+  <h3>Try it live on a configured target</h3>
+  <p style="margin-bottom: 1rem;">
+    Click below to visit a target site. If your device is enrolled in Cloudflare
+    Gateway with a {solutionTitle} policy applied, the request will be handled
+    by Cloudflare automatically.
+  </p>
+  <a href={url} target="_blank" rel="noopener noreferrer" class="btn-primary">
+    Open {url} ↗
+  </a>
+  <p class="text-xs text-gray-500 mt-3">
+    Note: behavior depends on your device's Cloudflare Gateway configuration.
+  </p>
+</div>

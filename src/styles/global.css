@@ -1,0 +1,487 @@
+/* ============================================================
+   Cloudflare Demo Shop — Global Styles (Astro)
+   Pine green (#2F4F2F) + light gray, retro shop catalog vibes
+   ============================================================ */
+
+/* ─── Buttons ──────────────────────────────────────────────── */
+.btn-primary {
+  display: inline-block;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: #2f4f2f;
+  color: #ffffff;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #1f381f;
+  box-shadow: 0 2px 6px rgba(47, 79, 47, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  display: inline-block;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: transparent;
+  color: #2f4f2f;
+  border: 1px solid #2f4f2f;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background-color: #2f4f2f;
+  color: #ffffff;
+}
+
+.btn-danger {
+  display: inline-block;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: #dc2626;
+  color: #ffffff;
+  transition: background-color 0.15s ease;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+/* ─── Homepage solution card ──────────────────────────────── */
+.solution-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  height: 100%;
+}
+
+.solution-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #93bc93;
+}
+
+.solution-card .pillar-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  background-color: #e0ece0;
+  color: #274427;
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  align-self: flex-start;
+  letter-spacing: 0.02em;
+}
+
+.solution-card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.solution-card p.blurb {
+  font-size: 0.8125rem;
+  color: #4b5563;
+  margin: 0;
+  line-height: 1.45;
+  flex: 1;
+}
+
+.solution-card .read-more {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #2f4f2f;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.solution-card .read-more::after {
+  content: "→";
+  transition: transform 0.15s ease;
+}
+
+.solution-card:hover .read-more::after {
+  transform: translateX(2px);
+}
+
+/* ─── Solution page sections ──────────────────────────────── */
+.section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2f4f2f;
+  margin-bottom: 0.5rem;
+}
+
+.section-heading {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 1rem 0;
+  letter-spacing: -0.01em;
+}
+
+.solution-section {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 0.5rem;
+  padding: 1.75rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ─── Diagram slot ─────────────────────────────────────────── */
+.diagram-slot {
+  border: 2px dashed #c1d9c1;
+  background: #f2f7f2;
+  border-radius: 0.5rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: #5e975e;
+  font-size: 0.875rem;
+}
+
+.diagram-slot img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 0.375rem;
+}
+
+/* ─── Solution bullet list ─────────────────────────────────── */
+.solution-bullets {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.solution-bullets li {
+  padding: 0.75rem 0 0.75rem 1.75rem;
+  border-bottom: 1px solid #f5f5f5;
+  position: relative;
+  font-size: 0.9375rem;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.solution-bullets li:last-child {
+  border-bottom: none;
+}
+
+.solution-bullets li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0.75rem;
+  color: #2f4f2f;
+  font-weight: 700;
+}
+
+.solution-bullets li strong {
+  color: #1a1a1a;
+  display: block;
+  margin-bottom: 0.125rem;
+}
+
+/* ─── FAQ ──────────────────────────────────────────────────── */
+.faq-item {
+  border-bottom: 1px solid #e5e5e5;
+  padding: 1rem 0;
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+}
+
+.faq-item summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 0.9375rem;
+  padding: 0.25rem 0;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item summary::after {
+  content: "+";
+  font-size: 1.25rem;
+  font-weight: 300;
+  color: #2f4f2f;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.faq-item[open] summary::after {
+  content: "−";
+}
+
+.faq-item .answer {
+  padding-top: 0.75rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: #4b5563;
+}
+
+/* ─── Dive Deeper links ────────────────────────────────────── */
+.dive-deeper-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .dive-deeper-list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.dive-deeper-list a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  background: #f2f7f2;
+  border: 1px solid #e0ece0;
+  border-radius: 0.375rem;
+  text-decoration: none;
+  font-size: 0.875rem;
+  color: #274427;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.dive-deeper-list a:hover {
+  background: #e0ece0;
+  border-color: #93bc93;
+}
+
+.dive-deeper-list a::before {
+  content: "↗";
+  font-size: 0.875rem;
+  color: #5e975e;
+  flex-shrink: 0;
+}
+
+/* ─── Demo coming soon ─────────────────────────────────────── */
+.coming-soon {
+  background: linear-gradient(135deg, #f2f7f2 0%, #fafafa 100%);
+  border: 1px dashed #93bc93;
+  border-radius: 0.5rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+
+.coming-soon h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #274427;
+  margin: 0 0 0.5rem 0;
+}
+
+.coming-soon p {
+  font-size: 0.875rem;
+  color: #5e975e;
+  margin: 0;
+}
+
+/* ─── Code/output blocks ───────────────────────────────────── */
+.code-output {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.8125rem;
+  background: #f5f5f5;
+  border: 1px solid #e5e5e5;
+  border-radius: 0.375rem;
+  padding: 0.75rem 1rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  min-height: 3rem;
+  color: #1f2937;
+}
+
+.code-output.terminal {
+  background: #1a1a1a;
+  color: #c1d9c1;
+  border-color: #2d2d2d;
+}
+
+/* ─── Demo inputs ──────────────────────────────────────────── */
+.demo-input {
+  width: 100%;
+  border: 1px solid #d4d4d4;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+  background: #ffffff;
+}
+
+.demo-input:focus {
+  border-color: #2f4f2f;
+  box-shadow: 0 0 0 2px rgba(47, 79, 47, 0.15);
+}
+
+/* ─── Status badge ─────────────────────────────────────────── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+}
+
+.status-badge.blocked,
+.status-badge.success {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.allowed,
+.status-badge.danger {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.status-badge.pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+/* ─── Demo panels (red/green sided) ───────────────────────── */
+.demo-panel {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+}
+
+.demo-panel.danger {
+  border-top: 3px solid #dc2626;
+}
+
+.demo-panel.safe {
+  border-top: 3px solid #2f4f2f;
+}
+
+.demo-panel h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+}
+
+.demo-panel.danger h3 {
+  color: #dc2626;
+}
+
+.demo-panel.safe h3 {
+  color: #2f4f2f;
+}
+
+/* ─── Two-column comparison ───────────────────────────────── */
+.demo-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .demo-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Tabbed inspector ─────────────────────────────────────── */
+.inspector {
+  background: #1a1a1a;
+  border-radius: 0.5rem;
+  border: 1px solid #2d2d2d;
+  overflow: hidden;
+  margin-top: 1rem;
+}
+
+.inspector-tabs {
+  display: flex;
+  border-bottom: 1px solid #2d2d2d;
+  background: #0f0f0f;
+}
+
+.inspector-tab {
+  background: none;
+  border: none;
+  color: #93bc93;
+  padding: 0.625rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  border-bottom: 2px solid transparent;
+}
+
+.inspector-tab:hover {
+  color: #c1d9c1;
+}
+
+.inspector-tab.active {
+  color: #ffffff;
+  background-color: #1a1a1a;
+  border-bottom-color: #5e975e;
+}
+
+.inspector-body {
+  padding: 1rem;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.8125rem;
+  color: #c1d9c1;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 320px;
+  overflow-y: auto;
+}

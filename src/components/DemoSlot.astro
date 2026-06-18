@@ -1,0 +1,75 @@
+---
+// DemoSlot routes the page to the right interactive demo component
+// based on the frontmatter.demo.component name. For pages without a
+// real demo yet, it shows a polished "coming soon" placeholder.
+// For external-link demos (e.g. Browser Isolation → blog.cloudflare.com),
+// it renders a styled link button.
+
+import ComingSoon from "./demos/ComingSoon.astro";
+import ExternalDemo from "./demos/ExternalDemo.astro";
+import WafDemo from "./demos/WafDemo.astro";
+import BotRateDemo from "./demos/BotRateDemo.astro";
+import CdnCacheDemo from "./demos/CdnCacheDemo.astro";
+import DnsDemo from "./demos/DnsDemo.astro";
+import TurnstileDemo from "./demos/TurnstileDemo.astro";
+import WorkersAiDemo from "./demos/WorkersAiDemo.astro";
+import AiGatewayDemo from "./demos/AiGatewayDemo.astro";
+import R2Demo from "./demos/R2Demo.astro";
+
+interface Props {
+  demo: {
+    type: "interactive" | "coming-soon" | "external-link";
+    component?: string;
+    externalUrl?: string;
+    note?: string;
+  };
+  solutionTitle: string;
+}
+
+const { demo, solutionTitle } = Astro.props;
+
+// Lookup table for interactive components.
+const DEMO_COMPONENTS: Record<string, any> = {
+  WafDemo,
+  BotRateDemo,
+  CdnCacheDemo,
+  DnsDemo,
+  TurnstileDemo,
+  WorkersAiDemo,
+  AiGatewayDemo,
+  R2Demo,
+};
+---
+
+{demo.note && <p class="text-sm text-gray-600 mb-4">{demo.note}</p>}
+
+{
+  demo.type === "coming-soon" && <ComingSoon solutionTitle={solutionTitle} />
+}
+
+{
+  demo.type === "external-link" && demo.externalUrl && (
+    <ExternalDemo url={demo.externalUrl} solutionTitle={solutionTitle} />
+  )
+}
+
+{
+  demo.type === "interactive" &&
+    demo.component &&
+    DEMO_COMPONENTS[demo.component] &&
+    (() => {
+      const Component = DEMO_COMPONENTS[demo.component];
+      return <Component />;
+    })()
+}
+
+{
+  demo.type === "interactive" &&
+    demo.component &&
+    !DEMO_COMPONENTS[demo.component] && (
+      <div class="coming-soon">
+        <h3>Demo component "{demo.component}" not found</h3>
+        <p>The interactive demo for this solution hasn't been wired in yet.</p>
+      </div>
+    )
+}

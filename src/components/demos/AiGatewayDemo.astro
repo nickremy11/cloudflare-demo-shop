@@ -1,0 +1,112 @@
+---
+// AI Gateway demo — same backend pipeline as the chatbot, but here we
+// explicitly call it out and let the user see token usage / latency.
+---
+
+<div x-data="aiGatewayDemo()" class="space-y-4">
+  <div class="demo-panel safe">
+    <h3>This entire site uses AI Gateway</h3>
+    <p class="text-sm text-gray-700 mt-2">
+      Open the chat widget in the bottom-right corner — every message is
+      routed through Cloudflare AI Gateway to Workers AI. The same gateway
+      handles caching, rate limiting, request logging, and (in production
+      configs) provider fallback.
+    </p>
+    <p class="text-xs text-gray-500 mt-2">
+      Route:
+      <code class="bg-silver-50 px-1.5 py-0.5 rounded">browser → /api/chat → AI Gateway → workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast</code>
+    </p>
+  </div>
+
+  <div class="space-y-2">
+    <label class="text-xs text-gray-600">Send a test prompt through the gateway</label>
+    <textarea
+      x-model="prompt"
+      class="demo-input"
+      rows="2"
+      placeholder="What's the difference between Workers and Lambda?"
+    ></textarea>
+  </div>
+
+  <div class="flex gap-3 items-center">
+    <button type="button" @click="send" :disabled="loading || !prompt.trim()" class="btn-primary">
+      <span x-show="!loading">Send through AI Gateway</span>
+      <span x-show="loading">Routing...</span>
+    </button>
+    <span class="text-sm text-gray-500" x-show="cachedHit" x-text="'⚡ Cached response (no provider charge)'"></span>
+  </div>
+
+  <div x-show="response" x-transition class="demo-panel safe">
+    <div class="flex items-baseline gap-3 mb-2">
+      <h3 class="!mb-0">Response</h3>
+      <span class="text-xs text-gray-500" x-text="'Latency: ' + latencyMs + ' ms'"></span>
+    </div>
+    <div class="whitespace-pre-wrap text-sm leading-relaxed" x-text="response"></div>
+  </div>
+
+  <div x-show="error" x-transition class="demo-panel danger">
+    <h3>Error</h3>
+    <p class="text-sm" x-text="error"></p>
+  </div>
+
+  <p class="text-xs text-gray-500">
+    Tip: send the same prompt twice. If AI Gateway response caching is on
+    for this route, the second call returns much faster.
+  </p>
+</div>
+
+<script is:inline>
+  function aiGatewayDemo() {
+    return {
+      prompt: "What's the difference between Workers and Lambda?",
+      response: "",
+      error: "",
+      loading: false,
+      latencyMs: 0,
+      lastPromptLatency: null,
+      lastPrompt: null,
+      cachedHit: false,
+
+      async send() {
+        if (!this.prompt.trim()) return;
+        this.loading = true;
+        this.response = "";
+        this.error = "";
+        this.cachedHit = false;
+
+        const start = performance.now();
+        try {
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: [{ role: "user", content: this.prompt }],
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          this.response = data.choices?.[0]?.message?.content ?? "(empty response)";
+
+          const elapsed = Math.round(performance.now() - start);
+          this.latencyMs = elapsed;
+
+          // Heuristic: if this prompt was just sent and the response came
+          // back significantly faster, it likely hit the gateway cache.
+          if (
+            this.lastPrompt === this.prompt &&
+            this.lastPromptLatency !== null &&
+            elapsed < this.lastPromptLatency * 0.4
+          ) {
+            this.cachedHit = true;
+          }
+          this.lastPrompt = this.prompt;
+          this.lastPromptLatency = elapsed;
+        } catch (e) {
+          this.error = e?.message ?? String(e);
+        } finally {
+          this.loading = false;
+        }
+      },
+    };
+  }
+</script>

@@ -1,0 +1,20 @@
+---
+// Homepage solution card. ENTIRE card is the link (per redesign).
+// Shows pillar badge, title, blurb, and a "read more" arrow.
+
+interface Props {
+  title: string;
+  slug: string;
+  blurb: string;
+  pillarBadge: string;
+}
+
+const { title, slug, blurb, pillarBadge } = Astro.props;
+---
+
+<a href={`/${slug}`} class="solution-card">
+  <span class="pillar-badge">{pillarBadge}</span>
+  <h3>{title}</h3>
+  <p class="blurb">{blurb}</p>
+  <span class="read-more">Explore</span>
+</a>

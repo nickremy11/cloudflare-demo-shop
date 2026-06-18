@@ -1,0 +1,148 @@
+---
+import Base from "../../layouts/Base.astro";
+---
+
+<Base title="Architecture Diagrams — Cloudflare Demo Shop">
+  <main class="max-w-7xl mx-auto px-6 py-12" x-data="diagramsApp()" x-init="init()">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-pine-600 mb-2">Architecture Diagrams</h1>
+      <p class="text-gray-600">
+        Browse and view Cloudflare architecture diagrams by category. Diagrams
+        are stored in R2 and served via the
+        <code class="bg-silver-50 px-1.5 py-0.5 rounded text-xs">/api/diagrams/</code>
+        endpoint with edge caching.
+      </p>
+    </div>
+
+    <!-- Tag filters -->
+    <div class="flex flex-wrap gap-2 mb-8">
+      <template x-for="tag in availableTags" :key="tag">
+        <button
+          @click="activeTag = tag"
+          :class="activeTag === tag ? 'bg-pine-500 text-white' : 'bg-white text-pine-600 border border-pine-200 hover:bg-pine-50'"
+          class="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+        >
+          <span x-text="tag"></span>
+        </button>
+      </template>
+    </div>
+
+    <div x-show="loading" class="text-gray-500 py-8">Loading diagrams...</div>
+
+    <div
+      x-show="error"
+      class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6"
+    >
+      <span x-text="error"></span>
+    </div>
+
+    <!-- Diagram list -->
+    <div x-show="!loading && !error && !selectedDiagram" class="space-y-2">
+      <template x-for="diagram in filteredDiagrams" :key="diagram.name">
+        <div
+          class="bg-white border border-silver-100 rounded-lg p-4 flex items-center justify-between hover:shadow-sm hover:border-pine-300 transition-all cursor-pointer"
+          @click="selectDiagram(diagram)"
+        >
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-pine-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              ></path>
+            </svg>
+            <span class="font-medium text-gray-800" x-text="diagram.name"></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <template x-for="tag in diagram.tags" :key="tag">
+              <span class="text-xs bg-pine-100 text-pine-600 rounded px-2 py-0.5" x-text="tag"></span>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <div x-show="filteredDiagrams.length === 0 && !loading" class="text-gray-500 py-8 text-center">
+        No diagrams found for this tag.
+      </div>
+    </div>
+
+    <!-- Diagram viewer -->
+    <div x-show="selectedDiagram" class="space-y-4">
+      <button
+        @click="selectedDiagram = null"
+        class="flex items-center gap-2 text-pine-600 hover:text-pine-800 font-medium text-sm"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+        </svg>
+        Back to list
+      </button>
+
+      <h2 class="text-2xl font-bold text-gray-800" x-text="selectedDiagram?.name"></h2>
+
+      <div class="flex flex-wrap gap-2">
+        <template x-for="tag in selectedDiagram?.tags" :key="tag">
+          <span class="text-xs bg-pine-100 text-pine-600 rounded px-2 py-0.5" x-text="tag"></span>
+        </template>
+      </div>
+
+      <div class="bg-white border border-silver-200 rounded-lg p-4">
+        <img
+          :src="selectedDiagram ? '/api/diagrams/' + selectedDiagram.name : ''"
+          :alt="selectedDiagram?.name"
+          class="max-w-full h-auto mx-auto"
+          @error="imageError = true"
+        />
+        <div x-show="imageError" class="text-red-600 text-center py-8">
+          Failed to load diagram image.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script is:inline>
+    function diagramsApp() {
+      return {
+        diagrams: [],
+        loading: true,
+        error: null,
+        activeTag: "All",
+        selectedDiagram: null,
+        imageError: false,
+        availableTags: [
+          "All",
+          "AppSec",
+          "Performance",
+          "Developers",
+          "Zero Trust",
+          "Network Security",
+        ],
+
+        get filteredDiagrams() {
+          if (this.activeTag === "All") return this.diagrams;
+          return this.diagrams.filter((d) => d.tags.includes(this.activeTag));
+        },
+
+        selectDiagram(diagram) {
+          this.selectedDiagram = diagram;
+          this.imageError = false;
+        },
+
+        async init() {
+          try {
+            const response = await fetch("/api/diagrams/list");
+            if (!response.ok) throw new Error("Failed to fetch diagrams");
+            const data = await response.json();
+            this.diagrams = data.diagrams || [];
+          } catch (err) {
+            this.error = err.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+</Base>

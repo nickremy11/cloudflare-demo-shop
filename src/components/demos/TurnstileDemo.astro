@@ -1,0 +1,152 @@
+---
+// Turnstile interactive demo.
+// Uses Cloudflare's official always-passing test site key on the page;
+// the verify endpoint on the server uses the test secret. In production
+// you'd swap both for real keys via env vars / secrets.
+//
+// Test keys (public): https://developers.cloudflare.com/turnstile/troubleshooting/testing/
+//   Always-passes site key:  1x00000000000000000000AA
+//   Always-passes secret:    1x0000000000000000000000000000000AA
+---
+
+<div x-data="turnstileDemo()" class="space-y-4">
+  <p class="text-sm text-gray-600">
+    Fill out the form below. The Turnstile widget issues a token; on submit,
+    the server calls Cloudflare's <code>siteverify</code> endpoint to confirm
+    the token before accepting the submission. The site key here is
+    Cloudflare's public &quot;always passes&quot; test key — visible challenges
+    won't appear. In production you'd use your own keys.
+  </p>
+
+  <form @submit.prevent="submit" class="space-y-3 max-w-lg">
+    <div>
+      <label class="text-xs text-gray-600 block mb-1">Your name</label>
+      <input
+        type="text"
+        x-model="name"
+        class="demo-input"
+        placeholder="Ada Lovelace"
+        required
+      />
+    </div>
+    <div>
+      <label class="text-xs text-gray-600 block mb-1">Message</label>
+      <textarea
+        x-model="message"
+        class="demo-input"
+        rows="3"
+        placeholder="Just testing the form..."
+        required
+      ></textarea>
+    </div>
+
+    <!-- Turnstile widget mount point -->
+    <div
+      class="cf-turnstile"
+      data-sitekey="1x00000000000000000000AA"
+      data-callback="onTurnstileSuccess"
+      data-error-callback="onTurnstileError"
+      data-expired-callback="onTurnstileExpired"
+    ></div>
+
+    <button type="submit" :disabled="!token || submitting" class="btn-primary">
+      <span x-show="!submitting">Submit</span>
+      <span x-show="submitting">Verifying...</span>
+    </button>
+  </form>
+
+  <div x-show="result" x-transition class="demo-panel" :class="resultPanelClass">
+    <h3 x-text="result?.title"></h3>
+    <p class="text-sm" x-text="result?.message"></p>
+    <pre x-show="result?.details" class="code-output mt-2 text-xs" x-text="result?.details"></pre>
+  </div>
+</div>
+
+<!-- Turnstile script -->
+<script
+  is:inline
+  src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+  async
+  defer></script>
+
+<script is:inline>
+  // Make callbacks globally accessible (Turnstile invokes them by string name)
+  window.onTurnstileSuccess = (token) => {
+    document.dispatchEvent(new CustomEvent("turnstile:success", { detail: token }));
+  };
+  window.onTurnstileError = () => {
+    document.dispatchEvent(new CustomEvent("turnstile:error"));
+  };
+  window.onTurnstileExpired = () => {
+    document.dispatchEvent(new CustomEvent("turnstile:expired"));
+  };
+
+  function turnstileDemo() {
+    return {
+      name: "",
+      message: "",
+      token: null,
+      submitting: false,
+      result: null,
+
+      get resultPanelClass() {
+        return this.result?.success ? "safe" : "danger";
+      },
+
+      init() {
+        document.addEventListener("turnstile:success", (e) => {
+          this.token = e.detail;
+        });
+        document.addEventListener("turnstile:error", () => {
+          this.token = null;
+          this.result = { success: false, title: "Widget error", message: "Turnstile widget reported an error. Reload the page to try again." };
+        });
+        document.addEventListener("turnstile:expired", () => {
+          this.token = null;
+        });
+      },
+
+      async submit() {
+        if (!this.token) return;
+        this.submitting = true;
+        this.result = null;
+        try {
+          const res = await fetch("/api/turnstile/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: this.token,
+              name: this.name,
+              message: this.message,
+            }),
+          });
+          const data = await res.json();
+
+          if (res.ok && data.success) {
+            this.result = {
+              success: true,
+              title: "✓ Verified",
+              message: "Cloudflare confirmed the token. Form would now be processed.",
+              details: JSON.stringify(data.siteverify ?? data, null, 2),
+            };
+          } else {
+            this.result = {
+              success: false,
+              title: "✗ Verification failed",
+              message: data.error || "Turnstile rejected the token.",
+              details: JSON.stringify(data, null, 2),
+            };
+          }
+        } catch (e) {
+          this.result = {
+            success: false,
+            title: "Network error",
+            message: e?.message ?? String(e),
+          };
+        } finally {
+          this.submitting = false;
+        }
+      },
+    };
+  }
+</script>

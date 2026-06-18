@@ -1,0 +1,152 @@
+---
+// WAF interactive demo. Fires attacks at /api/waf/testattack — a path
+// scoped specifically so you can write WAF rules targeting it.
+// If WAF rules block, you'll see 403. If they don't, the Worker returns
+// fake exploit data showing what *could* have happened.
+---
+
+<div x-data="wafDemo()" class="space-y-4">
+  <p class="text-sm text-gray-600">
+    Pick an attack. The request goes to
+    <code class="bg-silver-50 px-1.5 py-0.5 rounded text-pine-700 font-mono text-xs">/api/waf/testattack?type=&lt;attack&gt;</code>.
+    A properly-tuned WAF rule on this zone will block it before the Worker
+    ever sees the request — you'll get a 403 challenge or block page.
+    If the rule misses, the Worker returns simulated exploit data showing
+    what an attacker would have gotten.
+  </p>
+
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <button
+      type="button"
+      @click="fire('sqli')"
+      :disabled="loading"
+      class="btn-danger"
+    >
+      SQL Injection
+    </button>
+    <button
+      type="button"
+      @click="fire('xss')"
+      :disabled="loading"
+      class="btn-danger"
+    >
+      Cross-Site Script
+    </button>
+    <button
+      type="button"
+      @click="fire('cmdi')"
+      :disabled="loading"
+      class="btn-danger"
+    >
+      Command Inject
+    </button>
+    <button
+      type="button"
+      @click="fire('header')"
+      :disabled="loading"
+      class="btn-danger"
+    >
+      Header Inject
+    </button>
+  </div>
+
+  <div x-show="result" x-transition class="space-y-3">
+    <div class="flex items-center gap-3">
+      <span
+        class="status-badge"
+        :class="result?.blocked ? 'blocked' : 'allowed'"
+        x-text="result?.blocked ? '✓ Blocked by WAF' : '⚠ Reached origin'"
+      ></span>
+      <span class="text-xs text-gray-500" x-text="result?.summary"></span>
+    </div>
+
+    <div class="inspector">
+      <div class="inspector-tabs">
+        <button
+          type="button"
+          class="inspector-tab"
+          :class="tab === 'response' && 'active'"
+          @click="tab = 'response'"
+        >
+          Response
+        </button>
+        <button
+          type="button"
+          class="inspector-tab"
+          :class="tab === 'request' && 'active'"
+          @click="tab = 'request'"
+        >
+          Request
+        </button>
+      </div>
+      <div class="inspector-body" x-text="tab === 'response' ? result?.body : result?.requestDump"></div>
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+  function wafDemo() {
+    return {
+      loading: false,
+      result: null,
+      tab: "response",
+
+      attackPayloads: {
+        sqli: { path: "/api/waf/testattack?type=sqli", body: null, headers: {} },
+        xss:  { path: "/api/waf/testattack?type=xss",  body: null, headers: {} },
+        cmdi: { path: "/api/waf/testattack?type=cmdi", body: null, headers: {} },
+        header: {
+          path: "/api/waf/testattack?type=header",
+          body: null,
+          headers: {
+            "X-Test-Injection": "malicious-payload",
+            "X-Override-Host": "evil.demo-attacker.com",
+            "X-Cache-Poison": "true",
+          },
+        },
+      },
+
+      async fire(type) {
+        this.loading = true;
+        this.result = null;
+        const cfg = this.attackPayloads[type];
+
+        const reqDump = `${"GET"} ${cfg.path}\n` +
+          Object.entries(cfg.headers).map(([k, v]) => `${k}: ${v}`).join("\n");
+
+        try {
+          const res = await fetch(cfg.path, {
+            method: "GET",
+            headers: cfg.headers,
+          });
+
+          const text = await res.text();
+          let body = text;
+          try {
+            body = JSON.stringify(JSON.parse(text), null, 2);
+          } catch {}
+
+          const blocked = res.status === 403 || res.status === 429 || res.status === 503;
+
+          this.result = {
+            blocked,
+            summary: blocked
+              ? `Cloudflare returned ${res.status} — origin never saw the request.`
+              : `Reached origin and returned ${res.status}. Tune WAF rules to block this.`,
+            body: `HTTP ${res.status} ${res.statusText}\n\n${body}`,
+            requestDump: reqDump,
+          };
+        } catch (e) {
+          this.result = {
+            blocked: true,
+            summary: "Network error or hard block",
+            body: "Error: " + (e?.message ?? e),
+            requestDump: reqDump,
+          };
+        } finally {
+          this.loading = false;
+        }
+      },
+    };
+  }
+</script>

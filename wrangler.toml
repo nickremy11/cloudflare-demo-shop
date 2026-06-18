@@ -1,6 +1,6 @@
 name = "cloudflare-demo-shop"
 compatibility_date = "2024-09-23"
-pages_build_output_dir = "."
+pages_build_output_dir = "dist"
 
 # workers_dev intentionally not set (defaults to false for Pages projects)
 # This site is served via Cloudflare Pages, not workers.dev
@@ -24,6 +24,16 @@ id = "718464f9865547c68d5e62aaefe9db85"
 # ── AI binding for chatbot ─────────────────────────────────
 [ai]
 binding = "AI"
+
+# ── Cache Purge Demo Variables ─────────────────────────────
+# These need to be set in the Cloudflare Pages dashboard:
+#   - CF_ZONE_ID:           plain text env var (your zone ID for remydemo.com)
+#   - CF_CACHE_PURGE_TOKEN: secret (API token with Cache Purge permission)
+#   - TURNSTILE_SECRET:     secret (Turnstile widget secret key)
+#   - AIG_TOKEN:            secret (AI Gateway authentication token)
+#
+# Set via:  wrangler pages secret put <NAME>
+# Or in the Pages dashboard: Settings → Environment variables
 
 # ── Future bindings (not yet needed) ────────────────────────
 # [[d1_databases]]

@@ -1,0 +1,175 @@
+---
+// CDN & Caching demo.
+// Fetches a static diagram and shows:
+//   - CF-Cache-Status (HIT/MISS/EXPIRED/BYPASS)
+//   - TTFB (measured via Performance API)
+//   - Age, Cache-Control headers
+//   - Real purge via /api/cache/purge (calls Cloudflare Cache Purge API)
+---
+
+<div x-data="cdnDemo()" class="space-y-5">
+  <p class="text-sm text-gray-600">
+    Below is a diagram served from this site. Each fetch returns response
+    headers showing whether Cloudflare's CDN served it from cache. Click
+    "Purge cache" to call Cloudflare's Cache Purge API for real — the next
+    fetch will show MISS.
+  </p>
+
+  <div class="grid md:grid-cols-2 gap-4">
+    <!-- Cached resource preview -->
+    <div class="demo-panel safe">
+      <h3>Cached resource</h3>
+      <p class="text-xs text-gray-500 mb-2">
+        <code>/diagrams/cf-overall-traffic.png</code>
+      </p>
+      <img
+        :src="imgSrc"
+        alt="Cloudflare traffic flow diagram"
+        class="rounded border border-silver-100 max-h-48 w-auto mx-auto"
+      />
+    </div>
+
+    <!-- Stats panel -->
+    <div class="demo-panel safe">
+      <h3>Cache status</h3>
+      <div class="text-xs space-y-2 mt-2">
+        <div class="flex justify-between">
+          <span class="text-gray-500">CF-Cache-Status</span>
+          <span
+            class="font-mono font-semibold"
+            :class="cacheStatusClass"
+            x-text="cacheStatus || '—'"
+          ></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-500">TTFB</span>
+          <span class="font-mono" x-text="ttfb !== null ? ttfb + ' ms' : '—'"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-500">Age (sec)</span>
+          <span class="font-mono" x-text="age || '—'"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-500">Cache-Control</span>
+          <span class="font-mono text-right" x-text="cacheControl || '—'"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-gray-500">Served by</span>
+          <span class="font-mono" x-text="cfRay || '—'"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-3">
+    <button type="button" @click="refetch" :disabled="loading" class="btn-primary">
+      Fetch diagram
+    </button>
+    <button type="button" @click="purge" :disabled="purging" class="btn-danger">
+      Purge cache (real)
+    </button>
+    <span class="text-sm text-gray-500" x-show="loading || purging" x-text="status"></span>
+    <span class="text-sm text-pine-600" x-show="!loading && !purging && lastAction" x-text="lastAction"></span>
+  </div>
+
+  <div class="code-output text-xs" x-show="logLines.length > 0">
+    <template x-for="line in logLines" :key="line">
+      <div x-text="line"></div>
+    </template>
+  </div>
+</div>
+
+<script is:inline>
+  function cdnDemo() {
+    return {
+      imgSrc: "/diagrams/cf-overall-traffic.png",
+      loading: false,
+      purging: false,
+      status: "",
+      lastAction: "",
+      cacheStatus: null,
+      ttfb: null,
+      age: null,
+      cacheControl: null,
+      cfRay: null,
+      logLines: [],
+
+      get cacheStatusClass() {
+        if (this.cacheStatus === "HIT") return "text-green-700";
+        if (this.cacheStatus === "MISS") return "text-amber-600";
+        if (this.cacheStatus === "EXPIRED") return "text-amber-600";
+        if (this.cacheStatus === "DYNAMIC" || this.cacheStatus === "BYPASS")
+          return "text-gray-600";
+        return "text-gray-500";
+      },
+
+      async refetch() {
+        this.loading = true;
+        this.status = "Fetching...";
+        const cacheBuster = `?_=${Date.now()}`;
+        const url = "/diagrams/cf-overall-traffic.png";
+
+        const startTime = performance.now();
+        try {
+          const res = await fetch(url, { cache: "no-cache" });
+          await res.arrayBuffer(); // download fully so TTFB+body completes
+          const elapsed = Math.round(performance.now() - startTime);
+
+          this.cacheStatus = res.headers.get("cf-cache-status") || "UNKNOWN";
+          this.cacheControl = res.headers.get("cache-control") || "(none)";
+          this.age = res.headers.get("age");
+          this.cfRay = res.headers.get("cf-ray")?.split("-")[1] || null;
+          this.ttfb = elapsed;
+
+          // Force image refresh so user sees a new render of the cached image
+          this.imgSrc = url + cacheBuster;
+
+          this.logLines = [
+            `[${new Date().toISOString().slice(11, 19)}] ${res.status} ${res.statusText} — ${this.cacheStatus} (${elapsed} ms)`,
+            ...this.logLines,
+          ].slice(0, 8);
+          this.lastAction = `Fetched in ${elapsed} ms — ${this.cacheStatus}`;
+        } catch (e) {
+          this.lastAction = `Error: ${e?.message ?? e}`;
+        } finally {
+          this.loading = false;
+          this.status = "";
+        }
+      },
+
+      async purge() {
+        this.purging = true;
+        this.status = "Purging from Cloudflare...";
+        try {
+          const res = await fetch("/api/cache/purge", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              files: [`${window.location.origin}/diagrams/cf-overall-traffic.png`],
+            }),
+          });
+          const data = await res.json();
+
+          if (res.ok && data.success) {
+            this.lastAction = "✓ Cache purged. Click 'Fetch diagram' to verify MISS.";
+            this.logLines = [
+              `[${new Date().toISOString().slice(11, 19)}] PURGE → ${res.status} success`,
+              ...this.logLines,
+            ].slice(0, 8);
+          } else {
+            this.lastAction = `✗ Purge failed: ${data.error || "unknown"}`;
+            this.logLines = [
+              `[${new Date().toISOString().slice(11, 19)}] PURGE → ${res.status} ${data.error || "failed"}`,
+              ...this.logLines,
+            ].slice(0, 8);
+          }
+        } catch (e) {
+          this.lastAction = `Error: ${e?.message ?? e}`;
+        } finally {
+          this.purging = false;
+          this.status = "";
+        }
+      },
+    };
+  }
+</script>

@@ -1,14 +1,21 @@
 {
   "name": "cloudflare-demo-shop",
-  "version": "1.0.0",
-  "description": "Cloudflare product and feature demo site — hosted on Cloudflare Pages",
+  "version": "2.0.0",
+  "description": "Cloudflare product and feature demo site — Astro static site on Cloudflare Pages",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "wrangler pages dev . --live-reload",
-    "deploy": "wrangler pages deploy ."
+    "dev": "astro dev",
+    "dev:full": "astro build && wrangler pages dev dist --live-reload",
+    "build": "astro build",
+    "preview": "astro preview",
+    "deploy": "astro build && wrangler pages deploy dist",
+    "astro": "astro"
   },
   "devDependencies": {
-    "typescript": "^6.0.3",
+    "@astrojs/check": "^0.9.4",
+    "astro": "^5.1.1",
+    "typescript": "^5.7.2",
     "wrangler": "^4.91.0"
   },
   "dependencies": {

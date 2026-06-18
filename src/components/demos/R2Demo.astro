@@ -1,0 +1,427 @@
+---
+// R2 storage demo with three sections:
+//   1. Upload: guest (with email) OR via Cloudflare Access — malicious detection
+//   2. File browser of your uploads (Access-gated for "my files")
+//   3. Pricing calculator: R2 vs S3 / GCS / Azure / Vercel Blob
+//
+// Constraints:
+//   - 50MB max
+//   - Allowed: pdf, csv, png, jpg, jpeg, gif, doc, docx, ppt, pptx, txt
+//   - Server scans full buffer for malicious patterns (PDF JS, VBA macros,
+//     extension/MIME mismatch, magic-bytes check)
+//
+// Pricing data hardcoded — last updated date shown on the page.
+---
+
+<div x-data="r2Demo()" x-init="checkAuth()" class="space-y-8">
+  <!-- ─────────────────── Upload section ─────────────────── -->
+  <div>
+    <h3 class="text-sm font-semibold text-pine-700 uppercase tracking-wide mb-2">
+      1. Upload to R2
+    </h3>
+    <p class="text-sm text-gray-600 mb-4">
+      Upload a file as a guest (provide your email so the file is tied to you),
+      or authenticate via Cloudflare Access. Every file is scanned for
+      malicious content before it's accepted. Max 50&nbsp;MB. Allowed types:
+      PDF, CSV, PNG, JPG, GIF, DOC(X), PPT(X), TXT.
+    </p>
+
+    <!-- Auth state banner -->
+    <div class="mb-4 p-3 rounded text-sm" :class="authState === 'authenticated' ? 'bg-pine-50 border border-pine-200' : 'bg-silver-50 border border-silver-200'">
+      <template x-if="authState === 'authenticated'">
+        <div class="flex items-center justify-between gap-3">
+          <span>
+            ✓ Signed in via Cloudflare Access as
+            <strong class="text-pine-700" x-text="userEmail"></strong>
+          </span>
+          <a href="/cdn-cgi/access/logout" class="text-xs text-pine-600 hover:underline">Sign out</a>
+        </div>
+      </template>
+      <template x-if="authState === 'guest'">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <span class="text-gray-600">
+            Uploading as a guest. Or
+            <a href="/api/auth/whoami" class="text-pine-600 hover:underline">sign in via Access</a>
+            for &quot;my files&quot; access.
+          </span>
+        </div>
+      </template>
+      <template x-if="authState === 'checking'">
+        <span class="text-gray-500">Checking auth state...</span>
+      </template>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <!-- Guest email -->
+      <div class="demo-panel" x-show="authState !== 'authenticated'">
+        <h3>Guest upload</h3>
+        <label class="text-xs text-gray-600 block mb-1 mt-2">Your email</label>
+        <input
+          type="email"
+          x-model="guestEmail"
+          class="demo-input"
+          placeholder="you@example.com"
+        />
+        <p class="text-xs text-gray-500 mt-2">
+          Your file is tagged with this email so we can attribute it.
+        </p>
+      </div>
+
+      <!-- Drop zone -->
+      <div class="demo-panel" :class="authState === 'authenticated' ? 'safe' : ''">
+        <h3>Choose a file</h3>
+        <input
+          type="file"
+          @change="onFileChange"
+          accept=".pdf,.csv,.png,.jpg,.jpeg,.gif,.doc,.docx,.ppt,.pptx,.txt"
+          class="block w-full text-sm text-gray-700 mt-2"
+        />
+        <p class="text-xs text-gray-500 mt-2" x-show="selectedFile">
+          Selected: <strong x-text="selectedFile?.name"></strong>
+          (<span x-text="formatBytes(selectedFile?.size ?? 0)"></span>)
+        </p>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      @click="upload"
+      :disabled="!canUpload"
+      class="btn-primary mt-4"
+    >
+      <span x-show="!uploading">Upload to R2</span>
+      <span x-show="uploading">Scanning &amp; uploading...</span>
+    </button>
+
+    <div x-show="uploadResult" x-transition class="mt-4 demo-panel" :class="uploadResult?.success ? 'safe' : 'danger'">
+      <h3 x-text="uploadResult?.title"></h3>
+      <p class="text-sm" x-text="uploadResult?.message"></p>
+      <template x-if="uploadResult?.detail">
+        <pre class="code-output text-xs mt-2" x-text="uploadResult.detail"></pre>
+      </template>
+    </div>
+  </div>
+
+  <!-- ─────────────────── My files ─────────────────── -->
+  <div x-show="authState === 'authenticated'">
+    <h3 class="text-sm font-semibold text-pine-700 uppercase tracking-wide mb-2">
+      2. My uploaded files
+    </h3>
+    <p class="text-sm text-gray-600 mb-3">
+      Files you've uploaded under this signed-in identity.
+    </p>
+    <button type="button" @click="loadFiles" class="btn-secondary mb-3 text-xs">
+      <span x-show="!loadingFiles">↻ Refresh list</span>
+      <span x-show="loadingFiles">Loading...</span>
+    </button>
+
+    <div x-show="files.length === 0 && !loadingFiles" class="text-sm text-gray-500">
+      No files yet. Upload one above.
+    </div>
+
+    <div class="space-y-2" x-show="files.length > 0">
+      <template x-for="f in files" :key="f.fileId">
+        <div class="flex items-center justify-between gap-3 p-3 bg-white border border-silver-100 rounded">
+          <div class="flex-1 min-w-0">
+            <div class="font-medium text-sm truncate" x-text="f.originalName"></div>
+            <div class="text-xs text-gray-500">
+              <span x-text="formatBytes(f.size)"></span> ·
+              <span x-text="new Date(f.uploadedAt).toLocaleString()"></span> ·
+              <span x-text="f.tier"></span>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <a :href="'/api/r2/download/' + f.fileId" class="btn-secondary text-xs">Download</a>
+            <button @click="deleteFile(f.fileId)" class="btn-danger text-xs">Delete</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ─────────────────── Pricing calculator ─────────────────── -->
+  <div>
+    <h3 class="text-sm font-semibold text-pine-700 uppercase tracking-wide mb-2">
+      3. Pricing calculator: R2 vs the rest
+    </h3>
+    <p class="text-sm text-gray-600 mb-4">
+      Estimate monthly cost for a given workload. R2 has $0 egress —
+      the dramatic differentiator on read-heavy workloads.
+    </p>
+
+    <div class="grid sm:grid-cols-2 gap-4 mb-4">
+      <div>
+        <label class="text-xs text-gray-600 block mb-1">Storage (TB)</label>
+        <input
+          type="range"
+          x-model.number="calc.storageTB"
+          min="0.1" max="500" step="0.1"
+          class="w-full"
+        />
+        <div class="text-sm">
+          <input
+            type="number"
+            x-model.number="calc.storageTB"
+            min="0" step="0.1"
+            class="demo-input w-32 inline-block"
+          />
+          <span class="text-gray-500"> TB stored</span>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-600 block mb-1">Egress (TB / month read out)</label>
+        <input
+          type="range"
+          x-model.number="calc.egressTB"
+          min="0" max="500" step="0.1"
+          class="w-full"
+        />
+        <div class="text-sm">
+          <input
+            type="number"
+            x-model.number="calc.egressTB"
+            min="0" step="0.1"
+            class="demo-input w-32 inline-block"
+          />
+          <span class="text-gray-500"> TB egressed</span>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-600 block mb-1">Class A operations (writes, lists) / month</label>
+        <input
+          type="number"
+          x-model.number="calc.classAOpsMillions"
+          min="0" step="0.1"
+          class="demo-input"
+        />
+        <p class="text-xs text-gray-500 mt-1">In millions. Writes &amp; lists.</p>
+      </div>
+      <div>
+        <label class="text-xs text-gray-600 block mb-1">Class B operations (reads) / month</label>
+        <input
+          type="number"
+          x-model.number="calc.classBOpsMillions"
+          min="0" step="0.1"
+          class="demo-input"
+        />
+        <p class="text-xs text-gray-500 mt-1">In millions. Reads (GET, HEAD).</p>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr class="bg-pine-50">
+            <th class="text-left p-2 font-semibold text-pine-700">Provider</th>
+            <th class="text-right p-2 font-semibold text-pine-700">Storage</th>
+            <th class="text-right p-2 font-semibold text-pine-700">Egress</th>
+            <th class="text-right p-2 font-semibold text-pine-700">Operations</th>
+            <th class="text-right p-2 font-semibold text-pine-700">Total / mo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="row in costs" :key="row.name">
+            <tr class="border-b border-silver-100" :class="row.name === 'Cloudflare R2' ? 'bg-pine-50/50' : ''">
+              <td class="p-2 font-medium" x-text="row.name"></td>
+              <td class="p-2 text-right font-mono text-xs" x-text="'$' + row.storage.toFixed(2)"></td>
+              <td class="p-2 text-right font-mono text-xs" :class="row.egress === 0 ? 'text-pine-600 font-semibold' : ''" x-text="'$' + row.egress.toFixed(2)"></td>
+              <td class="p-2 text-right font-mono text-xs" x-text="'$' + row.operations.toFixed(2)"></td>
+              <td class="p-2 text-right font-mono font-semibold" :class="row.name === 'Cloudflare R2' ? 'text-pine-700' : ''" x-text="'$' + row.total.toFixed(2)"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="text-xs text-gray-500 mt-3">
+      <strong>Pricing as of November 2024.</strong> Standard storage tiers,
+      US regions. Hyperscaler egress and ops pricing varies by region &amp;
+      tier; figures reflect commonly-cited public list prices. R2 egress is
+      $0 to any internet destination, billed only for storage and operations.
+    </p>
+  </div>
+</div>
+
+<script is:inline>
+  // ────────────────────────────────────────────────────────────
+  //  Pricing constants (USD). Last updated: November 2024.
+  //  Sources: public pricing pages from each vendor.
+  // ────────────────────────────────────────────────────────────
+  const PRICING = {
+    "Cloudflare R2": {
+      storage_per_gb_month: 0.015,
+      egress_per_gb: 0,
+      classA_per_million: 4.5,  // writes, lists, etc.
+      classB_per_million: 0.36, // reads
+    },
+    "AWS S3 (Standard)": {
+      storage_per_gb_month: 0.023,
+      egress_per_gb: 0.09,      // first 10TB tier
+      classA_per_million: 5.0,
+      classB_per_million: 0.4,
+    },
+    "Google Cloud Storage (Standard)": {
+      storage_per_gb_month: 0.020,
+      egress_per_gb: 0.12,      // egress to internet, typical
+      classA_per_million: 5.0,
+      classB_per_million: 0.4,
+    },
+    "Azure Blob (Hot)": {
+      storage_per_gb_month: 0.018,
+      egress_per_gb: 0.087,
+      classA_per_million: 6.5,
+      classB_per_million: 0.5,
+    },
+    "Vercel Blob": {
+      storage_per_gb_month: 0.023,
+      egress_per_gb: 0.05,
+      classA_per_million: 5.0,
+      classB_per_million: 0.4,
+    },
+  };
+
+  function r2Demo() {
+    return {
+      // ── Auth state
+      authState: "checking", // checking | authenticated | guest
+      userEmail: "",
+      guestEmail: "",
+
+      // ── Upload
+      selectedFile: null,
+      uploading: false,
+      uploadResult: null,
+
+      // ── Files
+      files: [],
+      loadingFiles: false,
+
+      // ── Calculator (defaults trigger interesting numbers)
+      calc: {
+        storageTB: 10,
+        egressTB: 50,
+        classAOpsMillions: 1,
+        classBOpsMillions: 100,
+      },
+
+      get canUpload() {
+        if (!this.selectedFile || this.uploading) return false;
+        if (this.authState === "authenticated") return true;
+        if (this.authState === "guest") return /\S+@\S+\.\S+/.test(this.guestEmail);
+        return false;
+      },
+
+      get costs() {
+        const storageGB = this.calc.storageTB * 1024;
+        const egressGB = this.calc.egressTB * 1024;
+        const opsA = this.calc.classAOpsMillions;
+        const opsB = this.calc.classBOpsMillions;
+        return Object.entries(PRICING).map(([name, p]) => {
+          const storage = storageGB * p.storage_per_gb_month;
+          const egress = egressGB * p.egress_per_gb;
+          const operations = opsA * p.classA_per_million + opsB * p.classB_per_million;
+          return {
+            name,
+            storage,
+            egress,
+            operations,
+            total: storage + egress + operations,
+          };
+        });
+      },
+
+      formatBytes(bytes) {
+        if (!bytes) return "0 B";
+        const units = ["B", "KB", "MB", "GB"];
+        let i = 0;
+        let n = bytes;
+        while (n >= 1024 && i < units.length - 1) {
+          n /= 1024;
+          i++;
+        }
+        return n.toFixed(n < 10 ? 1 : 0) + " " + units[i];
+      },
+
+      async checkAuth() {
+        try {
+          const res = await fetch("/api/auth/whoami");
+          if (res.ok) {
+            const data = await res.json();
+            if (data.authenticated && data.email) {
+              this.authState = "authenticated";
+              this.userEmail = data.email;
+              this.loadFiles();
+              return;
+            }
+          }
+        } catch {}
+        this.authState = "guest";
+      },
+
+      onFileChange(e) {
+        this.selectedFile = e.target.files?.[0] ?? null;
+        this.uploadResult = null;
+      },
+
+      async upload() {
+        if (!this.canUpload) return;
+        this.uploading = true;
+        this.uploadResult = null;
+        try {
+          const form = new FormData();
+          form.append("file", this.selectedFile);
+          if (this.authState === "guest") {
+            form.append("guestEmail", this.guestEmail);
+          }
+          const res = await fetch("/api/r2/upload", { method: "POST", body: form });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            this.uploadResult = {
+              success: true,
+              title: "✓ Upload successful",
+              message: `File ${data.filename} (${this.formatBytes(data.size)}) stored in R2. Scan: ${data.scanStatus ?? "clean"}.`,
+              detail: data.scanDetails ? JSON.stringify(data.scanDetails, null, 2) : null,
+            };
+            this.selectedFile = null;
+            document.querySelector("input[type=file]").value = "";
+            if (this.authState === "authenticated") this.loadFiles();
+          } else {
+            this.uploadResult = {
+              success: false,
+              title: data.scanStatus === "malicious" ? "⚠ Malicious file blocked" : "✗ Upload rejected",
+              message: data.error || "Upload failed.",
+              detail: data.scanDetails ? JSON.stringify(data.scanDetails, null, 2) : null,
+            };
+          }
+        } catch (e) {
+          this.uploadResult = {
+            success: false,
+            title: "Network error",
+            message: e?.message ?? String(e),
+          };
+        } finally {
+          this.uploading = false;
+        }
+      },
+
+      async loadFiles() {
+        if (this.authState !== "authenticated") return;
+        this.loadingFiles = true;
+        try {
+          const res = await fetch("/api/r2/list");
+          const data = await res.json();
+          if (res.ok) this.files = data.files ?? [];
+        } catch {}
+        this.loadingFiles = false;
+      },
+
+      async deleteFile(fileId) {
+        if (!confirm("Delete this file?")) return;
+        try {
+          const res = await fetch("/api/r2/delete/" + fileId, { method: "DELETE" });
+          if (res.ok) this.loadFiles();
+        } catch {}
+      },
+    };
+  }
+</script>

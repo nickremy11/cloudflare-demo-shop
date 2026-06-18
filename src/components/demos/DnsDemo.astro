@@ -1,0 +1,131 @@
+---
+// DNS demo using Cloudflare's public 1.1.1.1 DNS-over-HTTPS endpoint.
+// No server-side function required — calls dns.google-style JSON API directly.
+---
+
+<div x-data="dnsDemo()" class="space-y-4">
+  <p class="text-sm text-gray-600">
+    Look up DNS records via Cloudflare's <code>1.1.1.1</code> resolver over HTTPS.
+    The query travels from your browser to the nearest Cloudflare PoP. Try
+    <code>cloudflare.com</code>, <code>remydemo.com</code>, or any domain.
+  </p>
+
+  <form @submit.prevent="lookup" class="flex flex-wrap gap-2">
+    <input
+      type="text"
+      x-model="domain"
+      placeholder="cloudflare.com"
+      class="demo-input flex-1 min-w-[200px]"
+    />
+    <select x-model="type" class="demo-input w-32">
+      <option value="A">A</option>
+      <option value="AAAA">AAAA</option>
+      <option value="MX">MX</option>
+      <option value="TXT">TXT</option>
+      <option value="NS">NS</option>
+      <option value="CNAME">CNAME</option>
+      <option value="SOA">SOA</option>
+    </select>
+    <button type="submit" :disabled="loading" class="btn-primary">
+      Look up
+    </button>
+  </form>
+
+  <div x-show="error" class="demo-panel danger">
+    <p class="text-sm" x-text="error"></p>
+  </div>
+
+  <div x-show="results.length > 0" x-transition>
+    <div class="text-sm font-semibold text-gray-700 mb-2">
+      Results for <code x-text="lastQuery"></code>:
+    </div>
+    <div class="code-output text-xs">
+      <template x-for="record in results" :key="record.name + record.data">
+        <div class="py-1 border-b border-silver-100 last:border-b-0">
+          <span class="text-pine-600 font-semibold" x-text="record.name"></span>
+          <span class="text-gray-400 mx-2">·</span>
+          <span class="text-gray-600" x-text="record.TTL + 's'"></span>
+          <span class="text-gray-400 mx-2">·</span>
+          <span x-text="record.data"></span>
+        </div>
+      </template>
+    </div>
+    <p class="text-xs text-gray-500 mt-2" x-show="meta">
+      <span x-text="'Status: ' + meta.Status"></span> ·
+      <span x-text="'TC: ' + meta.TC"></span> ·
+      <span x-text="'RD: ' + meta.RD"></span> ·
+      <span x-text="'RA: ' + meta.RA"></span> ·
+      <span x-text="'AD (DNSSEC): ' + meta.AD"></span>
+    </p>
+  </div>
+
+  <div x-show="results.length === 0 && !error && lastQuery" class="text-sm text-gray-500">
+    No records found.
+  </div>
+</div>
+
+<script is:inline>
+  function dnsDemo() {
+    return {
+      domain: "cloudflare.com",
+      type: "A",
+      loading: false,
+      results: [],
+      meta: null,
+      lastQuery: "",
+      error: "",
+
+      // Map RR type numbers from 1.1.1.1's JSON to names
+      typeNames: {
+        1: "A", 2: "NS", 5: "CNAME", 6: "SOA", 12: "PTR",
+        15: "MX", 16: "TXT", 28: "AAAA", 33: "SRV", 65: "HTTPS",
+      },
+
+      async lookup() {
+        if (!this.domain.trim()) return;
+        this.loading = true;
+        this.error = "";
+        this.results = [];
+        this.meta = null;
+
+        const q = encodeURIComponent(this.domain.trim());
+        const url = `https://1.1.1.1/dns-query?name=${q}&type=${this.type}`;
+
+        try {
+          const res = await fetch(url, {
+            headers: { Accept: "application/dns-json" },
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          this.lastQuery = `${this.domain} (${this.type})`;
+          this.meta = {
+            Status: data.Status,
+            TC: data.TC,
+            RD: data.RD,
+            RA: data.RA,
+            AD: data.AD,
+          };
+          this.results = (data.Answer ?? []).map((r) => ({
+            name: r.name,
+            TTL: r.TTL,
+            data: r.data,
+            type: this.typeNames[r.type] || `type ${r.type}`,
+          }));
+          if (this.results.length === 0 && data.Authority?.length) {
+            // Show SOA fallback when no answer
+            this.results = data.Authority.map((r) => ({
+              name: r.name,
+              TTL: r.TTL,
+              data: r.data,
+              type: this.typeNames[r.type] || `type ${r.type}`,
+            }));
+          }
+        } catch (e) {
+          this.error = `Lookup failed: ${e?.message ?? e}`;
+        } finally {
+          this.loading = false;
+        }
+      },
+    };
+  }
+</script>

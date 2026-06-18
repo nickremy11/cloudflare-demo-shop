@@ -1,0 +1,117 @@
+---
+import Base from "./Base.astro";
+import { getPillar, type PillarSlug } from "../data/pillars.ts";
+import DiagramSlot from "../components/DiagramSlot.astro";
+import FAQList from "../components/FAQList.astro";
+import DiveDeeper from "../components/DiveDeeper.astro";
+import DemoSlot from "../components/DemoSlot.astro";
+
+interface Props {
+  frontmatter: {
+    title: string;
+    blurb: string;
+    pillar: PillarSlug;
+    challenge: { question: string; detail: string };
+    diagram?: { src?: string; alt?: string; caption?: string };
+    solutionPoints: { title: string; detail: string }[];
+    faq: { question: string; answer: string }[];
+    demo: {
+      type: "interactive" | "coming-soon" | "external-link";
+      component?: string;
+      externalUrl?: string;
+      note?: string;
+    };
+    diveDeeper: {
+      docs: { title: string; url: string }[];
+      blogs: { title: string; url: string }[];
+    };
+  };
+  slug: string;
+}
+
+const { frontmatter, slug } = Astro.props;
+const pillar = getPillar(frontmatter.pillar);
+---
+
+<Base title={`${frontmatter.title} — Cloudflare Demo Shop`} description={frontmatter.blurb}>
+  <!-- Hero with title + blurb + breadcrumb -->
+  <section class="bg-pine-500 text-white py-10">
+    <div class="max-w-5xl mx-auto px-6">
+      <nav class="text-sm text-pine-200 mb-3">
+        <a href="/" class="hover:text-white">Home</a>
+        <span class="mx-2">›</span>
+        <span>{pillar.label}</span>
+      </nav>
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-3">
+        {frontmatter.title}
+      </h1>
+      <p class="text-base md:text-lg text-pine-100 max-w-3xl">
+        {frontmatter.blurb}
+      </p>
+    </div>
+  </section>
+
+  <main class="max-w-5xl mx-auto px-6 py-10">
+    <!-- ─── What is the challenge? ─── -->
+    <section class="solution-section">
+      <div class="section-label">What is the challenge?</div>
+      <h2 class="section-heading">{frontmatter.challenge.question}</h2>
+      <p class="text-gray-700 leading-relaxed">{frontmatter.challenge.detail}</p>
+    </section>
+
+    <!-- ─── Diagram ─── -->
+    <section class="solution-section">
+      <div class="section-label">Architecture</div>
+      <h2 class="section-heading">How it fits together</h2>
+      <DiagramSlot
+        src={frontmatter.diagram?.src}
+        alt={frontmatter.diagram?.alt}
+        caption={frontmatter.diagram?.caption}
+      />
+    </section>
+
+    <!-- ─── Cloudflare's Solution ─── -->
+    <section class="solution-section">
+      <div class="section-label">Cloudflare's Solution</div>
+      <h2 class="section-heading">How Cloudflare solves it</h2>
+      <ul class="solution-bullets">
+        {
+          frontmatter.solutionPoints.map((p) => (
+            <li>
+              <strong>{p.title}</strong>
+              {p.detail}
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <!-- ─── FAQ ─── -->
+    <section class="solution-section">
+      <div class="section-label">FAQ</div>
+      <h2 class="section-heading">Common questions</h2>
+      <FAQList items={frontmatter.faq} />
+    </section>
+
+    <!-- ─── Let's Test! ─── -->
+    <section class="solution-section">
+      <div class="section-label">Let's Test!</div>
+      <h2 class="section-heading">Try it live</h2>
+      <DemoSlot demo={frontmatter.demo} solutionTitle={frontmatter.title} />
+    </section>
+
+    <!-- ─── Dive Deeper ─── -->
+    <section class="solution-section">
+      <div class="section-label">Dive Deeper</div>
+      <h2 class="section-heading">Docs &amp; blogs</h2>
+      <DiveDeeper
+        docs={frontmatter.diveDeeper.docs}
+        blogs={frontmatter.diveDeeper.blogs}
+      />
+    </section>
+
+    <div class="mt-8 text-center">
+      <a href="/" class="btn-secondary">← Back to all solutions</a>
+    </div>
+  </main>
+</Base>

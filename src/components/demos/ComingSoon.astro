@@ -1,0 +1,16 @@
+---
+interface Props {
+  solutionTitle: string;
+}
+
+const { solutionTitle } = Astro.props;
+---
+
+<div class="coming-soon">
+  <h3>Demo coming soon</h3>
+  <p>
+    An interactive demo for <strong>{solutionTitle}</strong> is being built. In
+    the meantime, check the &quot;Dive Deeper&quot; section below for the
+    official docs and product blogs.
+  </p>
+</div>

@@ -1,0 +1,25 @@
+---
+interface Props {
+  src?: string;
+  alt?: string;
+  caption?: string;
+}
+
+const { src, alt, caption } = Astro.props;
+---
+
+{
+  src ? (
+    <figure>
+      <img src={src} alt={alt ?? ""} />
+      {caption && <figcaption class="text-center text-sm text-gray-500 mt-3">{caption}</figcaption>}
+    </figure>
+  ) : (
+    <div class="diagram-slot">
+      <p class="font-medium">Diagram coming soon</p>
+      <p class="text-xs mt-1 opacity-75">
+        Architecture diagram for this solution will be added here.
+      </p>
+    </div>
+  )
+}

@@ -1,0 +1,141 @@
+---
+// Bot Management & Rate Limiting demo.
+// - Reads the _cfbm cookie (set by functions/_middleware.js) for the current bot score
+// - Lets the user hit /api/rate-limit-test repeatedly to trigger a 429
+---
+
+<div x-data="botRateDemo()" x-init="readBotCookie()" class="space-y-6">
+  <!-- ───── Bot score panel ───── -->
+  <div>
+    <h3 class="text-sm font-semibold text-pine-700 uppercase tracking-wide mb-2">
+      Your current bot management score
+    </h3>
+    <p class="text-sm text-gray-600 mb-3">
+      Read from the <code class="bg-silver-50 px-1.5 py-0.5 rounded text-xs">_cfbm</code> cookie
+      set by Cloudflare on each request to this site. 1 = definitely bot,
+      99 = definitely human. The site middleware injects this so we can show it on the page.
+    </p>
+    <div class="demo-columns">
+      <div class="demo-panel safe">
+        <h3>Bot Score</h3>
+        <div class="text-4xl font-bold text-pine-600 my-3" x-text="botScore ?? '—'"></div>
+        <p class="text-xs text-gray-500" x-text="botScoreDescription"></p>
+      </div>
+      <div class="demo-panel safe">
+        <h3>Verified Bot</h3>
+        <div class="text-4xl font-bold my-3" :class="verifiedBot ? 'text-pine-600' : 'text-gray-400'">
+          <span x-text="verifiedBot === null ? '—' : verifiedBot ? 'YES' : 'NO'"></span>
+        </div>
+        <p class="text-xs text-gray-500">
+          Verified bots (Googlebot, Bingbot, monitoring tools) are explicitly
+          allowed by default.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── Rate limit tester ───── -->
+  <div>
+    <h3 class="text-sm font-semibold text-pine-700 uppercase tracking-wide mb-2">
+      Rate limiting test
+    </h3>
+    <p class="text-sm text-gray-600 mb-3">
+      Hit the rate-limit endpoint as fast as you can. A rate-limit rule
+      configured on
+      <code class="bg-silver-50 px-1.5 py-0.5 rounded text-xs">/api/rate-limit-test</code>
+      will return 429 once you cross the threshold.
+    </p>
+    <div class="flex flex-wrap items-center gap-3">
+      <button type="button" @click="fireOnce" :disabled="firing" class="btn-primary">
+        Send one request
+      </button>
+      <button type="button" @click="fireBurst" :disabled="firing" class="btn-danger">
+        Burst (10 requests)
+      </button>
+      <span class="text-sm text-gray-500" x-show="firing">Firing...</span>
+    </div>
+
+    <div class="mt-4 grid grid-cols-3 gap-3 text-center">
+      <div class="bg-pine-50 border border-pine-100 rounded p-3">
+        <div class="text-2xl font-bold text-pine-600" x-text="counts.total"></div>
+        <div class="text-xs text-gray-600">Sent</div>
+      </div>
+      <div class="bg-green-50 border border-green-100 rounded p-3">
+        <div class="text-2xl font-bold text-green-700" x-text="counts.ok"></div>
+        <div class="text-xs text-gray-600">200 OK</div>
+      </div>
+      <div class="bg-red-50 border border-red-100 rounded p-3">
+        <div class="text-2xl font-bold text-red-700" x-text="counts.blocked"></div>
+        <div class="text-xs text-gray-600">429 / 503</div>
+      </div>
+    </div>
+
+    <div class="code-output mt-3" x-text="log || 'Recent responses will appear here...'"></div>
+  </div>
+</div>
+
+<script is:inline>
+  function botRateDemo() {
+    return {
+      botScore: null,
+      verifiedBot: null,
+      firing: false,
+      counts: { total: 0, ok: 0, blocked: 0 },
+      log: "",
+
+      get botScoreDescription() {
+        if (this.botScore === null) return "Reload the page if the score is missing.";
+        const n = Number(this.botScore);
+        if (n >= 80) return "Strong human signal";
+        if (n >= 30) return "Likely human (mixed signals)";
+        if (n >= 10) return "Likely automated";
+        return "Likely bot";
+      },
+
+      readBotCookie() {
+        const cookies = document.cookie.split(";").map((c) => c.trim());
+        const cfbm = cookies.find((c) => c.startsWith("_cfbm="));
+        if (!cfbm) return;
+        const [, value] = cfbm.split("=");
+        if (!value) return;
+        const [score, verified] = decodeURIComponent(value).split(",");
+        this.botScore = score && score !== "" ? score : null;
+        this.verifiedBot = verified === "true";
+      },
+
+      async fireOnce() {
+        this.firing = true;
+        await this.hit();
+        this.firing = false;
+      },
+
+      async fireBurst() {
+        this.firing = true;
+        for (let i = 0; i < 10; i++) {
+          await this.hit();
+        }
+        this.firing = false;
+      },
+
+      async hit() {
+        this.counts.total++;
+        try {
+          const res = await fetch("/api/rate-limit-test", { cache: "no-store" });
+          if (res.ok) {
+            this.counts.ok++;
+            this.log = `[${new Date().toISOString().slice(11, 19)}] 200 OK  (allowed)\n` + this.log;
+          } else {
+            this.counts.blocked++;
+            this.log = `[${new Date().toISOString().slice(11, 19)}] ${res.status} ${res.statusText}  (RATE LIMITED)\n` + this.log;
+          }
+        } catch (e) {
+          this.counts.blocked++;
+          this.log = `[${new Date().toISOString().slice(11, 19)}] error ${e?.message ?? e}\n` + this.log;
+        }
+        // Keep log bounded
+        const lines = this.log.split("\n");
+        if (lines.length > 20) this.log = lines.slice(0, 20).join("\n");
+      },
+    };
+  }
+</script>

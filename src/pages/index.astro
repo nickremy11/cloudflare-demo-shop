@@ -1,0 +1,44 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../layouts/Base.astro";
+import PillarSection from "../components/PillarSection.astro";
+import { PILLARS } from "../data/pillars.ts";
+
+const allSolutions = await getCollection("solutions");
+
+// Group solutions by pillar
+const solutionsByPillar = new Map<string, typeof allSolutions>();
+for (const pillar of PILLARS) {
+  solutionsByPillar.set(
+    pillar.slug,
+    allSolutions.filter((s) => s.data.pillar === pillar.slug)
+  );
+}
+---
+
+<Base title="Cloudflare Demo Shop — Explore the Cloudflare Platform">
+  <!-- Hero -->
+  <section class="bg-pine-500 text-white pb-16 pt-14">
+    <div class="max-w-7xl mx-auto px-6 text-center">
+      <h1 class="text-4xl md:text-5xl font-bold tracking-tight mb-4">
+        Explore the Cloudflare Platform
+      </h1>
+      <p class="text-base md:text-lg text-pine-200 max-w-3xl mx-auto">
+        Browse Cloudflare's portfolio across SASE, application security &amp;
+        performance, the developer platform, and network security.
+        Click any solution to see what it does, how it works, and try a live demo.
+      </p>
+    </div>
+  </section>
+
+  <!-- Pillar sections -->
+  <main class="max-w-7xl mx-auto px-6 py-12">
+    {
+      PILLARS.sort((a, b) => a.order - b.order).map((pillar) => {
+        const solutions = solutionsByPillar.get(pillar.slug) ?? [];
+        if (solutions.length === 0) return null;
+        return <PillarSection pillar={pillar} solutions={solutions} />;
+      })
+    }
+  </main>
+</Base>

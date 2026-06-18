@@ -1,0 +1,38 @@
+---
+import type { Pillar } from "../data/pillars.ts";
+import type { CollectionEntry } from "astro:content";
+import SolutionCard from "./SolutionCard.astro";
+
+interface Props {
+  pillar: Pillar;
+  solutions: CollectionEntry<"solutions">[];
+}
+
+const { pillar, solutions } = Astro.props;
+
+// Sort solutions by order within the pillar
+const sorted = solutions.sort((a, b) => a.data.order - b.data.order);
+---
+
+<section class="mb-16">
+  <div class="flex items-baseline gap-4 mb-2">
+    <h2 class="text-xl font-semibold text-pine-600 uppercase tracking-wide">
+      {pillar.label}
+    </h2>
+    <div class="flex-1 h-px bg-pine-200"></div>
+  </div>
+  <p class="text-sm text-gray-500 mb-6 max-w-3xl">{pillar.blurb}</p>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    {
+      sorted.map((solution) => (
+        <SolutionCard
+          title={solution.data.title}
+          slug={solution.slug}
+          blurb={solution.data.blurb}
+          pillarBadge={pillar.badge}
+        />
+      ))
+    }
+  </div>
+</section>

@@ -1,0 +1,48 @@
+---
+interface Props {
+  docs: { title: string; url: string }[];
+  blogs: { title: string; url: string }[];
+}
+
+const { docs, blogs } = Astro.props;
+---
+
+<div class="space-y-5">
+  {
+    docs.length > 0 && (
+      <div>
+        <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
+          Documentation
+        </h4>
+        <ul class="dive-deeper-list">
+          {docs.map((d) => (
+            <li>
+              <a href={d.url} target="_blank" rel="noopener noreferrer">
+                {d.title}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
+  {
+    blogs.length > 0 && (
+      <div>
+        <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
+          Blogs
+        </h4>
+        <ul class="dive-deeper-list">
+          {blogs.map((b) => (
+            <li>
+              <a href={b.url} target="_blank" rel="noopener noreferrer">
+                {b.title}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+</div>
