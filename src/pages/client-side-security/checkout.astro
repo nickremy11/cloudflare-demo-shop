@@ -13,6 +13,13 @@
 //     - /api/page-shield/checkout-core.js          (first-party, stable)
 //     - /api/page-shield/checkout-analytics.js     (first-party, code-change toggle)
 //     - https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js (trusted 3rd-party)
+//
+// Note on CSP rules: a zone-wide content security rule will likely report
+// the jsdelivr jQuery as a violation unless the rule allowlists
+// cdn.jsdelivr.net in script-src. That's the point — operators iterate on
+// the rule (or create a checkout-scoped rule) to drive violations to zero
+// while keeping the page functional. Browsers may also surface this under
+// script-src-elem, which falls back to script-src when not set.
 //   Connections:
 //     - POST /api/page-shield/checkout/submit      (first-party, expected)
 //     - POST /api/page-shield/checkout/telemetry   (first-party, expected)

@@ -1262,11 +1262,19 @@ app.post("/api/page-shield/checkout/submit", async (c) => {
   const sessionId = "sess_" + Math.random().toString(36).slice(2, 14);
 
   // First-party cookies. These will appear in Client-Side Security cookie
-  // monitoring as `first_party` type with full attributes.
-  const cookies = [
-    `demo_checkout_session=${sessionId}; Path=/; SameSite=Strict; Secure; HttpOnly; Max-Age=1800`,
-    `demo_checkout_last_order=${orderId}; Path=/; SameSite=Lax; Secure; Max-Age=604800`,
-  ];
+  // monitoring as `first_party` type with full attributes. Each cookie must
+  // be sent as its OWN Set-Cookie header (not joined with ", ") because
+  // cookie attributes like Expires legally contain commas and would otherwise
+  // collide and trigger "attribute overwritten" browser warnings.
+  const headers = new Headers({ "Content-Type": "application/json" });
+  headers.append(
+    "Set-Cookie",
+    `demo_checkout_session=${sessionId}; Path=/; SameSite=Strict; Secure; HttpOnly; Max-Age=1800`
+  );
+  headers.append(
+    "Set-Cookie",
+    `demo_checkout_last_order=${orderId}; Path=/; SameSite=Lax; Secure; Max-Age=604800`
+  );
 
   return new Response(
     JSON.stringify({
@@ -1280,13 +1288,7 @@ app.post("/api/page-shield/checkout/submit", async (c) => {
       },
       ts: Date.now(),
     }),
-    {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Set-Cookie": cookies.join(", "),
-      },
-    }
+    { status: 200, headers }
   );
 });
 
