@@ -44,6 +44,17 @@
     <div id="turnstile-container"></div>
     <p x-show="!widgetReady" class="text-xs text-gray-500">Loading Turnstile widget...</p>
 
+    <!-- Demo-only: simulate a server-side rejection without needing DevTools.
+         When checked, the client sends a garbage token to /api/turnstile/verify
+         so Cloudflare's siteverify returns success:false. -->
+    <label class="flex items-start gap-2 text-xs text-gray-600 cursor-pointer select-none border border-dashed border-gray-300 rounded p-2 bg-gray-50">
+      <input type="checkbox" x-model="simulateFailure" class="mt-0.5" />
+      <span>
+        <strong>Simulate failed verification</strong> — sends an invalid token to
+        the server so siteverify rejects it. Useful for demoing the failure path.
+      </span>
+    </label>
+
     <button type="submit" :disabled="!token || submitting" class="btn-primary">
       <span x-show="!submitting">Submit</span>
       <span x-show="submitting">Verifying...</span>
@@ -74,6 +85,7 @@
       result: null,
       widgetReady: false,
       widgetId: null,
+      simulateFailure: false,
 
       get resultPanelClass() {
         return this.result?.success ? "safe" : "danger";
@@ -124,12 +136,20 @@
         if (!this.token) return;
         this.submitting = true;
         this.result = null;
+
+        // When the demo toggle is on, send a garbage token. The real token
+        // is still issued by the widget (so the button enables), we just
+        // discard it on the wire to demonstrate a server-side rejection.
+        const tokenToSend = this.simulateFailure
+          ? "demo-invalid-token-" + Date.now()
+          : this.token;
+
         try {
           const res = await fetch("/api/turnstile/verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              token: this.token,
+              token: tokenToSend,
               name: this.name,
               message: this.message,
             }),
