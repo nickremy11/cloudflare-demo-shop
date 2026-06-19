@@ -987,9 +987,9 @@ app.get("/api/page-shield/analytics.js", async (c) => {
     status: 200,
     headers: {
       "Content-Type": "application/javascript; charset=utf-8",
-      // Allow Cloudflare to cache + fingerprint, but keep browser cache short
-      // so the toggle is visible quickly during a demo.
-      "Cache-Control": "public, max-age=60",
+      // No cache: Page Shield must see the current version on every load so
+      // the v1 → v2 toggle is detected as a Code Change within minutes.
+      "Cache-Control": "no-cache, no-store, must-revalidate",
       "X-Demo-Script-Version": version,
     },
   });

