@@ -34,6 +34,7 @@ type Bindings = {
   CF_ZONE_ID?: string;
   CF_CACHE_PURGE_TOKEN?: string;
   TURNSTILE_SECRET?: string;
+  TURNSTILE_SITE_KEY?: string;
 };
 
 type Variables = {
@@ -777,6 +778,16 @@ app.post("/api/cache/purge", async (c) => {
 //   1x0000000000000000000000000000000AA — always passes
 //   2x0000000000000000000000000000000AA — always fails
 // In production, set TURNSTILE_SECRET to your real widget secret.
+
+// Exposes the public site key to the client-side demo. The site key is public
+// (always visible in HTML), but routing through here lets us swap it via
+// wrangler.toml [vars] without rebuilding the Astro component.
+app.get("/api/turnstile/config", (c) => {
+  return c.json({
+    siteKey: c.env.TURNSTILE_SITE_KEY || "1x00000000000000000000AA",
+    usingTestKey: !c.env.TURNSTILE_SITE_KEY,
+  });
+});
 
 app.post("/api/turnstile/verify", async (c) => {
   try {

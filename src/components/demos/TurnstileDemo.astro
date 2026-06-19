@@ -1,8 +1,9 @@
 ---
 // Turnstile interactive demo.
-// Uses Cloudflare's official always-passing test site key on the page;
-// the verify endpoint on the server uses the test secret. In production
-// you'd swap both for real keys via env vars / secrets.
+// Site key is fetched at runtime from /api/turnstile/config (sourced from
+// wrangler.toml [vars] TURNSTILE_SITE_KEY). The verify endpoint uses
+// TURNSTILE_SECRET (set as a secret in the Pages dashboard). Both fall back
+// to Cloudflare's public test keys if not configured.
 //
 // Test keys (public): https://developers.cloudflare.com/turnstile/troubleshooting/testing/
 //   Always-passes site key:  1x00000000000000000000AA
@@ -13,9 +14,8 @@
   <p class="text-sm text-gray-600">
     Fill out the form below. The Turnstile widget issues a token; on submit,
     the server calls Cloudflare's <code>siteverify</code> endpoint to confirm
-    the token before accepting the submission. The site key here is
-    Cloudflare's public &quot;always passes&quot; test key — visible challenges
-    won't appear. In production you'd use your own keys.
+    the token before accepting the submission. The site key is loaded from
+    the server config so it can be rotated without rebuilding.
   </p>
 
   <form @submit.prevent="submit" class="space-y-3 max-w-lg">
@@ -40,14 +40,9 @@
       ></textarea>
     </div>
 
-    <!-- Turnstile widget mount point -->
-    <div
-      class="cf-turnstile"
-      data-sitekey="1x00000000000000000000AA"
-      data-callback="onTurnstileSuccess"
-      data-error-callback="onTurnstileError"
-      data-expired-callback="onTurnstileExpired"
-    ></div>
+    <!-- Turnstile widget mount point — populated by turnstile.render() -->
+    <div id="turnstile-container"></div>
+    <p x-show="!widgetReady" class="text-xs text-gray-500">Loading Turnstile widget...</p>
 
     <button type="submit" :disabled="!token || submitting" class="btn-primary">
       <span x-show="!submitting">Submit</span>
@@ -62,25 +57,14 @@
   </div>
 </div>
 
-<!-- Turnstile script -->
+<!-- Turnstile script — explicit rendering, no auto-render -->
 <script
   is:inline
-  src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+  src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
   async
   defer></script>
 
 <script is:inline>
-  // Make callbacks globally accessible (Turnstile invokes them by string name)
-  window.onTurnstileSuccess = (token) => {
-    document.dispatchEvent(new CustomEvent("turnstile:success", { detail: token }));
-  };
-  window.onTurnstileError = () => {
-    document.dispatchEvent(new CustomEvent("turnstile:error"));
-  };
-  window.onTurnstileExpired = () => {
-    document.dispatchEvent(new CustomEvent("turnstile:expired"));
-  };
-
   function turnstileDemo() {
     return {
       name: "",
@@ -88,22 +72,52 @@
       token: null,
       submitting: false,
       result: null,
+      widgetReady: false,
+      widgetId: null,
 
       get resultPanelClass() {
         return this.result?.success ? "safe" : "danger";
       },
 
-      init() {
-        document.addEventListener("turnstile:success", (e) => {
-          this.token = e.detail;
-        });
-        document.addEventListener("turnstile:error", () => {
-          this.token = null;
-          this.result = { success: false, title: "Widget error", message: "Turnstile widget reported an error. Reload the page to try again." };
-        });
-        document.addEventListener("turnstile:expired", () => {
-          this.token = null;
-        });
+      async init() {
+        // 1. Fetch the site key from the server (sourced from wrangler.toml [vars])
+        let siteKey;
+        try {
+          const res = await fetch("/api/turnstile/config");
+          const data = await res.json();
+          siteKey = data.siteKey;
+        } catch (e) {
+          console.error("Failed to load Turnstile config", e);
+          this.result = {
+            success: false,
+            title: "Config error",
+            message: "Could not load Turnstile site key from server.",
+          };
+          return;
+        }
+
+        // 2. Wait for the Turnstile script to load, then render the widget
+        const renderWhenReady = () => {
+          if (window.turnstile) {
+            this.widgetId = window.turnstile.render("#turnstile-container", {
+              sitekey: siteKey,
+              callback: (token) => { this.token = token; },
+              "error-callback": () => {
+                this.token = null;
+                this.result = {
+                  success: false,
+                  title: "Widget error",
+                  message: "Turnstile widget reported an error. Reload the page to try again.",
+                };
+              },
+              "expired-callback": () => { this.token = null; },
+            });
+            this.widgetReady = true;
+          } else {
+            setTimeout(renderWhenReady, 100);
+          }
+        };
+        renderWhenReady();
       },
 
       async submit() {
@@ -136,6 +150,12 @@
               message: data.error || "Turnstile rejected the token.",
               details: JSON.stringify(data, null, 2),
             };
+          }
+
+          // Reset the widget so the user can retry
+          if (this.widgetId && window.turnstile) {
+            window.turnstile.reset(this.widgetId);
+            this.token = null;
           }
         } catch (e) {
           this.result = {

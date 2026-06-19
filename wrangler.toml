@@ -5,6 +5,13 @@ pages_build_output_dir = "dist"
 # workers_dev intentionally not set (defaults to false for Pages projects)
 # This site is served via Cloudflare Pages, not workers.dev
 
+# ── Plain-text runtime variables ───────────────────────────
+# Available on c.env in Pages Functions. Source of truth for non-secret config.
+# Secrets (CF_CACHE_PURGE_TOKEN, TURNSTILE_SECRET, AIG_TOKEN) live in the dashboard.
+[vars]
+CF_ZONE_ID = "00fe352511075ed27384acfcb5828e51"
+TURNSTILE_SITE_KEY = "0x4AAAAAADnbsExT-_BvgdJT"
+
 # ── R2 Storage Demo Bindings ────────────────────────────────
 # R2 bucket for file storage
 [[r2_buckets]]
