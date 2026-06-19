@@ -33,16 +33,18 @@ faq:
 demo:
   type: "interactive"
   component: "PageShieldDemo"
-  note: "Two attack scenarios — a Magecart-style data exfiltration that fires an oversized beacon URL packed with card data (triggers the Max URL Length alert), and a CDN supply-chain compromise that mutates an already-fingerprinted analytics script (triggers the Code Change Detection alert). Both alerts are configured on this zone and will land in your inbox within a few minutes of the click."
+  note: "The live demo runs on a dedicated checkout page at /client-side-security/checkout so Client-Side Security has a clean, stable surface to inventory. Use the scenario toggles below to flip alert scenarios on that page — coinhive injection (new script + malicious domain), unexpected connection, unexpected cookie, or a code change to an already-fingerprinted analytics script. Hit Open Checkout to view the demo surface, then trigger an alert and watch it land in the dashboard."
 
 diveDeeper:
   docs:
-    - title: "Page Shield overview"
-      url: "https://developers.cloudflare.com/page-shield/"
-    - title: "Connections monitor"
-      url: "https://developers.cloudflare.com/page-shield/reference/connections-page/"
-    - title: "Content Security Policy with Page Shield"
-      url: "https://developers.cloudflare.com/page-shield/how-it-works/"
+    - title: "Client-side security overview"
+      url: "https://developers.cloudflare.com/client-side-security/"
+    - title: "Monitor resources and cookies"
+      url: "https://developers.cloudflare.com/client-side-security/detection/monitor-connections-scripts/"
+    - title: "Content security rules (CSP)"
+      url: "https://developers.cloudflare.com/client-side-security/rules/"
+    - title: "How client-side security works"
+      url: "https://developers.cloudflare.com/client-side-security/how-it-works/"
   blogs:
     - title: "Page Shield is now generally available"
       url: "https://blog.cloudflare.com/page-shield-generally-available/"

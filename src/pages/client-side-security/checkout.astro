@@ -1,0 +1,376 @@
+---
+// /client-side-security/checkout
+//
+// Dedicated Client-Side Security demo surface. Deliberately does NOT use
+// the shared Base layout. The shared layout pulls in GTM, Tailwind CDN,
+// inline Tailwind config, Alpine.js, Google Fonts, and the chat widget,
+// which would all pollute the Page Shield inventory and make the CSP
+// story noisy. This page is hand-rolled HTML so we have full control
+// over every script, connection, and cookie surface.
+//
+// Resources monitored by Client-Side Security on this page (baseline):
+//   Scripts:
+//     - /api/page-shield/checkout-core.js          (first-party, stable)
+//     - /api/page-shield/checkout-analytics.js     (first-party, code-change toggle)
+//     - https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js (trusted 3rd-party)
+//   Connections:
+//     - POST /api/page-shield/checkout/submit      (first-party, expected)
+//     - POST /api/page-shield/checkout/telemetry   (first-party, expected)
+//   Cookies:
+//     - demo_checkout_session                      (Set-Cookie, first-party)
+//     - demo_checkout_last_order                   (Set-Cookie, first-party)
+//     - demo_cart_seen                             (document.cookie, JS-set)
+//
+// Scenario toggles (read at request time from KV via the API and inlined
+// into the page) add controlled extras to trigger Page Shield alerts:
+//   new_script    -> injects https://coinhive.com/lib/coinhive.min.js
+//   bad_conn      -> fetch() to an unexpected external host
+//   bad_cookie    -> sets an unexpected cookie name
+//   code_change   -> served checkout-analytics.js flips v1 <-> v2
+//
+// The script/connection lists are kept short on purpose. The goal is a
+// clean, deterministic inventory, not a synthetic dump.
+
+import "../../styles/global.css";
+
+// Read scenario flags so the rendered HTML reflects current toggles.
+// Astro static build won't have a fetch here, so we leave them as defaults
+// and rely on a small bootstrap fetch on the client side. This keeps the
+// page fully static-deployable on Cloudflare Pages.
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Acme Outfitters — Checkout</title>
+    <meta
+      name="description"
+      content="Cloudflare Client-Side Security demo checkout page."
+    />
+
+    <!-- Baseline first-party scripts (monitored by Client-Side Security) -->
+    <script is:inline src="/api/page-shield/checkout-core.js" defer></script>
+    <script is:inline src="/api/page-shield/checkout-analytics.js" defer></script>
+
+    <!-- One trusted third-party script (legitimate). -->
+    <script
+      is:inline
+      src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"
+      defer></script>
+
+    <style>
+      :root {
+        --pine: #2f4f2f;
+        --pine-dark: #1f381f;
+        --silver: #f5f5f5;
+        --silver-line: #e5e5e5;
+        --danger: #b91c1c;
+        --safe: #166534;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+          system-ui, sans-serif;
+        background: var(--silver);
+        color: #1a1a1a;
+      }
+      header.shop {
+        background: var(--pine);
+        color: #fff;
+        padding: 1rem 1.5rem;
+      }
+      header.shop a {
+        color: #fff;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      header.shop .sub {
+        font-size: 0.8rem;
+        opacity: 0.8;
+      }
+      main.checkout {
+        max-width: 960px;
+        margin: 2rem auto;
+        padding: 0 1.25rem;
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 1.5rem;
+      }
+      @media (max-width: 760px) {
+        main.checkout {
+          grid-template-columns: 1fr;
+        }
+      }
+      .card {
+        background: #fff;
+        border: 1px solid var(--silver-line);
+        border-radius: 0.5rem;
+        padding: 1.25rem 1.5rem;
+      }
+      .card h2 {
+        margin: 0 0 0.75rem 0;
+        font-size: 1.1rem;
+      }
+      label {
+        display: block;
+        font-size: 0.8rem;
+        color: #4b5563;
+        margin: 0.75rem 0 0.25rem;
+      }
+      input[type="text"],
+      input[type="email"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.55rem 0.7rem;
+        border: 1px solid #d4d4d4;
+        border-radius: 0.375rem;
+        font-size: 0.95rem;
+        font-family: inherit;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+      }
+      .row3 {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr;
+        gap: 0.75rem;
+      }
+      button.pay {
+        margin-top: 1.25rem;
+        background: var(--pine);
+        color: #fff;
+        border: none;
+        padding: 0.7rem 1rem;
+        border-radius: 0.375rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+      }
+      button.pay:hover {
+        background: var(--pine-dark);
+      }
+      .order-line {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.4rem 0;
+        font-size: 0.9rem;
+        border-bottom: 1px dashed var(--silver-line);
+      }
+      .order-line:last-child {
+        border-bottom: none;
+        font-weight: 600;
+        padding-top: 0.75rem;
+      }
+      .demo-note {
+        background: #fff8db;
+        border-left: 4px solid #d4a017;
+        padding: 0.75rem 1rem;
+        font-size: 0.85rem;
+        color: #5a4500;
+        border-radius: 0.25rem;
+        margin: 1rem auto 0;
+        max-width: 928px;
+      }
+      #checkout-status {
+        margin-top: 0.75rem;
+        font-size: 0.85rem;
+        color: var(--safe);
+        min-height: 1.1em;
+      }
+      footer.shop {
+        text-align: center;
+        font-size: 0.75rem;
+        color: #6b7280;
+        padding: 2rem 1rem 3rem;
+      }
+      .scenario-bar {
+        max-width: 928px;
+        margin: 1.25rem auto 0;
+        background: #fff;
+        border: 1px solid var(--silver-line);
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        font-size: 0.8rem;
+        color: #374151;
+      }
+      .scenario-bar code {
+        background: var(--silver);
+        padding: 0.05rem 0.3rem;
+        border-radius: 0.2rem;
+        font-size: 0.78rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="shop">
+      <div style="max-width: 928px; margin: 0 auto;">
+        <a href="/client-side-security">← Back to Client-Side Security</a>
+        <div class="sub">Acme Outfitters · Secure Checkout</div>
+      </div>
+    </header>
+
+    <div class="demo-note">
+      <strong>Demo page.</strong> Fake credit-card form. Nothing is charged.
+      This page is monitored by Cloudflare Client-Side Security. Append
+      <code>?pageshieldforcecsp</code> to force-sample monitoring while
+      seeding inventory.
+    </div>
+
+    <main class="checkout">
+      <section class="card" aria-labelledby="payment-heading">
+        <h2 id="payment-heading">Payment details</h2>
+
+        <form id="checkout-form" autocomplete="off">
+          <label for="name">Cardholder name</label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            value="Jane Smith"
+            required
+          />
+
+          <label for="email">Email</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            value="jane.smith+demo@example.com"
+            required
+          />
+
+          <label for="card">Card number</label>
+          <input
+            id="card"
+            name="card"
+            type="text"
+            value="4111 1111 1111 1111"
+            inputmode="numeric"
+            required
+          />
+
+          <div class="row3">
+            <div>
+              <label for="exp">Expiry</label>
+              <input id="exp" name="exp" type="text" value="12/28" required />
+            </div>
+            <div>
+              <label for="cvv">CVV</label>
+              <input id="cvv" name="cvv" type="text" value="874" required />
+            </div>
+            <div>
+              <label for="postal">Postal</label>
+              <input
+                id="postal"
+                name="postal"
+                type="text"
+                value="97477"
+                required
+              />
+            </div>
+          </div>
+
+          <button type="submit" class="pay">Pay $127.50</button>
+          <div id="checkout-status"></div>
+        </form>
+      </section>
+
+      <aside class="card" aria-labelledby="order-heading">
+        <h2 id="order-heading">Order summary</h2>
+        <div class="order-line"><span>Cascade Rain Jacket</span><span>$89.00</span></div>
+        <div class="order-line"><span>Wool Beanie</span><span>$22.00</span></div>
+        <div class="order-line"><span>Shipping</span><span>$8.50</span></div>
+        <div class="order-line"><span>Tax</span><span>$8.00</span></div>
+        <div class="order-line"><span>Total</span><span>$127.50</span></div>
+      </aside>
+    </main>
+
+    <div class="scenario-bar">
+      <strong>Scenario state:</strong>
+      <span id="scenario-state">loading…</span>
+      <span style="float:right;">
+        <a href="/client-side-security">Demo controls →</a>
+      </span>
+    </div>
+
+    <footer class="shop">
+      Acme Outfitters · Cloudflare demo property · not a real merchant
+    </footer>
+
+    <!--
+      Scenario bootstrap. This is the only inline script on the page. It
+      reads current scenario flags and conditionally injects:
+        - new_script  : <script src="https://coinhive.com/lib/coinhive.min.js">
+        - bad_conn    : fetch() to an unexpected third-party host
+        - bad_cookie  : document.cookie = "demo_unauthorized_tracker=..."
+      All three are read from /api/page-shield/checkout/scenarios so they
+      can be toggled without redeploying.
+    -->
+    <script is:inline>
+      (function () {
+        function setStateLabel(text) {
+          var el = document.getElementById("scenario-state");
+          if (el) el.textContent = text;
+        }
+
+        function injectMaliciousScript() {
+          var s = document.createElement("script");
+          // Intentional: known-bad URL. Will be flagged by malicious URL /
+          // malicious domain checks in Client-Side Security Advanced.
+          s.src = "https://coinhive.com/lib/coinhive.min.js";
+          s.async = true;
+          s.crossOrigin = "anonymous";
+          s.onerror = function () {
+            /* host may not resolve; the script tag itself is the signal */
+          };
+          document.head.appendChild(s);
+        }
+
+        function fireUnexpectedConnection() {
+          // Pure connection-monitoring signal. The host is unimportant; it
+          // just needs to be a domain not in the connect-src allowlist.
+          try {
+            fetch("https://cdn-metrics-collector.io/px?d=" + Date.now(), {
+              method: "POST",
+              mode: "no-cors",
+              keepalive: true,
+              body: JSON.stringify({ kind: "unexpected", ts: Date.now() }),
+            }).catch(function () {});
+          } catch (e) {}
+        }
+
+        function setUnexpectedCookie() {
+          document.cookie =
+            "demo_unauthorized_tracker=" +
+            encodeURIComponent("t-" + Date.now()) +
+            "; path=/; SameSite=Lax; max-age=86400";
+        }
+
+        fetch("/api/page-shield/checkout/scenarios", { cache: "no-store" })
+          .then(function (r) { return r.json(); })
+          .then(function (s) {
+            var parts = [];
+            parts.push("analytics=" + (s.analyticsVersion || "v1"));
+            parts.push("new_script=" + !!(s.newScript && s.newScript.enabled));
+            parts.push("bad_conn=" + !!(s.badConn && s.badConn.enabled));
+            parts.push("bad_cookie=" + !!(s.badCookie && s.badCookie.enabled));
+            setStateLabel(parts.join("  "));
+
+            if (s.newScript && s.newScript.enabled) injectMaliciousScript();
+            if (s.badConn && s.badConn.enabled) fireUnexpectedConnection();
+            if (s.badCookie && s.badCookie.enabled) setUnexpectedCookie();
+          })
+          .catch(function () {
+            setStateLabel("(scenario state unavailable)");
+          });
+      })();
+    </script>
+  </body>
+</html>
