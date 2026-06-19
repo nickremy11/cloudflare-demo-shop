@@ -4,7 +4,7 @@
 # your VM directly.
 #
 #   cd tools/traffic-generator
-#   export TARGET_URL=https://home.remydemo.com/client-side-security/checkout
+#   export TARGET_URL=https://remydemo.com/client-side-security/checkout
 #   docker compose up --build -d
 #   docker compose logs -f traffic
 #

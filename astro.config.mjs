@@ -8,7 +8,7 @@ export default defineConfig({
   // handle all dynamic API routes (functions/api/[[path]].ts via Hono).
   output: "static",
 
-  site: "https://home.remydemo.com",
+  site: "https://remydemo.com",
 
   // Build to /dist (matches pages_build_output_dir in wrangler.toml)
   outDir: "./dist",

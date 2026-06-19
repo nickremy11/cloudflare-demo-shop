@@ -12,7 +12,7 @@ with env vars or CLI flags.
 
 Environment variables:
   TARGET_URL      Full URL of the checkout page (required if --url not set).
-                  Example: https://home.remydemo.com/client-side-security/checkout
+                  Example: https://remydemo.com/client-side-security/checkout
   FORCE_CSP       "1" to append ?pageshieldforcecsp (default: 1).
   INTERVAL_S      Mean seconds between visits per worker (default: 25).
   JITTER_S        +/- seconds of random jitter around INTERVAL_S (default: 10).

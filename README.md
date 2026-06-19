@@ -5,7 +5,7 @@ An interactive demo site showcasing the Cloudflare platform across four pillars,
 **Cloudflare Pages**, with **Pages Functions** (Hono on Workers) powering the
 interactive demos.
 
-Live: <https://home.remydemo.com>
+Live: <https://remydemo.com>
 
 > **Want to add or change something?** See **[CONTRIBUTING.md](./CONTRIBUTING.md)** —
 > it has step-by-step recipes for adding solutions, interactive demos, API

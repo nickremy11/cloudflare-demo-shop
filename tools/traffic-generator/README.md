@@ -38,7 +38,7 @@ cd /opt/cssgen/tools/traffic-generator
 
 # 1. Tell it where to hit. Use whichever hostname is proxied by Cloudflare
 #    and has Client-Side Security enabled.
-export TARGET_URL=https://home.remydemo.com/client-side-security/checkout
+export TARGET_URL=https://remydemo.com/client-side-security/checkout
 
 # 2. (Optional) tune. Defaults: 2 workers, ~25s interval, +/- 10s jitter,
 #    headless Chrome, form submit ON, force-sampling ON.
@@ -73,7 +73,7 @@ python3 -m venv /opt/cssgen-venv
 source /opt/cssgen-venv/bin/activate
 pip install -r requirements.txt
 
-export TARGET_URL=https://home.remydemo.com/client-side-security/checkout
+export TARGET_URL=https://remydemo.com/client-side-security/checkout
 python3 generate_traffic.py
 ```
 

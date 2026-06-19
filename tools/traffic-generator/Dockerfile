@@ -4,7 +4,7 @@
 #   docker build -t cssgen-traffic .
 # Run (remote driver in docker-compose):
 #   docker run --rm \
-#     -e TARGET_URL=https://home.remydemo.com/client-side-security/checkout \
+#     -e TARGET_URL=https://remydemo.com/client-side-security/checkout \
 #     -e SELENIUM_URL=http://selenium:4444/wd/hub \
 #     --network demo-net \
 #     cssgen-traffic
