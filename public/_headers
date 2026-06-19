@@ -1,0 +1,20 @@
+# Cloudflare Pages headers file.
+#
+# Pages applies a default `Cache-Control: public, max-age=14400` to responses
+# with static-asset content types (e.g. application/javascript). For the
+# Client-Side Security demo we need the browser to refetch the analytics
+# scripts on every page load so that the v1 -> v2 code-change toggle is
+# visible to Page Shield within seconds, not 4 hours. This file forces
+# no-cache on those specific endpoints.
+#
+# Patterns match the URL path. Functions routes are served by Pages and
+# also go through this header pass.
+
+/api/page-shield/checkout-core.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/api/page-shield/checkout-analytics.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/api/page-shield/analytics.js
+  Cache-Control: no-cache, no-store, must-revalidate
