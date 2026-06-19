@@ -13,7 +13,9 @@
 
 services:
   selenium:
-    image: selenium/standalone-chrome:127.0
+    # Official Selenium image — ships Chrome + chromedriver + Grid endpoint
+    # at :4444/wd/hub. Pinned to a recent stable major; bump as needed.
+    image: selenium/standalone-chrome:148.0
     shm_size: 2gb
     ports:
       - "127.0.0.1:4444:4444"
