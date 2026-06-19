@@ -239,32 +239,129 @@ def build_driver(cfg: Config):
 # ─────────────────────────────────────────────────────────────────
 
 
-def perform_visit(driver, cfg: Config, logger: logging.Logger) -> None:
+# Markers we look for in the rendered page_source to detect that we did NOT
+# get the real checkout page. If any of these match, the visit is a failure
+# regardless of how Chrome behaved.
+_BLOCK_PAGE_MARKERS = (
+    "Sorry, you have been blocked",
+    "Attention Required! | Cloudflare",
+    "cdn-cgi/challenge-platform",
+    "cf-error-details",
+    "cf-chl-bypass",
+    "/cdn-cgi/access/login",
+)
+
+
+@dataclass
+class VisitResult:
+    """Outcome of a single page visit."""
+
+    # "success" — checkout page rendered and (when enabled) submit succeeded
+    # "form_missing" — page loaded but #checkout-form never appeared
+    # "submit_failed" — form found but click/POST flow failed
+    # "blocked" — Cloudflare block/challenge/Access interstitial was returned
+    # "navigation_error" — driver.get itself threw
+    status: str
+    detail: str = ""
+    url: str = ""
+    title: str = ""
+
+
+def _short_msg(e: BaseException) -> str:
+    """Return the first line of a WebDriverException message, no stack."""
+    msg = getattr(e, "msg", None) or str(e)
+    return msg.splitlines()[0] if msg else e.__class__.__name__
+
+
+def _looks_blocked(page_source: str) -> Optional[str]:
+    """If the page is a Cloudflare block/challenge, return which marker matched."""
+    if not page_source:
+        return None
+    for marker in _BLOCK_PAGE_MARKERS:
+        if marker in page_source:
+            return marker
+    return None
+
+
+def _safe_current_url(driver) -> str:
+    try:
+        return driver.current_url or ""
+    except Exception:
+        return ""
+
+
+def _safe_title(driver) -> str:
+    try:
+        return (driver.title or "").strip()
+    except Exception:
+        return ""
+
+
+def _safe_source(driver, limit: int = 4000) -> str:
+    """Best-effort page source, truncated. Used only for diagnostics."""
+    try:
+        src = driver.page_source or ""
+    except Exception:
+        return ""
+    return src[:limit]
+
+
+def perform_visit(driver, cfg: Config, logger: logging.Logger) -> VisitResult:
     url = with_force_csp(cfg.target_url, cfg.force_csp)
     logger.debug("GET %s", url)
-    driver.get(url)
 
-    # Wait for the page shell, including the bootstrap inline script that
-    # fetches scenarios. We use the order summary as a stable anchor.
+    try:
+        driver.get(url)
+    except WebDriverException as e:
+        return VisitResult(
+            status="navigation_error",
+            detail=_short_msg(e),
+            url=_safe_current_url(driver),
+            title=_safe_title(driver),
+        )
+
+    # Wait for the page shell. The checkout form is in the initial HTML so
+    # this should succeed almost immediately unless we got something else
+    # back (block page, challenge, redirect, error page).
+    form_present = False
     try:
         WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.ID, "checkout-form"))
         )
+        form_present = True
     except TimeoutException:
-        logger.warning("Timed out waiting for #checkout-form on %s", url)
+        form_present = False
+
+    current_url = _safe_current_url(driver)
+    title = _safe_title(driver)
+
+    if not form_present:
+        # First, look for known block/challenge markers so we can give a
+        # single clear log line instead of a Chrome stack trace.
+        block_marker = _looks_blocked(_safe_source(driver))
+        if block_marker:
+            return VisitResult(
+                status="blocked",
+                detail=f"matched={block_marker!r}",
+                url=current_url,
+                title=title,
+            )
+        return VisitResult(
+            status="form_missing",
+            detail="#checkout-form not found within 20s",
+            url=current_url,
+            title=title,
+        )
 
     # Dwell so deferred scripts execute, beacons fire, scenarios apply.
     time.sleep(cfg.page_dwell_s)
 
     if cfg.submit_form:
         try:
-            # The form values are pre-filled by the page. Just click submit.
             submit = driver.find_element(
                 By.CSS_SELECTOR, "#checkout-form button[type=submit]"
             )
             submit.click()
-            # Wait briefly for the status text to update so the submit POST
-            # actually leaves the browser.
             try:
                 WebDriverWait(driver, 8).until(
                     lambda d: d.find_element(
@@ -273,13 +370,25 @@ def perform_visit(driver, cfg: Config, logger: logging.Logger) -> None:
                     != ""
                 )
             except TimeoutException:
-                logger.debug("Checkout status did not update; continuing.")
+                logger.debug("Checkout status did not update within 8s.")
         except WebDriverException as e:
-            logger.warning("Submit failed: %s", e)
+            return VisitResult(
+                status="submit_failed",
+                detail=_short_msg(e),
+                url=_safe_current_url(driver),
+                title=title,
+            )
 
     # Final small dwell so analytics/telemetry beacons aren't cut off when
     # the navigation away happens.
     time.sleep(min(2.0, cfg.page_dwell_s))
+
+    return VisitResult(
+        status="success",
+        detail="",
+        url=current_url,
+        title=title,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -291,6 +400,15 @@ def _sleep_with_jitter(interval_s: float, jitter_s: float, stop: threading.Event
     delay = max(0.0, interval_s + random.uniform(-jitter_s, jitter_s))
     # Wake quickly on shutdown.
     stop.wait(delay)
+
+
+def _bump_counter(
+    counter: dict, counter_lock: threading.Lock, key: str
+) -> int:
+    """Increment a named counter under lock, return new value."""
+    with counter_lock:
+        counter[key] = counter.get(key, 0) + 1
+        return counter[key]
 
 
 def worker_loop(
@@ -311,26 +429,19 @@ def worker_loop(
                 driver = build_driver(cfg)
                 backoff = 5.0
             except Exception as e:
-                logger.error("Failed to start browser: %s", e)
+                logger.error("Failed to start browser: %s", _short_msg(e))
                 _sleep_with_jitter(backoff, 0.0, stop)
                 backoff = min(60.0, backoff * 1.5)
                 continue
 
         try:
-            perform_visit(driver, cfg, logger)
-            with counter_lock:
-                counter["visits"] += 1
-                visits = counter["visits"]
-            logger.info("Visit %d complete", visits)
-            if cfg.max_visits and visits >= cfg.max_visits:
-                logger.info(
-                    "Reached MAX_VISITS=%d, signaling shutdown",
-                    cfg.max_visits,
-                )
-                stop.set()
-                break
+            result = perform_visit(driver, cfg, logger)
         except WebDriverException as e:
-            logger.warning("WebDriverException, recycling driver: %s", e)
+            # Unexpected webdriver failure — recycle the driver and continue.
+            _bump_counter(counter, counter_lock, "driver_errors")
+            logger.warning(
+                "Driver error, recycling session: %s", _short_msg(e)
+            )
             try:
                 driver.quit()
             except Exception:
@@ -340,7 +451,91 @@ def worker_loop(
             backoff = min(60.0, backoff * 1.5)
             continue
         except Exception as e:
+            _bump_counter(counter, counter_lock, "unexpected_errors")
             logger.exception("Unexpected error during visit: %s", e)
+            _sleep_with_jitter(cfg.interval_s, cfg.jitter_s, stop)
+            continue
+
+        # Always count the attempt; bucket by outcome.
+        total = _bump_counter(counter, counter_lock, "attempts")
+        per_status = _bump_counter(counter, counter_lock, f"status_{result.status}")
+
+        if result.status == "success":
+            logger.info(
+                "Visit %d OK (success=%d) url=%s title=%r",
+                total,
+                per_status,
+                result.url or "(unknown)",
+                result.title or "",
+            )
+        elif result.status == "blocked":
+            # Most common failure mode in early seeding. Surface once per hit
+            # without any Chrome stacktrace noise.
+            logger.warning(
+                "Visit %d BLOCKED by Cloudflare (count=%d) %s url=%s title=%r",
+                total,
+                per_status,
+                result.detail,
+                result.url or "(unknown)",
+                result.title or "",
+            )
+            # Force a fresh session on the next iteration so we don't keep
+            # navigating within a poisoned context.
+            try:
+                driver.quit()
+            except Exception:
+                pass
+            driver = None
+        elif result.status == "form_missing":
+            logger.warning(
+                "Visit %d MISSING FORM (count=%d) %s url=%s title=%r",
+                total,
+                per_status,
+                result.detail,
+                result.url or "(unknown)",
+                result.title or "",
+            )
+            try:
+                driver.quit()
+            except Exception:
+                pass
+            driver = None
+        elif result.status == "submit_failed":
+            logger.warning(
+                "Visit %d SUBMIT FAILED (count=%d) %s url=%s",
+                total,
+                per_status,
+                result.detail,
+                result.url or "(unknown)",
+            )
+        elif result.status == "navigation_error":
+            logger.warning(
+                "Visit %d NAVIGATION ERROR (count=%d) %s",
+                total,
+                per_status,
+                result.detail,
+            )
+            try:
+                driver.quit()
+            except Exception:
+                pass
+            driver = None
+        else:
+            logger.warning(
+                "Visit %d UNKNOWN STATUS=%s (count=%d) %s",
+                total,
+                result.status,
+                per_status,
+                result.detail,
+            )
+
+        # MAX_VISITS counts total attempts, regardless of outcome.
+        if cfg.max_visits and total >= cfg.max_visits:
+            logger.info(
+                "Reached MAX_VISITS=%d, signaling shutdown", cfg.max_visits
+            )
+            stop.set()
+            break
 
         _sleep_with_jitter(cfg.interval_s, cfg.jitter_s, stop)
 
@@ -393,7 +588,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)
 
-    counter = {"visits": 0}
+    counter: dict = {}
     counter_lock = threading.Lock()
     threads = []
     for i in range(cfg.workers):
@@ -406,9 +601,33 @@ def main(argv: Optional[list[str]] = None) -> int:
         t.start()
         threads.append(t)
 
+    def _format_summary() -> str:
+        with counter_lock:
+            snap = dict(counter)
+        attempts = snap.get("attempts", 0)
+        ok = snap.get("status_success", 0)
+        parts = [f"attempts={attempts}", f"ok={ok}"]
+        for key in (
+            "status_blocked",
+            "status_form_missing",
+            "status_submit_failed",
+            "status_navigation_error",
+            "driver_errors",
+            "unexpected_errors",
+        ):
+            v = snap.get(key, 0)
+            if v:
+                parts.append(f"{key}={v}")
+        return " ".join(parts)
+
     try:
+        last_summary = time.time()
         while not stop.is_set() and any(t.is_alive() for t in threads):
             stop.wait(1.0)
+            now = time.time()
+            if now - last_summary >= 60.0:
+                logger.info("Heartbeat: %s", _format_summary())
+                last_summary = now
     except KeyboardInterrupt:
         stop.set()
 
@@ -416,7 +635,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     for t in threads:
         t.join(timeout=30)
 
-    logger.info("Total visits: %d", counter["visits"])
+    logger.info("Final summary: %s", _format_summary())
     return 0
 
 
