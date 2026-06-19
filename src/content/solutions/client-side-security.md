@@ -31,7 +31,9 @@ faq:
     answer: "Today, Page Shield alerts you — it doesn't block scripts in-line by default (because that risks breaking your site if a legitimate script is misclassified). Most customers use the alert to investigate and roll a tighter CSP. Active blocking via CSP is a one-click follow-up."
 
 demo:
-  type: "coming-soon"
+  type: "interactive"
+  component: "PageShieldDemo"
+  note: "Two attack scenarios — a Magecart-style data exfiltration that fires an oversized beacon URL packed with card data (triggers the Max URL Length alert), and a CDN supply-chain compromise that mutates an already-fingerprinted analytics script (triggers the Code Change Detection alert). Both alerts are configured on this zone and will land in your inbox within a few minutes of the click."
 
 diveDeeper:
   docs:
