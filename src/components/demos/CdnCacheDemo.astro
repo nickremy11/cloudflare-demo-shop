@@ -111,7 +111,7 @@
 
         const startTime = performance.now();
         try {
-          const res = await fetch(url, { cache: "no-cache" });
+          const res = await fetch(url);
           await res.arrayBuffer(); // download fully so TTFB+body completes
           const elapsed = Math.round(performance.now() - startTime);
 
@@ -157,11 +157,15 @@
               ...this.logLines,
             ].slice(0, 8);
           } else {
-            this.lastAction = `✗ Purge failed: ${data.error || "unknown"}`;
+            const cfErr = data.cfResponse?.errors?.[0];
+            const cfCode = cfErr?.code ? ` [CF code ${cfErr.code}]` : "";
+            const cfMsg = cfErr?.message || data.error || "unknown";
+            this.lastAction = `✗ Purge failed: ${cfMsg}${cfCode}`;
             this.logLines = [
-              `[${new Date().toISOString().slice(11, 19)}] PURGE → ${res.status} ${data.error || "failed"}`,
+              `[${new Date().toISOString().slice(11, 19)}] PURGE → ${res.status} ${cfMsg}${cfCode}`,
               ...this.logLines,
             ].slice(0, 8);
+            console.error("Cache purge failed. Full CF response:", data);
           }
         } catch (e) {
           this.lastAction = `Error: ${e?.message ?? e}`;
