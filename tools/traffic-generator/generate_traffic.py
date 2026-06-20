@@ -11,23 +11,33 @@ Defaults are conservative: 1 worker, ~25s interval, runs forever. Override
 with env vars or CLI flags.
 
 Environment variables:
-  TARGET_URL      Full URL of the checkout page (required if --url not set).
-                  Example: https://remydemo.com/client-side-security/checkout
-  FORCE_CSP       "1" to append ?pageshieldforcecsp (default: 1).
-  INTERVAL_S      Mean seconds between visits per worker (default: 25).
-  JITTER_S        +/- seconds of random jitter around INTERVAL_S (default: 10).
-  WORKERS         Parallel worker count (default: 1).
-  MAX_VISITS      Stop after N visits across all workers. 0 = forever (default).
-  BROWSER         "chrome" or "firefox" (default: chrome).
-  HEADLESS        "1" headless, "0" headed (default: 1).
-  SUBMIT_FORM     "1" to fill + submit the fake checkout form each visit
-                  (default: 1). Set to 0 for pure page-view traffic.
-  PAGE_DWELL_S    Seconds to wait after the page loads before submit/exit
-                  (default: 4).
-  LOG_LEVEL       Python logging level name (default: INFO).
-  SELENIUM_URL    Remote Selenium endpoint (e.g. http://selenium:4444/wd/hub).
-                  When unset, uses a local driver. Set this when running
-                  inside Docker alongside selenium/standalone-chrome.
+  TARGET_URL          Full URL of the checkout page (required if --url not set).
+                      Example: https://remydemo.com/client-side-security/checkout
+  FORCE_CSP           "1" to append ?pageshieldforcecsp (default: 1).
+  INTERVAL_S          Mean seconds between visits per worker (default: 60).
+  JITTER_S            +/- seconds of random jitter around INTERVAL_S
+                      (default: 15).
+  WORKERS             Parallel worker count (default: 1).
+  MAX_VISITS          Stop after N visits across all workers. 0 = forever
+                      (default).
+  BROWSER             "chrome" or "firefox" (default: chrome).
+  HEADLESS            "1" headless, "0" headed (default: 1). Non-headless
+                      via Xvfb on the selenium image scores better with
+                      Cloudflare Bot Management.
+  SUBMIT_FORM         "1" to fill + submit the fake checkout form each visit
+                      (default: 1). Set to 0 for pure page-view traffic.
+  PAGE_DWELL_S        Seconds to wait after the page loads before submit/exit
+                      (default: 4).
+  RECYCLE_EACH_VISIT  "1" to tear down + recreate the browser session on
+                      every visit (default: 1). This is what makes the same
+                      script URLs generate fresh CSP reports each time, which
+                      is required to move resources from "infrequent" to
+                      "active" in Client-Side Security. Set to 0 for steady-
+                      state operation after inventory is already seeded.
+  LOG_LEVEL           Python logging level name (default: INFO).
+  SELENIUM_URL        Remote Selenium endpoint (e.g. http://selenium:4444/wd/hub).
+                      When unset, uses a local driver. Set this when running
+                      inside Docker alongside selenium/standalone-chrome.
 
 Exit codes:
   0   normal shutdown (SIGINT / MAX_VISITS reached)
@@ -81,6 +91,14 @@ class Config:
     submit_form: bool
     page_dwell_s: float
     selenium_url: Optional[str]
+    # If True, a fresh browser session is created for EVERY visit and torn
+    # down right after. This is the right default for Page Shield / Client-
+    # Side Security inventory seeding because the browser's in-memory script
+    # cache + persistent profile otherwise prevents repeated CSP reports for
+    # the same script URLs. Set false (RECYCLE_EACH_VISIT=0) to reuse a
+    # single long-lived browser session — lower overhead, fine for steady-
+    # state operation after inventory is already seeded.
+    recycle_each_visit: bool
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -116,10 +134,10 @@ def load_config(argv: Optional[list[str]] = None) -> Config:
     )
     p.add_argument("--workers", type=int, default=_env_int("WORKERS", 1))
     p.add_argument(
-        "--interval", type=float, default=_env_float("INTERVAL_S", 25.0)
+        "--interval", type=float, default=_env_float("INTERVAL_S", 60.0)
     )
     p.add_argument(
-        "--jitter", type=float, default=_env_float("JITTER_S", 10.0)
+        "--jitter", type=float, default=_env_float("JITTER_S", 15.0)
     )
     p.add_argument(
         "--max-visits", type=int, default=_env_int("MAX_VISITS", 0)
@@ -153,6 +171,14 @@ def load_config(argv: Optional[list[str]] = None) -> Config:
         default=os.environ.get("SELENIUM_URL"),
         help="Remote Selenium endpoint (overrides local driver)",
     )
+    p.add_argument(
+        "--no-recycle",
+        dest="recycle_each_visit",
+        action="store_false",
+        default=_env_bool("RECYCLE_EACH_VISIT", True),
+        help="Reuse a single browser session across visits (faster, but "
+        "may suppress repeated CSP reports for the same script URLs).",
+    )
     args = p.parse_args(argv)
 
     target = args.url or os.environ.get("TARGET_URL")
@@ -171,6 +197,7 @@ def load_config(argv: Optional[list[str]] = None) -> Config:
         submit_form=args.submit_form,
         page_dwell_s=max(0.0, args.dwell),
         selenium_url=args.selenium_url,
+        recycle_each_visit=args.recycle_each_visit,
     )
 
 
@@ -411,6 +438,16 @@ def _bump_counter(
         return counter[key]
 
 
+def _close_driver(driver, logger: logging.Logger) -> None:
+    """Best-effort driver teardown. Never raises."""
+    if driver is None:
+        return
+    try:
+        driver.quit()
+    except Exception as e:
+        logger.debug("driver.quit() raised %s", _short_msg(e))
+
+
 def worker_loop(
     worker_id: int,
     cfg: Config,
@@ -418,14 +455,37 @@ def worker_loop(
     counter_lock: threading.Lock,
     stop: threading.Event,
 ):
+    """Worker loop.
+
+    Two operating modes, selected by Config.recycle_each_visit:
+
+    1. recycle_each_visit=True (default): each visit gets a fresh browser
+       session. This is the right shape for Client-Side Security inventory
+       seeding — it defeats Chrome's in-memory script cache and persistent
+       profile so the same script URLs generate fresh CSP reports on every
+       visit, which is what moves resources from "infrequent" to "active".
+       Cost is one Chrome session create + quit per visit; we offset that
+       with a larger default interval (60s + jitter).
+
+    2. recycle_each_visit=False: a single browser session is held open and
+       reused across visits. Faster, fewer Chrome processes, but the same
+       cache/session effects that hide repeated script loads from Client-
+       Side Security. Useful after inventory has been seeded and the runner
+       is only there to keep resources in "active" status and to trigger
+       scenarios.
+    """
     logger = logging.getLogger(f"worker.{worker_id}")
     driver = None
     backoff = 5.0
+    session_seq = 0  # for human-friendly session IDs in logs
 
     while not stop.is_set():
+        # ── 1. Acquire a driver ──────────────────────────────────
         if driver is None:
             try:
-                logger.info("Starting browser session")
+                session_seq += 1
+                session_label = f"s{session_seq}"
+                logger.info("Opening browser session %s", session_label)
                 driver = build_driver(cfg)
                 backoff = 5.0
             except Exception as e:
@@ -434,18 +494,16 @@ def worker_loop(
                 backoff = min(60.0, backoff * 1.5)
                 continue
 
+        # ── 2. Perform one visit ─────────────────────────────────
         try:
             result = perform_visit(driver, cfg, logger)
         except WebDriverException as e:
-            # Unexpected webdriver failure — recycle the driver and continue.
             _bump_counter(counter, counter_lock, "driver_errors")
             logger.warning(
-                "Driver error, recycling session: %s", _short_msg(e)
+                "Driver error during visit, recycling session: %s",
+                _short_msg(e),
             )
-            try:
-                driver.quit()
-            except Exception:
-                pass
+            _close_driver(driver, logger)
             driver = None
             _sleep_with_jitter(backoff, 0.0, stop)
             backoff = min(60.0, backoff * 1.5)
@@ -456,9 +514,15 @@ def worker_loop(
             _sleep_with_jitter(cfg.interval_s, cfg.jitter_s, stop)
             continue
 
-        # Always count the attempt; bucket by outcome.
+        # ── 3. Record outcome ────────────────────────────────────
         total = _bump_counter(counter, counter_lock, "attempts")
-        per_status = _bump_counter(counter, counter_lock, f"status_{result.status}")
+        per_status = _bump_counter(
+            counter, counter_lock, f"status_{result.status}"
+        )
+
+        # Statuses that mean the browser session is in a bad state. We
+        # always close in these cases regardless of the recycle setting.
+        always_close = {"blocked", "form_missing", "navigation_error"}
 
         if result.status == "success":
             logger.info(
@@ -469,8 +533,6 @@ def worker_loop(
                 result.title or "",
             )
         elif result.status == "blocked":
-            # Most common failure mode in early seeding. Surface once per hit
-            # without any Chrome stacktrace noise.
             logger.warning(
                 "Visit %d BLOCKED by Cloudflare (count=%d) %s url=%s title=%r",
                 total,
@@ -479,13 +541,6 @@ def worker_loop(
                 result.url or "(unknown)",
                 result.title or "",
             )
-            # Force a fresh session on the next iteration so we don't keep
-            # navigating within a poisoned context.
-            try:
-                driver.quit()
-            except Exception:
-                pass
-            driver = None
         elif result.status == "form_missing":
             logger.warning(
                 "Visit %d MISSING FORM (count=%d) %s url=%s title=%r",
@@ -495,11 +550,6 @@ def worker_loop(
                 result.url or "(unknown)",
                 result.title or "",
             )
-            try:
-                driver.quit()
-            except Exception:
-                pass
-            driver = None
         elif result.status == "submit_failed":
             logger.warning(
                 "Visit %d SUBMIT FAILED (count=%d) %s url=%s",
@@ -515,11 +565,6 @@ def worker_loop(
                 per_status,
                 result.detail,
             )
-            try:
-                driver.quit()
-            except Exception:
-                pass
-            driver = None
         else:
             logger.warning(
                 "Visit %d UNKNOWN STATUS=%s (count=%d) %s",
@@ -529,7 +574,13 @@ def worker_loop(
                 result.detail,
             )
 
-        # MAX_VISITS counts total attempts, regardless of outcome.
+        # ── 4. Decide session lifetime ───────────────────────────
+        if cfg.recycle_each_visit or result.status in always_close:
+            logger.info("Closing browser session after visit %d", total)
+            _close_driver(driver, logger)
+            driver = None
+
+        # ── 5. Stop if MAX_VISITS hit ────────────────────────────
         if cfg.max_visits and total >= cfg.max_visits:
             logger.info(
                 "Reached MAX_VISITS=%d, signaling shutdown", cfg.max_visits
@@ -537,13 +588,10 @@ def worker_loop(
             stop.set()
             break
 
+        # ── 6. Wait before next visit ────────────────────────────
         _sleep_with_jitter(cfg.interval_s, cfg.jitter_s, stop)
 
-    if driver is not None:
-        try:
-            driver.quit()
-        except Exception:
-            pass
+    _close_driver(driver, logger)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -565,8 +613,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     logger.info(
         "Config: target=%s workers=%d interval=%.1fs jitter=%.1fs "
-        "force_csp=%s headless=%s submit=%s browser=%s selenium=%s "
-        "max_visits=%d",
+        "force_csp=%s headless=%s submit=%s recycle_each_visit=%s "
+        "browser=%s selenium=%s max_visits=%d",
         cfg.target_url,
         cfg.workers,
         cfg.interval_s,
@@ -574,6 +622,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         cfg.force_csp,
         cfg.headless,
         cfg.submit_form,
+        cfg.recycle_each_visit,
         cfg.browser,
         cfg.selenium_url or "(local)",
         cfg.max_visits,

@@ -37,12 +37,24 @@ services:
       - TARGET_URL=${TARGET_URL:?TARGET_URL is required}
       - SELENIUM_URL=http://selenium:4444/wd/hub
       - FORCE_CSP=${FORCE_CSP:-1}
-      - WORKERS=${WORKERS:-2}
-      - INTERVAL_S=${INTERVAL_S:-25}
-      - JITTER_S=${JITTER_S:-10}
+      # 1 worker by default. The runner recycles the browser session per
+      # visit (see RECYCLE_EACH_VISIT) so a single worker is enough to
+      # seed inventory and keep resources in "active" status.
+      - WORKERS=${WORKERS:-1}
+      - INTERVAL_S=${INTERVAL_S:-60}
+      - JITTER_S=${JITTER_S:-15}
       - SUBMIT_FORM=${SUBMIT_FORM:-1}
       - PAGE_DWELL_S=${PAGE_DWELL_S:-4}
+      # Recycle the browser session per visit so script URLs reload from
+      # the network instead of being served by Chrome's in-memory cache.
+      # This is what makes the same script URL move from "infrequent" to
+      # "active" in Client-Side Security. Set to 0 after inventory has
+      # been seeded if you want a longer-lived browser session.
+      - RECYCLE_EACH_VISIT=${RECYCLE_EACH_VISIT:-1}
+      # Run headed under the selenium image's Xvfb. Headless Chrome
+      # currently scores poorly with Cloudflare Bot Management on this
+      # zone, which suppresses CSP reporting upstream.
+      - HEADLESS=${HEADLESS:-0}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - HEADLESS=1
       - BROWSER=chrome
     restart: unless-stopped

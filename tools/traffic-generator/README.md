@@ -40,11 +40,17 @@ cd /opt/cssgen/tools/traffic-generator
 #    and has Client-Side Security enabled.
 export TARGET_URL=https://remydemo.com/client-side-security/checkout
 
-# 2. (Optional) tune. Defaults: 2 workers, ~25s interval, +/- 10s jitter,
-#    headless Chrome, form submit ON, force-sampling ON.
-export WORKERS=2
-export INTERVAL_S=25
-export JITTER_S=10
+# 2. (Optional) tune. Defaults below match what's in docker-compose.yml:
+#      1 worker, 60s interval, +/- 15s jitter
+#      headed Chrome under Xvfb (HEADLESS=0)
+#      fresh browser session per visit (RECYCLE_EACH_VISIT=1)
+#      form submit ON, force-sampling ON
+#    These defaults are tuned for Client-Side Security inventory seeding.
+# export WORKERS=1
+# export INTERVAL_S=60
+# export JITTER_S=15
+# export HEADLESS=0
+# export RECYCLE_EACH_VISIT=1
 
 # 3. Start. selenium/standalone-chrome will run alongside the generator.
 docker compose up --build -d
@@ -53,7 +59,8 @@ docker compose up --build -d
 docker compose logs -f traffic
 ```
 
-Each successful iteration logs `Visit N complete`.
+Each successful iteration logs `Visit N OK ...` and per-minute heartbeats
+log the running attempts / success / error breakdown.
 
 To stop:
 
@@ -83,31 +90,38 @@ automatically.
 
 ## Configuration knobs
 
-| Env var         | CLI flag           | Default | What it does                                            |
-| --------------- | ------------------ | ------- | ------------------------------------------------------- |
-| `TARGET_URL`    | `--url`            | (req.)  | Full URL of the checkout page                           |
-| `FORCE_CSP`     | `--no-force-csp`   | `1`     | Append `?pageshieldforcecsp` to every visit             |
-| `WORKERS`       | `--workers`        | `1`     | Parallel browser sessions                               |
-| `INTERVAL_S`    | `--interval`       | `25`    | Mean seconds between visits per worker                  |
-| `JITTER_S`      | `--jitter`         | `10`    | +/- random jitter around the interval                   |
-| `MAX_VISITS`    | `--max-visits`     | `0`     | Stop after N visits total; `0` = run forever            |
-| `BROWSER`       | `--browser`        | chrome  | `chrome` or `firefox`                                   |
-| `HEADLESS`      | `--no-headless`    | `1`     | Headless mode (always 1 on a server VM)                 |
-| `SUBMIT_FORM`   | `--no-submit`      | `1`     | Fill + submit the fake checkout form each visit         |
-| `PAGE_DWELL_S`  | `--dwell`          | `4`     | Seconds to wait on the page before submit / exit        |
-| `SELENIUM_URL`  | `--selenium-url`   | (none)  | Remote Selenium Grid endpoint                           |
-| `LOG_LEVEL`     |                    | `INFO`  | Python logging level                                    |
+| Env var              | CLI flag           | Default | What it does                                            |
+| -------------------- | ------------------ | ------- | ------------------------------------------------------- |
+| `TARGET_URL`         | `--url`            | (req.)  | Full URL of the checkout page                           |
+| `FORCE_CSP`          | `--no-force-csp`   | `1`     | Append `?pageshieldforcecsp` to every visit             |
+| `WORKERS`            | `--workers`        | `1`     | Parallel browser sessions                               |
+| `INTERVAL_S`         | `--interval`       | `60`    | Mean seconds between visits per worker                  |
+| `JITTER_S`           | `--jitter`         | `15`    | +/- random jitter around the interval                   |
+| `MAX_VISITS`         | `--max-visits`     | `0`     | Stop after N visits total; `0` = run forever            |
+| `BROWSER`            | `--browser`        | chrome  | `chrome` or `firefox`                                   |
+| `HEADLESS`           | `--no-headless`    | `1`     | Headless mode. Compose overrides this to `0` so the runner uses Xvfb (better bot score) |
+| `SUBMIT_FORM`        | `--no-submit`      | `1`     | Fill + submit the fake checkout form each visit         |
+| `PAGE_DWELL_S`       | `--dwell`          | `4`     | Seconds to wait on the page before submit / exit        |
+| `RECYCLE_EACH_VISIT` | `--no-recycle`     | `1`     | Tear down + recreate the browser session each visit     |
+| `SELENIUM_URL`       | `--selenium-url`   | (none)  | Remote Selenium Grid endpoint                           |
+| `LOG_LEVEL`          |                    | `INFO`  | Python logging level                                    |
 
 ## Sizing guidance
 
 Start small. The point is steady, browser-quality page views, not load.
 
-- **Seeding inventory:** 2 workers, 25s interval — about 280 visits / hour.
-  Plenty to populate Web Assets within an hour.
-- **Steady state:** 1 worker, 60s interval is enough to keep resources in
-  "active" status after the initial seed.
-- **Don't go above ~10 sessions per VM** without raising `SE_NODE_MAX_SESSIONS`
-  and `shm_size` on the Selenium container.
+- **Seeding inventory (default):** 1 worker, 60s interval, fresh browser
+  session each visit, headed under Xvfb. About 60 visits / hour with each
+  visit guaranteed to reload all monitored scripts from the network.
+  Resources should move from `infrequent` to `active` (≥ 4 reports) within
+  ~5 minutes once the first reports land.
+- **Steady state (after seeding):** set `RECYCLE_EACH_VISIT=0` and
+  `INTERVAL_S=120` to reduce overhead. The persistent browser session is
+  fine for keeping resources in `active` status and triggering scenarios.
+- **If a single worker isn't enough:** raise `WORKERS` cautiously. Each
+  worker holds an independent Selenium session and (with recycle on) starts
+  a Chrome process per visit. Don't go above ~4 on a small VM without also
+  raising `shm_size` on the selenium service.
 
 ## Demo flow
 
@@ -141,7 +155,22 @@ Start small. The point is steady, browser-quality page views, not load.
 - **`Web assets` still blank after an hour.** Verify in DevTools that
   `content-security-policy-report-only` is present on the **HTML response**
   for `/client-side-security/checkout`. If it's missing, monitoring isn't
-  sampling that response.
+  sampling that response. If the header is present, check the runner logs
+  for `BLOCKED by Cloudflare` outcomes — that means WAF / bot is rejecting
+  the runner. Verify the VM's egress IP isn't blocked.
+- **Scripts/connections show up but stay `infrequent` forever.** Each
+  unique script/connection needs more than three reports before it moves to
+  `active`. This is why `RECYCLE_EACH_VISIT=1` is the default — Chrome's
+  in-memory script cache otherwise serves the same script URL without
+  hitting the network or firing a fresh CSP report. If you set
+  `RECYCLE_EACH_VISIT=0`, you'll see this behavior come back.
+- **`Visit N OK` runs forever but no resources appear.** Suspect bot score.
+  Inspect the `_cfbm` cookie on the response from the VM:
+  `curl -sI <TARGET_URL> | grep -i 'set-cookie: _cfbm='`
+  A leading `1` (very low score) means Cloudflare Bot Management is
+  scoring the runner as a bot, and Page Shield will discard the traffic.
+  Headed Chrome under Xvfb (the default in this compose) scores
+  meaningfully better than `--headless=new` on most zones.
 - **Submit step hangs.** Set `SUBMIT_FORM=0` to confirm whether the form
   submission is the problem vs. the page itself.
 - **Driver crashes constantly.** Bump `shm_size` on the Selenium service
