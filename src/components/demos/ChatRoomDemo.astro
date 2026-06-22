@@ -70,7 +70,7 @@
       No messages yet. Say hello.
     </p>
 
-    <template x-for="m in messages" :key="m.id">
+    <template x-for="m in messages" :key="m._k">
       <div class="mb-2 text-sm leading-snug">
         <span class="text-xs text-gray-400 font-mono" x-text="fmtTime(m.timestamp)"></span>
         <span class="font-semibold text-pine-700 ml-1" x-text="m.username + ':'"></span>
@@ -125,6 +125,15 @@
       ws: null,
       reconnectTimer: null,
       tickTimer: null,
+      _nextKey: 1,
+
+      // Stamp a guaranteed-unique client-side render key onto a message,
+      // so x-for identity never depends on (and never collides via) the
+      // server-provided id.
+      tag(m) {
+        m._k = this._nextKey++;
+        return m;
+      },
 
       init() {
         // Session-scoped username: new tab = new user, closes on tab close.
@@ -142,7 +151,7 @@
           const res = await fetch("/api/chatroom/messages");
           const data = await res.json();
           if (res.ok) {
-            this.messages = data.messages || [];
+            this.messages = (data.messages || []).map((m) => this.tag(m));
             this.scrollToBottom();
           }
         } catch (_) {
@@ -176,7 +185,7 @@
             return;
           }
           if (payload.type === "message") {
-            this.messages.push(payload.data);
+            this.messages.push(this.tag(payload.data));
             // Keep client list bounded to match the server (25).
             if (this.messages.length > 25) {
               this.messages = this.messages.slice(-25);
