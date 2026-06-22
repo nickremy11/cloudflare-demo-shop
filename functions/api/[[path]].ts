@@ -1488,5 +1488,18 @@ app.post("/api/chatroom/clear", async (c) => {
 // ── Pages Functions export ───────────────────────────────────
 
 export const onRequest = (context: { request: Request; env: Bindings }) => {
+  // WebSocket upgrades must bypass Hono entirely. The CORS middleware
+  // (app.use("*", cors())) reconstructs the Response to add headers, which
+  // drops the non-standard `webSocket` property on the 101 reply — the
+  // upgrade then silently fails. Proxy straight to the DO instead.
+  const url = new URL(context.request.url);
+  if (
+    context.request.headers.get("Upgrade") === "websocket" &&
+    url.pathname === "/api/chatroom/ws"
+  ) {
+    const stub = context.env.CHAT_ROOM.getByName("global") as unknown as ChatRoomStub;
+    return stub.fetch(context.request);
+  }
+
   return app.fetch(context.request, context.env, context);
 };
