@@ -66,9 +66,9 @@
     class="demo-panel"
     style="height: 360px; overflow-y: auto;"
   >
-    <template x-if="messages.length === 0">
-      <p class="text-sm text-gray-400 italic">No messages yet. Say hello.</p>
-    </template>
+    <p x-show="messages.length === 0" class="text-sm text-gray-400 italic">
+      No messages yet. Say hello.
+    </p>
 
     <template x-for="m in messages" :key="m.id">
       <div class="mb-2 text-sm leading-snug">

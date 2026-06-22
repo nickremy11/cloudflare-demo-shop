@@ -75,14 +75,20 @@ export class ChatRoom extends DurableObject<Env> {
   // ── RPC: store a message, trim history, broadcast to all WS ──
   sendMessage(username: string, text: string): ChatMessage {
     const timestamp = Date.now();
-    const row = this.ctx.storage.sql
-      .exec<ChatMessage>(
-        "INSERT INTO messages (username, text, timestamp) VALUES (?, ?, ?) RETURNING id, username, text, timestamp",
-        username,
-        text,
-        timestamp
-      )
-      .one();
+
+    this.ctx.storage.sql.exec(
+      "INSERT INTO messages (username, text, timestamp) VALUES (?, ?, ?)",
+      username,
+      text,
+      timestamp
+    );
+
+    // Capture the new row id immediately, before any further exec() can
+    // invalidate the cursor, and build a plain object to broadcast.
+    const id = Number(
+      this.ctx.storage.sql.exec("SELECT last_insert_rowid() AS id").one().id
+    );
+    const message: ChatMessage = { id, username, text, timestamp };
 
     // Trim to the most recent MAX_MESSAGES rows.
     this.ctx.storage.sql.exec(
@@ -92,8 +98,8 @@ export class ChatRoom extends DurableObject<Env> {
       MAX_MESSAGES
     );
 
-    this.broadcast({ type: "message", data: row });
-    return row;
+    this.broadcast({ type: "message", data: message });
+    return message;
   }
 
   // ── RPC: wipe all messages, broadcast clear ──────────────────
