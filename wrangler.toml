@@ -32,6 +32,17 @@ id = "718464f9865547c68d5e62aaefe9db85"
 [ai]
 binding = "AI"
 
+# ── Durable Objects: Chat Room demo ────────────────────────
+# The ChatRoom DO class is defined in the standalone `demo-shop-chat`
+# Worker (see chat-worker/). Pages binds to it by script_name.
+# Deploy chat-worker FIRST, then deploy Pages:
+#   npx wrangler deploy --config chat-worker/wrangler.toml
+#   npm run deploy
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+script_name = "demo-shop-chat"
+
 # ── Cache Purge Demo Variables ─────────────────────────────
 # These need to be set in the Cloudflare Pages dashboard:
 #   - CF_ZONE_ID:           plain text env var (your zone ID for remydemo.com)

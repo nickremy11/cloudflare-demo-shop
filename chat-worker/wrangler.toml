@@ -1,0 +1,21 @@
+name = "demo-shop-chat"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+# ── Durable Object: ChatRoom ───────────────────────────────
+# This standalone Worker exists solely to host the ChatRoom Durable
+# Object class. The Pages project (cloudflare-demo-shop) binds to this
+# class via `script_name = "demo-shop-chat"` in its own wrangler.toml.
+#
+# Deploy order matters: deploy THIS worker before the Pages project, so
+# the DO class exists when Pages tries to bind to it.
+#
+#   npx wrangler deploy --config chat-worker/wrangler.toml
+#
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRoom"]

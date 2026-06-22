@@ -1,0 +1,295 @@
+---
+// Durable Objects demo — a single global chat room.
+//
+// Every browser session is a separate user; the room (one ChatRoom DO
+// instance, addressed as "global") is shared by everyone. Messages are
+// stored in the DO's SQLite and fanned out over WebSockets in real time.
+//
+// Flow:
+//   - GET  /api/chatroom/messages  → initial history + next reset time
+//   - GET  /api/chatroom/ws        → live updates (message / clear events)
+//   - POST /api/chatroom/send      → send a message
+//   - POST /api/chatroom/clear     → wipe the room
+//
+// The room auto-clears daily at 17:00 UTC (12:00 PM EST) via a DO alarm;
+// the countdown below tracks the next reset.
+---
+
+<div x-data="chatRoomDemo()" x-init="init()" class="space-y-4">
+  <p class="text-sm text-gray-600">
+    One <strong>Durable Object</strong> instance backs this room. Open this page
+    in a second tab (or send it to a colleague) — pick a username in each, and
+    watch messages sync live. Every tab is a different user; the room is shared.
+  </p>
+
+  <!-- ── Username gate ─────────────────────────────────────── -->
+  <div class="demo-panel" x-show="!username">
+    <h3>Pick a username to join</h3>
+    <div class="flex gap-2 mt-2">
+      <input
+        type="text"
+        x-model="usernameInput"
+        @keydown.enter="join()"
+        maxlength="32"
+        placeholder="e.g. Alice"
+        class="demo-input flex-1"
+      />
+      <button type="button" @click="join()" :disabled="!usernameInput.trim()" class="btn-primary">
+        Join
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Joined banner ─────────────────────────────────────── -->
+  <div
+    x-show="username"
+    class="flex items-center justify-between gap-3 p-3 rounded text-sm bg-pine-50 border border-pine-200"
+  >
+    <span>
+      Chatting as <strong class="text-pine-700" x-text="username"></strong>
+    </span>
+    <div class="flex items-center gap-3">
+      <span
+        class="text-xs"
+        :class="connected ? 'text-pine-600' : 'text-gray-400'"
+        x-text="connected ? '● live' : '○ connecting…'"
+      ></span>
+      <button type="button" @click="changeUser()" class="text-xs text-pine-600 hover:underline">
+        change
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Message thread ────────────────────────────────────── -->
+  <div
+    x-ref="thread"
+    class="demo-panel"
+    style="height: 360px; overflow-y: auto;"
+  >
+    <template x-if="messages.length === 0">
+      <p class="text-sm text-gray-400 italic">No messages yet. Say hello.</p>
+    </template>
+
+    <template x-for="m in messages" :key="m.id">
+      <div class="mb-2 text-sm leading-snug">
+        <span class="text-xs text-gray-400 font-mono" x-text="fmtTime(m.timestamp)"></span>
+        <span class="font-semibold text-pine-700 ml-1" x-text="m.username + ':'"></span>
+        <span class="ml-1 break-words" x-text="m.text"></span>
+      </div>
+    </template>
+  </div>
+
+  <!-- ── Countdown ─────────────────────────────────────────── -->
+  <p class="text-xs text-gray-500">
+    Daily reset in <span class="font-mono" x-text="countdown"></span>
+    <span class="text-gray-400">(17:00 UTC, via a Durable Object alarm)</span>
+  </p>
+
+  <!-- ── Input row ─────────────────────────────────────────── -->
+  <div class="flex gap-2">
+    <input
+      type="text"
+      x-model="messageInput"
+      @keydown.enter="send()"
+      :disabled="!username"
+      maxlength="500"
+      placeholder="Type a message and hit Enter…"
+      class="demo-input flex-1"
+    />
+    <button type="button" @click="send()" :disabled="!username || !messageInput.trim() || sending" class="btn-primary">
+      <span x-show="!sending">Send</span>
+      <span x-show="sending">Sending…</span>
+    </button>
+  </div>
+
+  <!-- ── Error + clear ─────────────────────────────────────── -->
+  <div class="flex items-center justify-between gap-3">
+    <p class="text-sm text-red-600" x-show="error" x-text="error"></p>
+    <button type="button" @click="clearAll()" class="btn-danger ml-auto" :disabled="messages.length === 0">
+      Clear all messages
+    </button>
+  </div>
+</div>
+
+<script is:inline>
+  function chatRoomDemo() {
+    return {
+      username: "",
+      usernameInput: "",
+      messageInput: "",
+      messages: [],
+      connected: false,
+      sending: false,
+      error: "",
+      countdown: "--:--:--",
+      ws: null,
+      reconnectTimer: null,
+      tickTimer: null,
+
+      init() {
+        // Session-scoped username: new tab = new user, closes on tab close.
+        this.username = sessionStorage.getItem("chatroom_username") || "";
+        this.loadHistory();
+        this.connect();
+        // Countdown ticks every second; target is recomputed client-side
+        // from the same 17:00 UTC rule the DO alarm uses.
+        this.tick();
+        this.tickTimer = setInterval(() => this.tick(), 1000);
+      },
+
+      async loadHistory() {
+        try {
+          const res = await fetch("/api/chatroom/messages");
+          const data = await res.json();
+          if (res.ok) {
+            this.messages = data.messages || [];
+            this.scrollToBottom();
+          }
+        } catch (_) {
+          /* WS will catch up once connected */
+        }
+      },
+
+      connect() {
+        const proto = location.protocol === "https:" ? "wss" : "ws";
+        const url = `${proto}://${location.host}/api/chatroom/ws`;
+        try {
+          this.ws = new WebSocket(url);
+        } catch (_) {
+          this.scheduleReconnect();
+          return;
+        }
+
+        this.ws.addEventListener("open", () => {
+          this.connected = true;
+          if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+          }
+        });
+
+        this.ws.addEventListener("message", (event) => {
+          let payload;
+          try {
+            payload = JSON.parse(event.data);
+          } catch (_) {
+            return;
+          }
+          if (payload.type === "message") {
+            this.messages.push(payload.data);
+            // Keep client list bounded to match the server (25).
+            if (this.messages.length > 25) {
+              this.messages = this.messages.slice(-25);
+            }
+            this.scrollToBottom();
+          } else if (payload.type === "clear") {
+            this.messages = [];
+          }
+        });
+
+        this.ws.addEventListener("close", () => {
+          this.connected = false;
+          this.scheduleReconnect();
+        });
+
+        this.ws.addEventListener("error", () => {
+          this.connected = false;
+          try { this.ws.close(); } catch (_) {}
+        });
+      },
+
+      scheduleReconnect() {
+        if (this.reconnectTimer) return;
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = null;
+          this.connect();
+        }, 3000);
+      },
+
+      join() {
+        const name = this.usernameInput.trim();
+        if (!name) return;
+        this.username = name.slice(0, 32);
+        sessionStorage.setItem("chatroom_username", this.username);
+        this.usernameInput = "";
+      },
+
+      changeUser() {
+        sessionStorage.removeItem("chatroom_username");
+        this.username = "";
+        this.usernameInput = "";
+      },
+
+      async send() {
+        const text = this.messageInput.trim();
+        if (!this.username || !text || this.sending) return;
+        this.sending = true;
+        this.error = "";
+        try {
+          const res = await fetch("/api/chatroom/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: this.username, text }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          this.messageInput = "";
+          // The message arrives back over WS for everyone, including us.
+        } catch (e) {
+          this.error = e?.message ?? String(e);
+        } finally {
+          this.sending = false;
+        }
+      },
+
+      async clearAll() {
+        if (!confirm("Clear all messages for everyone in the room?")) return;
+        this.error = "";
+        try {
+          const res = await fetch("/api/chatroom/clear", { method: "POST" });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          // Clear broadcast over WS empties every client.
+        } catch (e) {
+          this.error = e?.message ?? String(e);
+        }
+      },
+
+      scrollToBottom() {
+        this.$nextTick(() => {
+          const el = this.$refs.thread;
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      },
+
+      tick() {
+        const target = this.nextResetUTC();
+        let diff = Math.max(0, target - Date.now());
+        const h = Math.floor(diff / 3_600_000);
+        diff -= h * 3_600_000;
+        const m = Math.floor(diff / 60_000);
+        diff -= m * 60_000;
+        const s = Math.floor(diff / 1000);
+        const pad = (n) => String(n).padStart(2, "0");
+        this.countdown = `${pad(h)}:${pad(m)}:${pad(s)}`;
+      },
+
+      // Next 17:00 UTC, mirroring the DO alarm schedule.
+      nextResetUTC() {
+        const now = new Date();
+        const next = new Date(
+          Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth(),
+            now.getUTCDate(),
+            17, 0, 0, 0
+          )
+        );
+        if (next.getTime() <= now.getTime()) {
+          next.setUTCDate(next.getUTCDate() + 1);
+        }
+        return next.getTime();
+      },
+    };
+  }
+</script>

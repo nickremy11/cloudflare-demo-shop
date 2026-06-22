@@ -31,7 +31,9 @@ faq:
     answer: "Cloudflare locates each DO instance close to where its traffic comes from, and migrates it if traffic patterns shift. You don't pick a region — the platform handles it."
 
 demo:
-  type: "coming-soon"
+  type: "interactive"
+  component: "ChatRoomDemo"
+  note: "Open this page in two browser tabs to see real-time sync. Each tab is a separate user; the room is one shared Durable Object instance."
 
 diveDeeper:
   docs:

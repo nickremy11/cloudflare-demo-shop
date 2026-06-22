@@ -31,6 +31,7 @@ type Bindings = {
   DEMO_KV: KVNamespace;
   AI: Ai;
   AIG_TOKEN: string;
+  CHAT_ROOM: DurableObjectNamespace;
   CF_ZONE_ID?: string;
   CF_CACHE_PURGE_TOKEN?: string;
   TURNSTILE_SECRET?: string;
@@ -1384,6 +1385,104 @@ app.post("/api/page-shield/checkout/reset", async (c) => {
     c.env.DEMO_KV.put(CSS_KV.ANALYTICS_VERSION, "v1"),
   ]);
   return c.json({ ok: true });
+});
+
+// ── Durable Objects: Chat Room demo ──────────────────────────
+// A single global chat room backed by the ChatRoom Durable Object
+// (defined in the demo-shop-chat Worker, bound here as CHAT_ROOM).
+//
+//   GET  /api/chatroom/messages  — last 25 messages + next reset time
+//   GET  /api/chatroom/ws        — WebSocket upgrade, proxied to the DO
+//   POST /api/chatroom/send      — { username, text } → store + broadcast
+//   POST /api/chatroom/clear     — wipe all messages + broadcast clear
+//
+// All routes address the same instance: getByName("global").
+// DLP filtering on /send is intentionally omitted for now — added later.
+
+const CHAT_USERNAME_MAX = 32;
+const CHAT_TEXT_MAX = 500;
+
+// RPC surface of the ChatRoom DO (defined in the demo-shop-chat Worker).
+// Declared locally because the class isn't importable across the Worker
+// boundary; the stub is cast to this shape for type-safe RPC calls.
+interface ChatMessage {
+  id: number;
+  username: string;
+  text: string;
+  timestamp: number;
+}
+interface ChatRoomStub {
+  getState(): Promise<{ messages: ChatMessage[]; nextReset: number }>;
+  sendMessage(username: string, text: string): Promise<ChatMessage>;
+  clearMessages(): Promise<void>;
+  fetch(request: Request): Promise<Response>;
+}
+
+function chatRoomStub(c: Context<{ Bindings: Bindings }>): ChatRoomStub {
+  return c.env.CHAT_ROOM.getByName("global") as unknown as ChatRoomStub;
+}
+
+// Initial load: current messages + the next daily-reset timestamp.
+app.get("/api/chatroom/messages", async (c) => {
+  try {
+    const stub = chatRoomStub(c);
+    const state = await stub.getState();
+    return c.json(state);
+  } catch (error: any) {
+    return c.json({ error: "Failed to load messages: " + error.message }, 500);
+  }
+});
+
+// WebSocket upgrade — validate here (cheap), then hand the raw request
+// to the DO so it owns the server side of the socket.
+app.get("/api/chatroom/ws", async (c) => {
+  if (c.req.header("Upgrade") !== "websocket") {
+    return c.text("Expected Upgrade: websocket", 426);
+  }
+  const stub = chatRoomStub(c);
+  return stub.fetch(c.req.raw);
+});
+
+// Send a message. Validates username + text, then asks the DO to store
+// and broadcast it to every connected session.
+app.post("/api/chatroom/send", async (c) => {
+  try {
+    const body = await c.req.json().catch(() => null);
+    const username = typeof body?.username === "string" ? body.username.trim() : "";
+    const text = typeof body?.text === "string" ? body.text.trim() : "";
+
+    if (!username) {
+      return c.json({ error: "Username is required" }, 400);
+    }
+    if (username.length > CHAT_USERNAME_MAX) {
+      return c.json({ error: `Username must be ${CHAT_USERNAME_MAX} characters or fewer` }, 400);
+    }
+    if (!text) {
+      return c.json({ error: "Message cannot be empty" }, 400);
+    }
+    if (text.length > CHAT_TEXT_MAX) {
+      return c.json({ error: `Message must be ${CHAT_TEXT_MAX} characters or fewer` }, 400);
+    }
+
+    // NOTE: DLP check will go here later — between validation and store.
+
+    const stub = chatRoomStub(c);
+    const message = await stub.sendMessage(username, text);
+    return c.json({ ok: true, message });
+  } catch (error: any) {
+    return c.json({ error: "Failed to send message: " + error.message }, 500);
+  }
+});
+
+// Clear the whole room.
+app.post("/api/chatroom/clear", async (c) => {
+  try {
+    const stub = chatRoomStub(c);
+    await stub.clearMessages();
+    return c.json({ ok: true });
+  } catch (error: any) {
+    return c.json({ error: "Failed to clear messages: " + error.message }, 500);
+  }
 });
 
 // ── Pages Functions export ───────────────────────────────────
