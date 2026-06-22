@@ -1422,6 +1422,65 @@ function chatRoomStub(c: Context<{ Bindings: Bindings }>): ChatRoomStub {
   return c.env.CHAT_ROOM.getByName("global") as unknown as ChatRoomStub;
 }
 
+// ── PG content moderation via Llama Guard 3 (Workers AI) ──────
+// Llama Guard 3 classifies text against the MLCommons hazard taxonomy
+// (S1–S14) and returns "safe" or "unsafe" + the violated categories.
+// We block the categories that make a room not-PG. Categories that would
+// false-positive in a Cloudflare dev demo (S6 specialized advice, S7
+// privacy, S8 IP, S13 elections, S14 code-interpreter abuse) are left
+// out so pasting code or links doesn't get rejected.
+const PG_BLOCK_CATEGORIES: Record<string, string> = {
+  S1: "Violent content",
+  S2: "Criminal activity",
+  S3: "Sexual crime",
+  S4: "Child exploitation",
+  S5: "Defamation",
+  S9: "Weapons / mass harm",
+  S10: "Hate speech",
+  S11: "Self-harm",
+  S12: "Sexual content",
+};
+
+// Returns { safe: true } to allow, or { safe: false, reason } to block.
+// Fails OPEN (allows the message) if the model errors — a moderation
+// outage should not take the chat room down in a demo.
+async function moderatePg(
+  text: string,
+  env: Bindings
+): Promise<{ safe: boolean; reason?: string }> {
+  try {
+    const result: any = await env.AI.run("@cf/meta/llama-guard-3-8b", {
+      messages: [{ role: "user", content: text }],
+    });
+
+    const resp = result?.response;
+    let unsafe = false;
+    let categories: string[] = [];
+
+    if (resp && typeof resp === "object") {
+      // Structured form: { safe: boolean, categories: string[] }
+      unsafe = resp.safe === false;
+      categories = Array.isArray(resp.categories) ? resp.categories : [];
+    } else if (typeof resp === "string") {
+      // Text form: "safe" or "unsafe\nS1,S10"
+      unsafe = /unsafe/i.test(resp);
+      categories = (resp.match(/S\d{1,2}/g) ?? []).map((s) => s.toUpperCase());
+    }
+
+    if (!unsafe) return { safe: true };
+
+    // Only block if a violated category is in our PG block list.
+    const blocked = categories.filter((c) => c in PG_BLOCK_CATEGORIES);
+    if (blocked.length === 0) return { safe: true };
+
+    const labels = [...new Set(blocked.map((c) => PG_BLOCK_CATEGORIES[c]))];
+    return { safe: false, reason: labels.join(", ") };
+  } catch (err) {
+    console.error("Llama Guard moderation failed (failing open):", err);
+    return { safe: true };
+  }
+}
+
 // Initial load: current messages + the next daily-reset timestamp.
 app.get("/api/chatroom/messages", async (c) => {
   try {
@@ -1464,7 +1523,12 @@ app.post("/api/chatroom/send", async (c) => {
       return c.json({ error: `Message must be ${CHAT_TEXT_MAX} characters or fewer` }, 400);
     }
 
-    // NOTE: DLP check will go here later — between validation and store.
+    // PG moderation: classify with Llama Guard 3 before storing. Blocked
+    // messages never reach the Durable Object.
+    const verdict = await moderatePg(text, c.env);
+    if (!verdict.safe) {
+      return c.json({ blocked: true, reason: verdict.reason }, 422);
+    }
 
     const stub = chatRoomStub(c);
     const message = await stub.sendMessage(username, text);

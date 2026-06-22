@@ -20,6 +20,9 @@
     One <strong>Durable Object</strong> instance backs this room. Open this page
     in a second tab (or send it to a colleague) — pick a username in each, and
     watch messages sync live. Every tab is a different user; the room is shared.
+    This is a <strong>PG room</strong>: every message is screened by
+    <strong>Llama Guard 3</strong> on Workers AI before it's stored — violent,
+    hateful, or explicit content is blocked.
   </p>
 
   <!-- ── Username gate ─────────────────────────────────────── -->
@@ -91,6 +94,7 @@
       type="text"
       x-model="messageInput"
       @keydown.enter="send()"
+      @input="error = ''"
       :disabled="!username"
       maxlength="500"
       placeholder="Type a message and hit Enter…"
@@ -241,6 +245,12 @@
             body: JSON.stringify({ username: this.username, text }),
           });
           const data = await res.json();
+          // Blocked by the PG content filter (Llama Guard 3). Keep the
+          // text in the box so the user can edit and retry.
+          if (res.status === 422 && data.blocked) {
+            this.error = `Message blocked by the PG filter — flagged as: ${data.reason}`;
+            return;
+          }
           if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
           this.messageInput = "";
           // The message arrives back over WS for everyone, including us.

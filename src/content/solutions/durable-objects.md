@@ -33,7 +33,7 @@ faq:
 demo:
   type: "interactive"
   component: "ChatRoomDemo"
-  note: "Open this page in two browser tabs to see real-time sync. Each tab is a separate user; the room is one shared Durable Object instance."
+  note: "Open this page in two browser tabs to see real-time sync. Each tab is a separate user; the room is one shared Durable Object instance. Messages are screened by Llama Guard 3 (Workers AI) to keep the room PG."
 
 diveDeeper:
   docs:
