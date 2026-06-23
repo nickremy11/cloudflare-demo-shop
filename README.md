@@ -30,6 +30,9 @@ cloudflare-demo-shop/
 ├── tsconfig.json
 ├── package.json
 ├── wrangler.toml                 # Cloudflare Pages config
+├── chat-worker/                  # Standalone Worker hosting the ChatRoom DO
+│   ├── wrangler.toml
+│   └── src/index.ts
 ├── README.md                     # this file
 ├── CONTRIBUTING.md               # ← how to add solutions, demos, etc.
 │
@@ -81,12 +84,15 @@ npm install
 npm run dev          # http://localhost:4321
 
 # Full local stack — Pages Functions included (needs wrangler login)
+# If the chat-worker has changed, deploy it first so the CHAT_ROOM binding
+# resolves locally as well as in production.
+npx wrangler deploy --config chat-worker/wrangler.toml
 npm run dev:full     # http://localhost:8788
 
 # One-shot static build
 npm run build        # → dist/
 
-# Build + deploy
+# Pages deploy
 npm run deploy
 ```
 
@@ -101,6 +107,27 @@ or anything that requires the real Pages Functions runtime.
 Connected to Cloudflare Pages via GitHub. Push to `main` triggers an automatic
 build (`npm run build`) and deploys `dist/`.
 
+### Durable Objects deploy order
+
+The `/durable-objects` demo is backed by a **standalone Worker** named
+`demo-shop-chat`, which hosts the `ChatRoom` Durable Object class. The Pages
+project binds to that class via `script_name = "demo-shop-chat"` in
+`wrangler.toml`.
+
+If you change `chat-worker/src/index.ts`, you must deploy the chat worker
+**before** deploying Pages:
+
+```bash
+# 1. Deploy the Worker that owns the ChatRoom DO class
+npx wrangler deploy --config chat-worker/wrangler.toml
+
+# 2. Then deploy Pages as normal
+npm run deploy
+```
+
+Normal content / Astro / Pages Function changes still deploy through the usual
+GitHub → Pages flow. Only DO class changes require the extra Worker deploy.
+
 ### Environment variables / secrets
 
 Set in the Cloudflare Pages dashboard (Settings → Environment variables) or via
@@ -113,7 +140,15 @@ Set in the Cloudflare Pages dashboard (Settings → Environment variables) or vi
 | `CF_CACHE_PURGE_TOKEN` | secret | CDN cache purge demo (API token with Zone:Cache Purge) |
 | `TURNSTILE_SECRET` | secret | Turnstile demo (optional — falls back to CF's test secret) |
 
-R2 buckets and KV namespaces are bound in `wrangler.toml`.
+Other runtime bindings configured in `wrangler.toml`:
+
+| Name | Type | Used by |
+|---|---|---|
+| `STORAGE_BUCKET` | R2 bucket | R2 upload / download demo |
+| `DIAGRAMS_BUCKET` | R2 bucket | Diagram browser |
+| `DEMO_KV` | KV namespace | R2 metadata, Page Shield scenarios |
+| `AI` | Workers AI binding | Chatbot, Workers AI demo, chat PG moderation |
+| `CHAT_ROOM` | DO binding (`script_name = demo-shop-chat`) | Durable Objects chat room demo |
 
 ---
 
@@ -134,9 +169,15 @@ The Astro rebuild replaces this with:
 Adding a new solution: write a markdown file. Adding interactivity: drop in a
 new `.astro` component and register it. No more copy-paste-edit.
 
-The `functions/` directory is unchanged in architecture — same Hono app
-handling all `/api/*` routes. New endpoints added: `/api/cache/purge`,
-`/api/turnstile/verify`, `/api/waf/testattack` (replaces `/api/waf-test`, alias
-kept for back-compat).
+The `functions/` directory is still one Hono app handling all `/api/*` routes,
+but the Durable Objects demo adds a second script to the repo:
+
+- **Pages Functions** (`functions/api/[[path]].ts`) own the HTTP routes,
+  validation, and UI-facing API shape.
+- **`chat-worker/`** owns the `ChatRoom` Durable Object class, SQLite storage,
+  WebSocket fan-out, and the daily 17:00 UTC reset alarm.
+
+The Pages app talks to the DO through the `CHAT_ROOM` binding. This keeps the
+site on Pages while still using a real standalone Durable Object Worker.
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the actual how-to.

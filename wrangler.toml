@@ -23,10 +23,16 @@ bucket_name = "demo-shop-storage"
 binding = "DIAGRAMS_BUCKET"
 bucket_name = "demo-shop-diagrams"
 
-# KV namespace for file metadata
+# KV namespace for file metadata + KV demo (demo-kv: prefix)
 [[kv_namespaces]]
 binding = "DEMO_KV"
 id = "718464f9865547c68d5e62aaefe9db85"
+
+# D1 database for the SQL demo (products table)
+[[d1_databases]]
+binding = "demo_d1"
+database_name = "demo-d1"
+database_id = "296d1067-4549-4116-9951-c83bad3b502f"
 
 # ── AI binding for chatbot ─────────────────────────────────
 [ai]
@@ -53,8 +59,4 @@ script_name = "demo-shop-chat"
 # Set via:  wrangler pages secret put <NAME>
 # Or in the Pages dashboard: Settings → Environment variables
 
-# ── Future bindings (not yet needed) ────────────────────────
-# [[d1_databases]]
-# binding = "DEMO_DB"
-# database_name = "demo-db"
-# database_id = "YOUR_D1_DATABASE_ID"
+

@@ -5,11 +5,13 @@
 //   GET  /api/waf/testattack?type=sqli|xss|cmdi|header  — WAF attack target
 //   GET  /api/rate-limit-test                            — Rate-limit target
 //   GET  /api/debug-headers                              — Header dump
-//   GET  /api/auth/whoami                                — Access JWT check
-//   POST /api/r2/upload                                  — Upload (Access OR guest+email)
-//   GET  /api/r2/list                                    — List my files (Access)
-//   GET  /api/r2/download/:fileId                        — Download (Access)
-//   DELETE /api/r2/delete/:fileId                        — Delete (Access)
+//   POST /api/r2/upload                                  — Upload (guest + email), malicious scan
+//   GET  /api/kv/demo                                    — List demo KV keys (demo-kv: prefix)
+//   GET  /api/kv/demo/:key                               — Get a demo KV value
+//   PUT  /api/kv/demo/:key                               — Set a demo KV value
+//   DELETE /api/kv/demo/:key                             — Delete a demo KV value
+//   GET  /api/d1/demo/products                           — All products (D1)
+//   GET  /api/d1/demo/query?preset=...                   — Preset parameterized D1 query
 //   GET  /api/diagrams/list                              — List diagrams (R2)
 //   PUT  /api/diagrams/:name/tags                        — Set tags (KV)
 //   GET  /api/diagrams/:name                             — Stream diagram (cached)
@@ -29,6 +31,7 @@ type Bindings = {
   STORAGE_BUCKET: R2Bucket;
   DIAGRAMS_BUCKET: R2Bucket;
   DEMO_KV: KVNamespace;
+  demo_d1: D1Database;
   AI: Ai;
   AIG_TOKEN: string;
   CHAT_ROOM: DurableObjectNamespace;
@@ -319,16 +322,6 @@ app.get("/api/debug-headers", (c) => {
   });
 });
 
-// ── Auth / whoami ─────────────────────────────────────────────
-
-app.get("/api/auth/whoami", requireAccessAuth, (c) => {
-  return c.json({
-    authenticated: true,
-    email: c.get("userEmail"),
-    timestamp: Date.now(),
-  });
-});
-
 // ── Malicious file scanning ───────────────────────────────────
 
 interface ScanResult {
@@ -418,9 +411,10 @@ async function scanFile(
 }
 
 // ── R2: Upload ────────────────────────────────────────────────
-// Supports BOTH:
-//   - Authenticated upload via Cloudflare Access (uses signed-in email)
-//   - Guest upload (form field 'guestEmail' provides the attribution email)
+// Guest upload: the form field 'guestEmail' provides the attribution email.
+// (Cloudflare Access headers/cookie are still honored if present, so an
+//  authenticated visitor is attributed by their real email — but no auth is
+//  required to upload.)
 
 interface FileMetadata {
   fileId: string;
@@ -476,8 +470,8 @@ app.post("/api/r2/upload", async (c) => {
 
     if (!identity) {
       return c.json(
-        { error: "Must be signed in via Cloudflare Access OR provide a valid guestEmail." },
-        401
+        { error: "Provide a valid email so the upload can be attributed to you." },
+        400
       );
     }
 
@@ -547,14 +541,6 @@ app.post("/api/r2/upload", async (c) => {
       },
     });
 
-    await c.env.DEMO_KV.put(`file:${fileId}`, JSON.stringify(metadata));
-
-    const userFilesKey = `user_files:${identity.email}`;
-    const existingFilesJson = await c.env.DEMO_KV.get(userFilesKey);
-    const existingFiles: string[] = existingFilesJson ? JSON.parse(existingFilesJson) : [];
-    existingFiles.push(fileId);
-    await c.env.DEMO_KV.put(userFilesKey, JSON.stringify(existingFiles));
-
     return c.json({
       success: true,
       fileId,
@@ -571,92 +557,115 @@ app.post("/api/r2/upload", async (c) => {
   }
 });
 
-// ── R2: List Files (Access only — guest uploads are write-only) ───
+// ── KV demo: global key-value store ──────────────────────────
+// Simple CRUD over DEMO_KV using a "demo-kv:" prefix so it never collides
+// with other KV usage. Demonstrates: instant edge reads, writes that
+// propagate worldwide in seconds, eventual consistency.
 
-app.get("/api/r2/list", requireAccessAuth, async (c) => {
+const KV_DEMO_PREFIX = "demo-kv:";
+const KV_KEY_RE = /^[a-zA-Z0-9._:-]{1,128}$/;
+
+app.get("/api/kv/demo", async (c) => {
   try {
-    const userEmail = c.get("userEmail");
-    const userFilesKey = `user_files:${userEmail}`;
-    const userFilesJson = await c.env.DEMO_KV.get(userFilesKey);
-    if (!userFilesJson) return c.json({ files: [], count: 0, userEmail });
-
-    const fileIds: string[] = JSON.parse(userFilesJson);
-    const files: FileWithTier[] = [];
-    for (const fileId of fileIds) {
-      const metadataJson = await c.env.DEMO_KV.get(`file:${fileId}`);
-      if (metadataJson) {
-        const metadata: FileMetadata = JSON.parse(metadataJson);
-        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-        const fileAge = Date.now() - metadata.uploadedAt;
-        const tier: "standard" | "infrequent" = fileAge > thirtyDaysMs ? "infrequent" : "standard";
-        files.push({ ...metadata, tier });
-      }
-    }
-    files.sort((a, b) => b.uploadedAt - a.uploadedAt);
-    return c.json({ files, count: files.length, userEmail });
+    const list = await c.env.DEMO_KV.list({ prefix: KV_DEMO_PREFIX, limit: 100 });
+    const entries = await Promise.all(
+      list.keys.map(async (k) => ({
+        key: k.name.slice(KV_DEMO_PREFIX.length),
+        value: await c.env.DEMO_KV.get(k.name),
+      }))
+    );
+    entries.sort((a, b) => a.key.localeCompare(b.key));
+    return c.json({ keys: entries, count: entries.length });
   } catch (error: any) {
-    return c.json({ error: "Failed to list files: " + error.message }, 500);
+    return c.json({ error: "KV list failed: " + error.message }, 500);
   }
 });
 
-// ── R2: Download / Delete (Access only) ──────────────────────
-
-app.get("/api/r2/download/:fileId", requireAccessAuth, async (c) => {
+app.get("/api/kv/demo/:key", async (c) => {
   try {
-    const fileId = c.req.param("fileId");
-    const userEmail = c.get("userEmail");
-    const metadataJson = await c.env.DEMO_KV.get(`file:${fileId}`);
-    if (!metadataJson) return c.json({ error: "File not found" }, 404);
-    const metadata: FileMetadata = JSON.parse(metadataJson);
-    if (metadata.uploadedBy !== userEmail) {
-      return c.json({ error: "Forbidden — file belongs to another user" }, 403);
+    const key = c.req.param("key");
+    if (!KV_KEY_RE.test(key)) return c.json({ error: "Invalid key" }, 400);
+    const value = await c.env.DEMO_KV.get(KV_DEMO_PREFIX + key);
+    if (value === null) return c.json({ key, found: false, value: null });
+    return c.json({ key, found: true, value });
+  } catch (error: any) {
+    return c.json({ error: "KV get failed: " + error.message }, 500);
+  }
+});
+
+app.put("/api/kv/demo/:key", async (c) => {
+  try {
+    const key = c.req.param("key");
+    if (!KV_KEY_RE.test(key)) return c.json({ error: "Invalid key — use letters, numbers, . _ : - (max 128 chars)" }, 400);
+    const body = await c.req.json().catch(() => ({}));
+    const value = typeof body.value === "string" ? body.value : "";
+    if (value.length > 1024) return c.json({ error: "Value too long (max 1024 chars for the demo)" }, 400);
+    await c.env.DEMO_KV.put(KV_DEMO_PREFIX + key, value);
+    return c.json({ success: true, key, value });
+  } catch (error: any) {
+    return c.json({ error: "KV put failed: " + error.message }, 500);
+  }
+});
+
+app.delete("/api/kv/demo/:key", async (c) => {
+  try {
+    const key = c.req.param("key");
+    if (!KV_KEY_RE.test(key)) return c.json({ error: "Invalid key" }, 400);
+    await c.env.DEMO_KV.delete(KV_DEMO_PREFIX + key);
+    return c.json({ success: true, key });
+  } catch (error: any) {
+    return c.json({ error: "KV delete failed: " + error.message }, 500);
+  }
+});
+
+// ── D1 demo: serverless SQL ──────────────────────────────────
+// Read-only preset queries against a seeded `products` table.
+// Each response echoes the SQL + bindings so the UI can teach.
+
+app.get("/api/d1/demo/products", async (c) => {
+  try {
+    const sql = "SELECT id, name, category, price, stock FROM products ORDER BY id";
+    const { results } = await c.env.demo_d1.prepare(sql).all();
+    return c.json({ sql, bindings: [], rows: results ?? [], count: results?.length ?? 0 });
+  } catch (error: any) {
+    return c.json({ error: "D1 query failed: " + error.message }, 500);
+  }
+});
+
+app.get("/api/d1/demo/query", async (c) => {
+  try {
+    const preset = c.req.query("preset") || "all";
+    let sql = "";
+    let bindings: (string | number)[] = [];
+
+    if (preset === "all") {
+      sql = "SELECT id, name, category, price, stock FROM products ORDER BY id";
+    } else if (preset === "by_category") {
+      const category = c.req.query("category") || "Audio";
+      sql = "SELECT id, name, category, price, stock FROM products WHERE category = ? ORDER BY price";
+      bindings = [category];
+    } else if (preset === "under_price") {
+      const price = Number(c.req.query("price") || "50");
+      sql = "SELECT id, name, category, price, stock FROM products WHERE price < ? ORDER BY price";
+      bindings = [Number.isFinite(price) ? price : 50];
+    } else if (preset === "cheapest_per_category") {
+      sql = "SELECT category, name, MIN(price) AS price FROM products GROUP BY category ORDER BY price";
+    } else {
+      return c.json({ error: "Unknown preset. Use: all, by_category, under_price, cheapest_per_category." }, 400);
     }
-    if (metadata.scanStatus === "malicious") {
-      return c.json({ error: "File blocked — malicious content detected" }, 403);
-    }
-    const object = await c.env.STORAGE_BUCKET.get(metadata.r2Key);
-    if (!object) return c.json({ error: "File not found in storage" }, 404);
-    return new Response(object.body, {
-      headers: {
-        "Content-Type": metadata.contentType,
-        "Content-Disposition": `attachment; filename="${metadata.originalName}"`,
-        "Content-Length": object.size.toString(),
-        "Cache-Control": "private, no-cache",
-      },
+
+    const stmt = bindings.length ? c.env.demo_d1.prepare(sql).bind(...bindings) : c.env.demo_d1.prepare(sql);
+    const { results, meta } = await stmt.all();
+    return c.json({
+      preset,
+      sql,
+      bindings,
+      rows: results ?? [],
+      count: results?.length ?? 0,
+      rowsRead: meta?.rows_read ?? null,
     });
   } catch (error: any) {
-    return c.json({ error: "Download failed: " + error.message }, 500);
-  }
-});
-
-app.delete("/api/r2/delete/:fileId", requireAccessAuth, async (c) => {
-  try {
-    const fileId = c.req.param("fileId");
-    const userEmail = c.get("userEmail");
-    const metadataJson = await c.env.DEMO_KV.get(`file:${fileId}`);
-    if (!metadataJson) return c.json({ error: "File not found" }, 404);
-    const metadata: FileMetadata = JSON.parse(metadataJson);
-    if (metadata.uploadedBy !== userEmail) {
-      return c.json({ error: "Forbidden — file belongs to another user" }, 403);
-    }
-    await c.env.STORAGE_BUCKET.delete(metadata.r2Key);
-    await c.env.DEMO_KV.delete(`file:${fileId}`);
-
-    const userFilesKey = `user_files:${userEmail}`;
-    const userFilesJson = await c.env.DEMO_KV.get(userFilesKey);
-    if (userFilesJson) {
-      const userFiles: string[] = JSON.parse(userFilesJson);
-      const remaining = userFiles.filter((id) => id !== fileId);
-      if (remaining.length > 0) {
-        await c.env.DEMO_KV.put(userFilesKey, JSON.stringify(remaining));
-      } else {
-        await c.env.DEMO_KV.delete(userFilesKey);
-      }
-    }
-
-    return c.json({ success: true, fileId, filename: metadata.originalName });
-  } catch (error: any) {
-    return c.json({ error: "Delete failed: " + error.message }, 500);
+    return c.json({ error: "D1 query failed: " + error.message }, 500);
   }
 });
 

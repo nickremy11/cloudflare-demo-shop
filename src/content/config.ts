@@ -21,12 +21,31 @@ const solutions = defineCollection({
       })
       .optional(),
 
-    solutionPoints: z.array(
-      z.object({
-        title: z.string(),
-        detail: z.string(),
+    // Bulleted "How Cloudflare solves it" points. Optional — a page may
+    // instead (or additionally) supply a `solutionTable`.
+    solutionPoints: z
+      .array(
+        z.object({
+          title: z.string(),
+          detail: z.string(),
+        })
+      )
+      .default([]),
+
+    // Optional comparison table for "How Cloudflare solves it".
+    // `columns` is the header row (first cell is the top-left corner label).
+    // Each row has a `label` (left column) and `cells` aligned to columns[1..].
+    solutionTable: z
+      .object({
+        columns: z.array(z.string()),
+        rows: z.array(
+          z.object({
+            label: z.string(),
+            cells: z.array(z.string()),
+          })
+        ),
       })
-    ),
+      .optional(),
 
     faq: z.array(
       z.object({

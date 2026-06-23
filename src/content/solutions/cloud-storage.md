@@ -8,17 +8,44 @@ challenge:
   question: "Why is your storage bill mostly egress?"
   detail: "Object storage is cheap to put in (S3 is $0.023/GB-month). The killer is moving data out: S3 egress is $0.09/GB to the internet — five orders of magnitude more than storage itself. Add per-operation fees, multi-region replication costs, and the engineering overhead of connecting a centralized database to edge code, and your 'cheap' cloud-storage stack quickly becomes very expensive and very slow."
 
-solutionPoints:
-  - title: "R2 — object storage with zero egress. "
-    detail: "S3-compatible API. No egress fees, ever — read your data out as many times as you want, for free. Pay for storage and operations only. The platform foundation for AI training data, media, backups, and static assets."
-  - title: "D1 — serverless SQL at the edge. "
-    detail: "SQLite-compatible relational database with horizontal read replicas across Cloudflare's edge. Sub-millisecond queries from Workers. Time-travel back to any point in the last 30 days. Free tier and per-row pricing."
-  - title: "KV — global key-value reads. "
-    detail: "Globally replicated key-value store. Writes propagate worldwide in seconds, reads are cached at the edge for fast access. Perfect for config, feature flags, session tokens, and cached data."
-  - title: "Direct Worker bindings. "
-    detail: "<code>env.MY_BUCKET.put()</code>, <code>env.MY_DB.prepare()</code>, <code>env.MY_KV.get()</code> — no SDK auth, no HTTP overhead. Storage operations from Workers are sub-millisecond."
-  - title: "Durable Objects for stateful coordination. "
-    detail: "When you need single-writer-per-key consistency (chat rooms, game state, real-time collaboration), Durable Objects pair with R2/D1 to provide strong consistency on top of edge storage. See its own solution page."
+solutionTable:
+  columns: ["", "R2", "D1", "KV"]
+  rows:
+    - label: "What it is"
+      cells:
+        - "Object storage"
+        - "Serverless SQL database"
+        - "Global key-value store"
+    - label: "Comparable to"
+      cells:
+        - "AWS S3"
+        - "PlanetScale / SQLite Cloud"
+        - "Redis / DynamoDB"
+    - label: "Optimal use case"
+      cells:
+        - "Files, media, AI training data, backups"
+        - "Relational data — queries, joins, transactions"
+        - "Config, feature flags, session tokens, cached data"
+    - label: "Real-world example"
+      cells:
+        - "Product images, user uploads, video &amp; backup assets"
+        - "Product catalog, order history, user accounts"
+        - "A/B test flags, rate-limit counters, cached API results"
+    - label: "Pricing model"
+      cells:
+        - "Storage + operations, <strong>$0 egress</strong>"
+        - "Rows read / written, scale-to-zero compute"
+        - "Reads / writes / storage"
+    - label: "Worker binding"
+      cells:
+        - "<code>env.MY_BUCKET.put()</code>"
+        - "<code>env.MY_DB.prepare()</code>"
+        - "<code>env.MY_KV.get()</code>"
+    - label: "Notable"
+      cells:
+        - "S3-compatible API &middot; Super Slurper migration tool"
+        - "Point-in-time restore (time travel, last 30 days)"
+        - "Reads served from local edge cache &middot; updates propagate globally in seconds"
 
 faq:
   - question: "Is R2 really free egress, no asterisks?"

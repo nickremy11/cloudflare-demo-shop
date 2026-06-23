@@ -14,6 +14,10 @@ interface Props {
     challenge: { question: string; detail: string };
     diagram?: { src?: string; alt?: string; caption?: string };
     solutionPoints: { title: string; detail: string }[];
+    solutionTable?: {
+      columns: string[];
+      rows: { label: string; cells: string[] }[];
+    };
     faq: { question: string; answer: string }[];
     demo: {
       type: "interactive" | "coming-soon" | "external-link";
@@ -74,16 +78,52 @@ const pillar = getPillar(frontmatter.pillar);
     <section class="solution-section">
       <div class="section-label">Cloudflare's Solution</div>
       <h2 class="section-heading">How Cloudflare solves it</h2>
-      <ul class="solution-bullets">
-        {
-          frontmatter.solutionPoints.map((p) => (
-            <li>
-              <strong>{p.title}</strong>
-              {p.detail}
-            </li>
-          ))
-        }
-      </ul>
+      {
+        frontmatter.solutionPoints.length > 0 && (
+          <ul class="solution-bullets">
+            {frontmatter.solutionPoints.map((p) => (
+              <li>
+                <strong>{p.title}</strong>
+                {p.detail}
+              </li>
+            ))}
+          </ul>
+        )
+      }
+      {
+        frontmatter.solutionTable && (
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm border-collapse">
+              <thead>
+                <tr class="bg-pine-50">
+                  {frontmatter.solutionTable.columns.map((col, i) => (
+                    <th
+                      class:list={[
+                        "p-3 font-semibold text-pine-700 border-b border-pine-200",
+                        i === 0 ? "text-left" : "text-left",
+                      ]}
+                    >
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {frontmatter.solutionTable.rows.map((row) => (
+                  <tr class="border-b border-silver-100 align-top">
+                    <td class="p-3 font-medium text-gray-900">{row.label}</td>
+                    {row.cells.map((cell) => (
+                      <td class="p-3 text-gray-700">
+                        <Fragment set:html={cell} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
     </section>
 
     <!-- ─── FAQ ─── -->

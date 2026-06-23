@@ -18,6 +18,7 @@ route handler running as a Cloudflare Pages Function.
 | Add a new solution (page + homepage card) | `src/content/solutions/<slug>.md` |
 | Add a new interactive demo | `src/components/demos/<Name>.astro` + register in `DemoSlot.astro` |
 | Add a new API endpoint | `functions/api/[[path]].ts` (Hono route) |
+| Modify the chat room Durable Object | `chat-worker/src/index.ts` + deploy that Worker |
 | Update homepage hero copy | `src/pages/index.astro` |
 | Update pillar names / order | `src/data/pillars.ts` |
 | Change site-wide styling | `src/styles/global.css` |
@@ -237,6 +238,7 @@ Bindings available on `c.env`:
 - `DIAGRAMS_BUCKET` — R2 bucket for architecture diagrams
 - `DEMO_KV` — KV namespace for metadata
 - `AI` — Workers AI binding
+- `CHAT_ROOM` — Durable Object namespace bound to the `ChatRoom` class in the standalone `demo-shop-chat` Worker
 - `AIG_TOKEN` — AI Gateway auth token (secret)
 - `CF_ZONE_ID`, `CF_CACHE_PURGE_TOKEN` — for cache purge calls
 - `TURNSTILE_SECRET` — Turnstile widget secret
@@ -333,6 +335,85 @@ in the new section.
 
 ---
 
+## Recipe 7 — Work with the Durable Objects chat room
+
+The `/durable-objects` page is special: the UI and HTTP routes live in the
+Pages project, but the `ChatRoom` Durable Object class lives in a **separate
+Worker** under `chat-worker/`.
+
+### Why it's split this way
+
+Cloudflare Pages can bind to a Durable Object class, but it does **not** own
+the class definition itself. The class must live in a Worker script.
+
+Current architecture:
+
+```text
+Browser (/durable-objects)
+  -> ChatRoomDemo.astro
+  -> /api/chatroom/* (Pages Functions, Hono)
+  -> CHAT_ROOM binding
+  -> demo-shop-chat Worker
+  -> ChatRoom Durable Object (SQLite + WebSockets + alarm)
+```
+
+### Files involved
+
+| File | Responsibility |
+|---|---|
+| `chat-worker/src/index.ts` | `ChatRoom` DO class, SQLite schema, broadcast, daily reset alarm |
+| `chat-worker/wrangler.toml` | Worker name + DO migration config |
+| `wrangler.toml` | Pages binding to the DO via `script_name = "demo-shop-chat"` |
+| `functions/api/[[path]].ts` | REST routes and WebSocket upgrade proxy |
+| `src/components/demos/ChatRoomDemo.astro` | UI, WebSocket client, countdown, send/clear interactions |
+
+### Deploy order
+
+If you change **`chat-worker/src/index.ts`**, deploy the Worker first:
+
+```bash
+npx wrangler deploy --config chat-worker/wrangler.toml
+npm run deploy
+```
+
+If you only change Astro / Pages Functions / content, a normal Pages deploy is
+enough.
+
+### Current chat routes
+
+All are defined in `functions/api/[[path]].ts`:
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/chatroom/messages` | Load last 25 messages + next reset time |
+| GET | `/api/chatroom/ws` | WebSocket upgrade, proxied directly to the DO |
+| POST | `/api/chatroom/send` | Validate + PG moderation + store + broadcast |
+| POST | `/api/chatroom/clear` | Clear the room for everyone |
+
+### What the DO currently does
+
+- Single global room (`getByName("global")`)
+- SQLite-backed message history (last 25 messages retained)
+- WebSocket hibernation fan-out to all connected clients
+- Daily reset alarm at **17:00 UTC**
+- PG moderation is enforced **before** messages are stored, in the Pages route,
+  via Llama Guard 3 (`@cf/meta/llama-guard-3-8b`) using the existing `AI`
+  binding.
+
+### RPC typing note
+
+The Pages script cannot import the `ChatRoom` class directly, so the route file
+declares a local `ChatRoomStub` interface and casts:
+
+```ts
+const stub = c.env.CHAT_ROOM.getByName("global") as unknown as ChatRoomStub;
+```
+
+This is intentional. It gives typed RPC calls in the Pages script without
+creating a hard package dependency between the two Workers.
+
+---
+
 ## Current solutions
 
 The 26 existing slugs. **Don't reuse these.**
@@ -365,6 +446,7 @@ Registered in `src/components/DemoSlot.astro`. Reference these in the
 | `WorkersAiDemo` | `/workers`, `/workers-ai` | Sends prompt through `/api/chat` → AI Gateway → Llama 3.3 70B |
 | `AiGatewayDemo` | `/ai-gateway` | Same chat pipeline; shows the routing explicitly |
 | `R2Demo` | `/cloud-storage` | Guest+Access upload, malicious scan, pricing calculator |
+| `ChatRoomDemo` | `/durable-objects` | Real-time DO chat room with SQLite, WebSockets, daily reset, and Llama Guard PG moderation |
 
 ## Current API routes
 
@@ -387,6 +469,10 @@ All in `functions/api/[[path]].ts`.
 | POST | `/api/cache/purge` | none (server uses CF token) | CDN demo purge |
 | POST | `/api/turnstile/verify` | none | Turnstile demo |
 | POST | `/api/chat` | none | Chatbot + Workers AI + AI Gateway demos |
+| GET | `/api/chatroom/messages` | none | DO chat room initial history |
+| GET | `/api/chatroom/ws` | none | DO chat room WebSocket upgrade |
+| POST | `/api/chatroom/send` | none | DO chat room send + PG moderation |
+| POST | `/api/chatroom/clear` | none | DO chat room clear |
 
 ---
 
@@ -396,12 +482,30 @@ All in `functions/api/[[path]].ts`.
   `:class="foo === bar ? 'a' : 'b'"` and split it across multiple lines,
   Astro's TS parser may complain. Keep `:class` expressions on a single line
   inside the attribute value.
+- **Alpine 3 auto-calls `init()` — don't also add `x-init="init()"`.** If the
+  object returned by `x-data` defines an `init()` method, Alpine runs it
+  automatically on mount. Adding `x-init="init()"` as well calls it a second
+  time. In the chat room this created two WebSocket connections and every
+  message appeared twice.
 - **`x-show` without `style="display: none;"`.** Alpine hides elements after
   it loads, so on first paint they flash visible. Add `style="display: none;"`
   inline to anything that should be hidden by default.
 - **`set:html` vs `{value}`.** FAQ answers use `set:html` so HTML in answer
   strings renders. Don't pass user-controlled HTML into anywhere that uses
   `set:html`.
+- **WebSocket upgrades must bypass response-rewriting middleware.** Any code
+  that wraps a `101` response in `new Response(...)` drops the non-standard
+  `webSocket` property and silently breaks the handshake. This affected both
+  Hono's CORS middleware and the global `functions/_middleware.js`. For WebSocket
+  paths, intercept the request before middleware and return the DO's response
+  untouched.
+- **Pages + standalone DOs require deploy order awareness.** If Pages binds to a
+  DO class in another Worker via `script_name`, that Worker must already exist.
+  Otherwise Pages deployment fails with `Error 8000109: Script not found`.
+- **Don't use server-provided ids directly as Alpine render keys unless you're
+  sure they're stable across all paths.** The chat room now stamps a client-side
+  `_k` counter on each message so `x-for` identity never depends on RPC /
+  broadcast serialization details.
 - **Pages Functions don't auto-rebuild on file changes during `astro dev`.**
   Use `npm run dev:full` if you're working on API routes, or just deploy.
 - **Pillar URL collision.** The pillar with slug `developer` has a solution

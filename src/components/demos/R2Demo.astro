@@ -1,251 +1,279 @@
 ---
-// R2 storage demo with three sections:
-//   1. Upload: guest (with email) OR via Cloudflare Access — malicious detection
-//   2. File browser of your uploads (Access-gated for "my files")
-//   3. Pricing calculator: R2 vs S3 / GCS / Azure / Vercel Blob
+// Cloud storage demo with a three-way selector:
+//   • R2 — object storage: guest upload (email + file) with malicious-content
+//     scanning, plus a live R2-vs-S3/GCS/Azure/Vercel pricing calculator.
+//   • KV — global key-value store: Set / Get / Delete / List against DEMO_KV
+//     (demo-kv: prefix). Shows instant edge reads + global propagation.
+//   • D1 — serverless SQL: preset parameterized queries against a seeded
+//     products table, echoing the SQL and rows-read for teaching.
 //
-// Constraints:
-//   - 50MB max
-//   - Allowed: pdf, csv, png, jpg, jpeg, gif, doc, docx, ppt, pptx, txt
-//   - Server scans full buffer for malicious patterns (PDF JS, VBA macros,
-//     extension/MIME mismatch, magic-bytes check)
+// R2 upload constraints: 50MB max; allowed pdf, csv, png, jpg, jpeg, gif,
+// doc, docx, ppt, pptx, txt. Server scans the full buffer.
 //
-// Pricing data hardcoded — last updated date shown on the page.
+// Pricing data is hardcoded; the verified date is shown on the page.
+// No authentication — uploads are guest-only (email is for attribution).
 ---
 
-<div x-data="r2Demo()" x-init="checkAuth()" class="space-y-8">
-  <!-- ─────────────────── Upload section ─────────────────── -->
-  <div>
-    <h3 class="text-sm font-semibold text-pine-700 uppercase tracking-wide mb-2">
-      1. Upload to R2
-    </h3>
-    <p class="text-sm text-gray-600 mb-4">
-      Upload a file as a guest (provide your email so the file is tied to you),
-      or authenticate via Cloudflare Access. Every file is scanned for
-      malicious content before it's accepted. Max 50&nbsp;MB. Allowed types:
-      PDF, CSV, PNG, JPG, GIF, DOC(X), PPT(X), TXT.
+<div x-data="storageDemo()" x-init="init()" class="space-y-6">
+  <!-- ─────────────────── Product selector tabs ─────────────────── -->
+  <div class="flex flex-wrap gap-2 border-b border-silver-200">
+    <button type="button" @click="setTab('r2')" :class="tabClass('r2')">
+      R2 — Object Storage
+    </button>
+    <button type="button" @click="setTab('kv')" :class="tabClass('kv')">
+      KV — Key-Value
+    </button>
+    <button type="button" @click="setTab('d1')" :class="tabClass('d1')">
+      D1 — SQL
+    </button>
+  </div>
+
+  <!-- ═══════════════════════ R2 PANEL ═══════════════════════ -->
+  <div x-show="activeTab === 'r2'" class="space-y-8">
+    <p class="text-sm text-gray-600">
+      R2 is S3-compatible object storage with <strong>$0 egress</strong>. Upload a
+      file below (as a guest — your email just tags the file), then use the
+      calculator to compare R2's bill against the hyperscalers on a read-heavy
+      workload.
     </p>
 
-    <!-- Auth state banner -->
-    <div class="mb-4 p-3 rounded text-sm" :class="authState === 'authenticated' ? 'bg-pine-50 border border-pine-200' : 'bg-silver-50 border border-silver-200'">
-      <template x-if="authState === 'authenticated'">
-        <div class="flex items-center justify-between gap-3">
-          <span>
-            ✓ Signed in via Cloudflare Access as
-            <strong class="text-pine-700" x-text="userEmail"></strong>
-          </span>
-          <a href="/cdn-cgi/access/logout" class="text-xs text-pine-600 hover:underline">Sign out</a>
+    <!-- ── Upload ── -->
+    <div>
+      <h3 class="text-sm font-semibold text-pine-700 uppercase tracking-wide mb-2">
+        1. Upload to R2
+      </h3>
+      <p class="text-sm text-gray-600 mb-4">
+        Every file is scanned for malicious content before it's accepted.
+        Max 50&nbsp;MB. Allowed types: PDF, CSV, PNG, JPG, GIF, DOC(X), PPT(X), TXT.
+      </p>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="demo-panel">
+          <h3>Your email</h3>
+          <input
+            type="email"
+            x-model="guestEmail"
+            class="demo-input mt-2"
+            placeholder="you@example.com"
+          />
+          <p class="text-xs text-gray-500 mt-2">
+            Used only to tag the upload so it can be attributed to you.
+          </p>
         </div>
-      </template>
-      <template x-if="authState === 'guest'">
-        <div class="flex items-center justify-between gap-3 flex-wrap">
-          <span class="text-gray-600">
-            Uploading as a guest. Or
-            <a href="/api/auth/whoami" class="text-pine-600 hover:underline">sign in via Access</a>
-            for &quot;my files&quot; access.
-          </span>
+
+        <div class="demo-panel">
+          <h3>Choose a file</h3>
+          <input
+            type="file"
+            @change="onFileChange"
+            accept=".pdf,.csv,.png,.jpg,.jpeg,.gif,.doc,.docx,.ppt,.pptx,.txt"
+            class="block w-full text-sm text-gray-700 mt-2"
+          />
+          <p class="text-xs text-gray-500 mt-2" x-show="selectedFile">
+            Selected: <strong x-text="selectedFile?.name"></strong>
+            (<span x-text="formatBytes(selectedFile?.size ?? 0)"></span>)
+          </p>
         </div>
-      </template>
-      <template x-if="authState === 'checking'">
-        <span class="text-gray-500">Checking auth state...</span>
-      </template>
+      </div>
+
+      <button type="button" @click="upload" :disabled="!canUpload" class="btn-primary mt-4">
+        <span x-show="!uploading">Upload to R2</span>
+        <span x-show="uploading">Scanning &amp; uploading...</span>
+      </button>
+
+      <div x-show="uploadResult" x-transition class="mt-4 demo-panel" :class="uploadResult?.success ? 'safe' : 'danger'">
+        <h3 x-text="uploadResult?.title"></h3>
+        <p class="text-sm" x-text="uploadResult?.message"></p>
+        <template x-if="uploadResult?.detail">
+          <pre class="code-output text-xs mt-2" x-text="uploadResult.detail"></pre>
+        </template>
+      </div>
     </div>
+
+    <!-- ── Pricing calculator ── -->
+    <div>
+      <h3 class="text-sm font-semibold text-pine-700 uppercase tracking-wide mb-2">
+        2. Pricing calculator: R2 vs the rest
+      </h3>
+      <p class="text-sm text-gray-600 mb-4">
+        Estimate monthly cost for a given workload. R2 has $0 egress —
+        the dramatic differentiator on read-heavy workloads.
+      </p>
+
+      <div class="grid sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">Storage (TB)</label>
+          <input type="range" x-model.number="calc.storageTB" min="0.1" max="500" step="0.1" class="w-full" />
+          <div class="text-sm">
+            <input type="number" x-model.number="calc.storageTB" min="0" step="0.1" class="demo-input w-32 inline-block" />
+            <span class="text-gray-500"> TB stored</span>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">Egress (TB / month read out)</label>
+          <input type="range" x-model.number="calc.egressTB" min="0" max="500" step="0.1" class="w-full" />
+          <div class="text-sm">
+            <input type="number" x-model.number="calc.egressTB" min="0" step="0.1" class="demo-input w-32 inline-block" />
+            <span class="text-gray-500"> TB egressed</span>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">Class A operations (writes, lists) / month</label>
+          <input type="number" x-model.number="calc.classAOpsMillions" min="0" step="0.1" class="demo-input" />
+          <p class="text-xs text-gray-500 mt-1">In millions. Writes &amp; lists.</p>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">Class B operations (reads) / month</label>
+          <input type="number" x-model.number="calc.classBOpsMillions" min="0" step="0.1" class="demo-input" />
+          <p class="text-xs text-gray-500 mt-1">In millions. Reads (GET, HEAD).</p>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border-collapse">
+          <thead>
+            <tr class="bg-pine-50">
+              <th class="text-left p-2 font-semibold text-pine-700">Provider</th>
+              <th class="text-right p-2 font-semibold text-pine-700">Storage</th>
+              <th class="text-right p-2 font-semibold text-pine-700">Egress</th>
+              <th class="text-right p-2 font-semibold text-pine-700">Operations</th>
+              <th class="text-right p-2 font-semibold text-pine-700">Total / mo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="row in costs" :key="row.name">
+              <tr class="border-b border-silver-100" :class="row.name === 'Cloudflare R2' ? 'bg-pine-50/50' : ''">
+                <td class="p-2 font-medium" x-text="row.name"></td>
+                <td class="p-2 text-right font-mono text-xs" x-text="'$' + row.storage.toFixed(2)"></td>
+                <td class="p-2 text-right font-mono text-xs" :class="row.egress === 0 ? 'text-pine-600 font-semibold' : ''" x-text="'$' + row.egress.toFixed(2)"></td>
+                <td class="p-2 text-right font-mono text-xs" x-text="'$' + row.operations.toFixed(2)"></td>
+                <td class="p-2 text-right font-mono font-semibold" :class="row.name === 'Cloudflare R2' ? 'text-pine-700' : ''" x-text="'$' + row.total.toFixed(2)"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="text-xs text-gray-500 mt-3">
+        <strong>Pricing verified June 2026.</strong> Standard storage tiers,
+        US regions. Hyperscaler egress and ops pricing varies by region &amp;
+        tier; figures reflect commonly-cited public list prices. R2 egress is
+        $0 to any internet destination, billed only for storage and operations.
+      </p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ KV PANEL ═══════════════════════ -->
+  <div x-show="activeTab === 'kv'" class="space-y-6">
+    <p class="text-sm text-gray-600">
+      Workers KV is a <strong>global key-value store</strong>. Writes propagate to
+      every Cloudflare location within seconds; reads are served from the cache
+      nearest the user. Reach for KV when you have a flat key&nbsp;→&nbsp;value lookup
+      and want the fastest possible global reads: config, feature flags, session
+      tokens, cached API responses.
+    </p>
 
     <div class="grid md:grid-cols-2 gap-4">
-      <!-- Guest email -->
-      <div class="demo-panel" x-show="authState !== 'authenticated'">
-        <h3>Guest upload</h3>
-        <label class="text-xs text-gray-600 block mb-1 mt-2">Your email</label>
-        <input
-          type="email"
-          x-model="guestEmail"
-          class="demo-input"
-          placeholder="you@example.com"
-        />
-        <p class="text-xs text-gray-500 mt-2">
-          Your file is tagged with this email so we can attribute it.
-        </p>
+      <div class="demo-panel">
+        <h3>Key</h3>
+        <input type="text" x-model="kv.key" class="demo-input mt-2" placeholder="feature-flag:new-checkout" />
+        <h3 class="mt-3">Value</h3>
+        <input type="text" x-model="kv.value" class="demo-input mt-2" placeholder="enabled" />
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button type="button" @click="kvSet" class="btn-primary text-xs">Set</button>
+          <button type="button" @click="kvGet" class="btn-secondary text-xs">Get</button>
+          <button type="button" @click="kvDelete" class="btn-danger text-xs">Delete</button>
+        </div>
+        <div x-show="kv.result" x-transition class="mt-3 text-sm" :class="kv.result?.ok ? 'text-pine-700' : 'text-red-600'">
+          <span x-text="kv.result?.text"></span>
+        </div>
       </div>
 
-      <!-- Drop zone -->
-      <div class="demo-panel" :class="authState === 'authenticated' ? 'safe' : ''">
-        <h3>Choose a file</h3>
-        <input
-          type="file"
-          @change="onFileChange"
-          accept=".pdf,.csv,.png,.jpg,.jpeg,.gif,.doc,.docx,.ppt,.pptx,.txt"
-          class="block w-full text-sm text-gray-700 mt-2"
-        />
-        <p class="text-xs text-gray-500 mt-2" x-show="selectedFile">
-          Selected: <strong x-text="selectedFile?.name"></strong>
-          (<span x-text="formatBytes(selectedFile?.size ?? 0)"></span>)
-        </p>
-      </div>
-    </div>
-
-    <button
-      type="button"
-      @click="upload"
-      :disabled="!canUpload"
-      class="btn-primary mt-4"
-    >
-      <span x-show="!uploading">Upload to R2</span>
-      <span x-show="uploading">Scanning &amp; uploading...</span>
-    </button>
-
-    <div x-show="uploadResult" x-transition class="mt-4 demo-panel" :class="uploadResult?.success ? 'safe' : 'danger'">
-      <h3 x-text="uploadResult?.title"></h3>
-      <p class="text-sm" x-text="uploadResult?.message"></p>
-      <template x-if="uploadResult?.detail">
-        <pre class="code-output text-xs mt-2" x-text="uploadResult.detail"></pre>
-      </template>
-    </div>
-  </div>
-
-  <!-- ─────────────────── My files ─────────────────── -->
-  <div x-show="authState === 'authenticated'">
-    <h3 class="text-sm font-semibold text-pine-700 uppercase tracking-wide mb-2">
-      2. My uploaded files
-    </h3>
-    <p class="text-sm text-gray-600 mb-3">
-      Files you've uploaded under this signed-in identity.
-    </p>
-    <button type="button" @click="loadFiles" class="btn-secondary mb-3 text-xs">
-      <span x-show="!loadingFiles">↻ Refresh list</span>
-      <span x-show="loadingFiles">Loading...</span>
-    </button>
-
-    <div x-show="files.length === 0 && !loadingFiles" class="text-sm text-gray-500">
-      No files yet. Upload one above.
-    </div>
-
-    <div class="space-y-2" x-show="files.length > 0">
-      <template x-for="f in files" :key="f.fileId">
-        <div class="flex items-center justify-between gap-3 p-3 bg-white border border-silver-100 rounded">
-          <div class="flex-1 min-w-0">
-            <div class="font-medium text-sm truncate" x-text="f.originalName"></div>
-            <div class="text-xs text-gray-500">
-              <span x-text="formatBytes(f.size)"></span> ·
-              <span x-text="new Date(f.uploadedAt).toLocaleString()"></span> ·
-              <span x-text="f.tier"></span>
+      <div class="demo-panel">
+        <div class="flex items-center justify-between">
+          <h3>Keys in the store</h3>
+          <button type="button" @click="kvList" class="text-xs text-pine-600 hover:underline">
+            <span x-show="!kv.loading">↻ Refresh</span>
+            <span x-show="kv.loading">Loading...</span>
+          </button>
+        </div>
+        <div x-show="kv.list.length === 0 && !kv.loading" class="text-sm text-gray-500 mt-2">
+          No keys yet. Set one on the left.
+        </div>
+        <div class="space-y-1 mt-2">
+          <template x-for="entry in kv.list" :key="entry.key">
+            <div class="flex items-center justify-between gap-2 text-sm bg-white border border-silver-100 rounded px-2 py-1">
+              <code class="text-xs text-pine-700 truncate" x-text="entry.key"></code>
+              <span class="text-xs text-gray-500 truncate" x-text="entry.value"></span>
             </div>
-          </div>
-          <div class="flex gap-2">
-            <a :href="'/api/r2/download/' + f.fileId" class="btn-secondary text-xs">Download</a>
-            <button @click="deleteFile(f.fileId)" class="btn-danger text-xs">Delete</button>
-          </div>
+          </template>
         </div>
-      </template>
+      </div>
     </div>
   </div>
 
-  <!-- ─────────────────── Pricing calculator ─────────────────── -->
-  <div>
-    <h3 class="text-sm font-semibold text-pine-700 uppercase tracking-wide mb-2">
-      3. Pricing calculator: R2 vs the rest
-    </h3>
-    <p class="text-sm text-gray-600 mb-4">
-      Estimate monthly cost for a given workload. R2 has $0 egress —
-      the dramatic differentiator on read-heavy workloads.
+  <!-- ═══════════════════════ D1 PANEL ═══════════════════════ -->
+  <div x-show="activeTab === 'd1'" class="space-y-6">
+    <p class="text-sm text-gray-600">
+      D1 is a <strong>serverless SQL database</strong> (SQLite-compatible) that runs
+      at the edge. Reach for D1 when you need relational queries, joins, or
+      transactions. Run a preset query against a seeded <code>products</code> table —
+      the exact SQL and rows-read are shown so you can see what D1 did.
     </p>
 
-    <div class="grid sm:grid-cols-2 gap-4 mb-4">
-      <div>
-        <label class="text-xs text-gray-600 block mb-1">Storage (TB)</label>
-        <input
-          type="range"
-          x-model.number="calc.storageTB"
-          min="0.1" max="500" step="0.1"
-          class="w-full"
-        />
-        <div class="text-sm">
-          <input
-            type="number"
-            x-model.number="calc.storageTB"
-            min="0" step="0.1"
-            class="demo-input w-32 inline-block"
-          />
-          <span class="text-gray-500"> TB stored</span>
-        </div>
-      </div>
-      <div>
-        <label class="text-xs text-gray-600 block mb-1">Egress (TB / month read out)</label>
-        <input
-          type="range"
-          x-model.number="calc.egressTB"
-          min="0" max="500" step="0.1"
-          class="w-full"
-        />
-        <div class="text-sm">
-          <input
-            type="number"
-            x-model.number="calc.egressTB"
-            min="0" step="0.1"
-            class="demo-input w-32 inline-block"
-          />
-          <span class="text-gray-500"> TB egressed</span>
-        </div>
-      </div>
-      <div>
-        <label class="text-xs text-gray-600 block mb-1">Class A operations (writes, lists) / month</label>
-        <input
-          type="number"
-          x-model.number="calc.classAOpsMillions"
-          min="0" step="0.1"
-          class="demo-input"
-        />
-        <p class="text-xs text-gray-500 mt-1">In millions. Writes &amp; lists.</p>
-      </div>
-      <div>
-        <label class="text-xs text-gray-600 block mb-1">Class B operations (reads) / month</label>
-        <input
-          type="number"
-          x-model.number="calc.classBOpsMillions"
-          min="0" step="0.1"
-          class="demo-input"
-        />
-        <p class="text-xs text-gray-500 mt-1">In millions. Reads (GET, HEAD).</p>
-      </div>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" @click="d1Query('all')" :class="d1BtnClass('all')">All products</button>
+      <button type="button" @click="d1Query('by_category', 'category=Audio')" :class="d1BtnClass('by_category')">Category = Audio</button>
+      <button type="button" @click="d1Query('under_price', 'price=50')" :class="d1BtnClass('under_price')">Price &lt; $50</button>
+      <button type="button" @click="d1Query('cheapest_per_category')" :class="d1BtnClass('cheapest_per_category')">Cheapest per category</button>
     </div>
 
-    <div class="overflow-x-auto">
+    <div x-show="d1.sql" class="demo-panel">
+      <h3>Query executed</h3>
+      <pre class="code-output text-xs mt-2" x-text="d1.sql"></pre>
+      <p class="text-xs text-gray-500 mt-2" x-show="d1.rowsRead !== null">
+        Rows read: <strong x-text="d1.rowsRead"></strong> ·
+        Rows returned: <strong x-text="d1.rows.length"></strong>
+      </p>
+    </div>
+
+    <div x-show="d1.error" class="demo-panel danger">
+      <h3>Query error</h3>
+      <p class="text-sm" x-text="d1.error"></p>
+      <p class="text-xs text-gray-500 mt-2">
+        If the table doesn't exist yet, seed it once with
+        <code>npx wrangler d1 execute demo-d1 --remote --file=db/demo-d1-seed.sql</code>.
+      </p>
+    </div>
+
+    <div class="overflow-x-auto" x-show="d1.rows.length > 0">
       <table class="w-full text-sm border-collapse">
         <thead>
           <tr class="bg-pine-50">
-            <th class="text-left p-2 font-semibold text-pine-700">Provider</th>
-            <th class="text-right p-2 font-semibold text-pine-700">Storage</th>
-            <th class="text-right p-2 font-semibold text-pine-700">Egress</th>
-            <th class="text-right p-2 font-semibold text-pine-700">Operations</th>
-            <th class="text-right p-2 font-semibold text-pine-700">Total / mo</th>
+            <template x-for="col in d1Columns" :key="col">
+              <th class="text-left p-2 font-semibold text-pine-700" x-text="col"></th>
+            </template>
           </tr>
         </thead>
         <tbody>
-          <template x-for="row in costs" :key="row.name">
-            <tr class="border-b border-silver-100" :class="row.name === 'Cloudflare R2' ? 'bg-pine-50/50' : ''">
-              <td class="p-2 font-medium" x-text="row.name"></td>
-              <td class="p-2 text-right font-mono text-xs" x-text="'$' + row.storage.toFixed(2)"></td>
-              <td class="p-2 text-right font-mono text-xs" :class="row.egress === 0 ? 'text-pine-600 font-semibold' : ''" x-text="'$' + row.egress.toFixed(2)"></td>
-              <td class="p-2 text-right font-mono text-xs" x-text="'$' + row.operations.toFixed(2)"></td>
-              <td class="p-2 text-right font-mono font-semibold" :class="row.name === 'Cloudflare R2' ? 'text-pine-700' : ''" x-text="'$' + row.total.toFixed(2)"></td>
+          <template x-for="(row, i) in d1.rows" :key="i">
+            <tr class="border-b border-silver-100">
+              <template x-for="col in d1Columns" :key="col">
+                <td class="p-2" :class="col === 'price' ? 'text-right font-mono text-xs' : ''" x-text="d1Cell(col, row[col])"></td>
+              </template>
             </tr>
           </template>
         </tbody>
       </table>
     </div>
-
-    <p class="text-xs text-gray-500 mt-3">
-      <strong>Pricing as of November 2024.</strong> Standard storage tiers,
-      US regions. Hyperscaler egress and ops pricing varies by region &amp;
-      tier; figures reflect commonly-cited public list prices. R2 egress is
-      $0 to any internet destination, billed only for storage and operations.
-    </p>
   </div>
 </div>
 
 <script is:inline>
   // ────────────────────────────────────────────────────────────
-  //  Pricing constants (USD). Last updated: November 2024.
-  //  Sources: public pricing pages from each vendor.
+  //  Pricing constants (USD). Verified June 2026 against each
+  //  vendor's public pricing page. R2/S3/GCS/Azure/Vercel unchanged
+  //  since the prior Nov 2024 snapshot.
   // ────────────────────────────────────────────────────────────
   const PRICING = {
     "Cloudflare R2": {
@@ -280,35 +308,120 @@
     },
   };
 
-  function r2Demo() {
+  function storageDemo() {
     return {
-      // ── Auth state
-      authState: "checking", // checking | authenticated | guest
-      userEmail: "",
-      guestEmail: "",
+      // ── Tabs
+      activeTab: "r2",
 
-      // ── Upload
+      // ── R2 upload
+      guestEmail: "",
       selectedFile: null,
       uploading: false,
       uploadResult: null,
 
-      // ── Files
-      files: [],
-      loadingFiles: false,
+      // ── R2 calculator
+      calc: { storageTB: 10, egressTB: 50, classAOpsMillions: 1, classBOpsMillions: 100 },
 
-      // ── Calculator (defaults trigger interesting numbers)
-      calc: {
-        storageTB: 10,
-        egressTB: 50,
-        classAOpsMillions: 1,
-        classBOpsMillions: 100,
+      // ── KV
+      kv: { key: "", value: "", result: null, list: [], loading: false, loaded: false },
+
+      // ── D1
+      d1: { rows: [], sql: "", rowsRead: null, error: null, loading: false, loaded: false, activePreset: "" },
+
+      init() {
+        // Panels load lazily the first time their tab is opened (see setTab).
+      },
+
+      setTab(tab) {
+        this.activeTab = tab;
+        if (tab === "kv" && !this.kv.loaded) { this.kv.loaded = true; this.kvList(); }
+        if (tab === "d1" && !this.d1.loaded) { this.d1.loaded = true; this.d1Query("all"); }
+      },
+
+      tabClass(tab) {
+        return this.activeTab === tab
+          ? "px-4 py-2 text-sm font-semibold text-pine-700 border-b-2 border-pine-600 -mb-px"
+          : "px-4 py-2 text-sm font-medium text-gray-500 hover:text-pine-600 border-b-2 border-transparent -mb-px";
+      },
+
+      // ── Shared: parse JSON, but detect HTML (WAF/security block) gracefully
+      async parseJson(res) {
+        const ctype = res.headers.get("content-type") || "";
+        if (!ctype.includes("application/json")) {
+          return {
+            __nonJson: true,
+            error: `Server returned ${res.status} ${res.statusText || ""} as ${ctype || "an unknown type"} instead of JSON — a WAF or security rule may be intercepting this request.`,
+          };
+        }
+        try { return await res.json(); } catch { return { error: "Invalid JSON response from server." }; }
+      },
+
+      formatBytes(bytes) {
+        if (!bytes) return "0 B";
+        const units = ["B", "KB", "MB", "GB"];
+        let i = 0;
+        let n = bytes;
+        while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+        return n.toFixed(n < 10 ? 1 : 0) + " " + units[i];
+      },
+
+      // ───────────────────────── R2 ─────────────────────────
+      onFileChange(e) {
+        this.selectedFile = e.target.files?.[0] ?? null;
+        this.uploadResult = null;
       },
 
       get canUpload() {
         if (!this.selectedFile || this.uploading) return false;
-        if (this.authState === "authenticated") return true;
-        if (this.authState === "guest") return /\S+@\S+\.\S+/.test(this.guestEmail);
-        return false;
+        return /\S+@\S+\.\S+/.test(this.guestEmail);
+      },
+
+      async upload() {
+        if (!this.canUpload) return;
+        this.uploading = true;
+        this.uploadResult = null;
+        try {
+          const form = new FormData();
+          form.append("file", this.selectedFile);
+          form.append("guestEmail", this.guestEmail);
+          const res = await fetch("/api/r2/upload", { method: "POST", body: form });
+
+          // A WAF/security block returns an HTML page, not JSON — detect it
+          // so the user sees a real explanation instead of a JSON parse error.
+          const ctype = res.headers.get("content-type") || "";
+          if (!ctype.includes("application/json")) {
+            this.uploadResult = {
+              success: false,
+              title: "✗ Upload blocked before it reached R2",
+              message: `The server returned ${res.status} ${res.statusText || ""} as ${ctype || "an unknown type"} instead of JSON. A WAF or security rule is likely intercepting POST /api/r2/upload — add a WAF skip/allow rule for that path.`,
+            };
+            return;
+          }
+
+          const data = await res.json();
+          if (res.ok && data.success) {
+            this.uploadResult = {
+              success: true,
+              title: "✓ Upload successful",
+              message: `File ${data.filename} (${this.formatBytes(data.size)}) stored in R2. Scan: ${data.scanStatus ?? "clean"}.`,
+              detail: data.scanDetails ? JSON.stringify(data.scanDetails, null, 2) : null,
+            };
+            this.selectedFile = null;
+            const fileInput = document.querySelector("input[type=file]");
+            if (fileInput) fileInput.value = "";
+          } else {
+            this.uploadResult = {
+              success: false,
+              title: data.scanStatus === "malicious" ? "⚠ Malicious file blocked" : "✗ Upload rejected",
+              message: data.error || "Upload failed.",
+              detail: data.scanDetails ? JSON.stringify(data.scanDetails, null, 2) : null,
+            };
+          }
+        } catch (e) {
+          this.uploadResult = { success: false, title: "Network error", message: e?.message ?? String(e) };
+        } finally {
+          this.uploading = false;
+        }
       },
 
       get costs() {
@@ -320,107 +433,98 @@
           const storage = storageGB * p.storage_per_gb_month;
           const egress = egressGB * p.egress_per_gb;
           const operations = opsA * p.classA_per_million + opsB * p.classB_per_million;
-          return {
-            name,
-            storage,
-            egress,
-            operations,
-            total: storage + egress + operations,
-          };
+          return { name, storage, egress, operations, total: storage + egress + operations };
         });
       },
 
-      formatBytes(bytes) {
-        if (!bytes) return "0 B";
-        const units = ["B", "KB", "MB", "GB"];
-        let i = 0;
-        let n = bytes;
-        while (n >= 1024 && i < units.length - 1) {
-          n /= 1024;
-          i++;
-        }
-        return n.toFixed(n < 10 ? 1 : 0) + " " + units[i];
-      },
-
-      async checkAuth() {
+      // ───────────────────────── KV ─────────────────────────
+      async kvList() {
+        this.kv.loading = true;
         try {
-          const res = await fetch("/api/auth/whoami");
-          if (res.ok) {
-            const data = await res.json();
-            if (data.authenticated && data.email) {
-              this.authState = "authenticated";
-              this.userEmail = data.email;
-              this.loadFiles();
-              return;
-            }
-          }
+          const res = await fetch("/api/kv/demo");
+          const data = await this.parseJson(res);
+          this.kv.list = data.keys ?? [];
         } catch {}
-        this.authState = "guest";
+        this.kv.loading = false;
       },
 
-      onFileChange(e) {
-        this.selectedFile = e.target.files?.[0] ?? null;
-        this.uploadResult = null;
+      async kvSet() {
+        const key = this.kv.key.trim();
+        if (!key) { this.kv.result = { ok: false, text: "Enter a key first." }; return; }
+        this.kv.result = null;
+        const res = await fetch("/api/kv/demo/" + encodeURIComponent(key), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ value: this.kv.value }),
+        });
+        const data = await this.parseJson(res);
+        this.kv.result = res.ok && data.success
+          ? { ok: true, text: `SET "${key}" = "${data.value}" — now propagating to every Cloudflare location.` }
+          : { ok: false, text: data.error || "Set failed." };
+        this.kvList();
       },
 
-      async upload() {
-        if (!this.canUpload) return;
-        this.uploading = true;
-        this.uploadResult = null;
+      async kvGet() {
+        const key = this.kv.key.trim();
+        if (!key) { this.kv.result = { ok: false, text: "Enter a key first." }; return; }
+        this.kv.result = null;
+        const res = await fetch("/api/kv/demo/" + encodeURIComponent(key));
+        const data = await this.parseJson(res);
+        if (!res.ok) { this.kv.result = { ok: false, text: data.error || "Get failed." }; return; }
+        this.kv.result = data.found
+          ? { ok: true, text: `GET "${key}" → "${data.value}" (served from the nearest edge cache)` }
+          : { ok: false, text: `GET "${key}" → null (key not found)` };
+      },
+
+      async kvDelete() {
+        const key = this.kv.key.trim();
+        if (!key) { this.kv.result = { ok: false, text: "Enter a key first." }; return; }
+        const res = await fetch("/api/kv/demo/" + encodeURIComponent(key), { method: "DELETE" });
+        const data = await this.parseJson(res);
+        this.kv.result = res.ok && data.success
+          ? { ok: true, text: `DELETE "${key}" — removed.` }
+          : { ok: false, text: data.error || "Delete failed." };
+        this.kvList();
+      },
+
+      // ───────────────────────── D1 ─────────────────────────
+      d1BtnClass(preset) {
+        return this.d1.activePreset === preset ? "btn-primary text-xs" : "btn-secondary text-xs";
+      },
+
+      get d1Columns() {
+        return this.d1.rows.length ? Object.keys(this.d1.rows[0]) : [];
+      },
+
+      d1Cell(col, val) {
+        if (col === "price" && typeof val === "number") return "$" + val.toFixed(2);
+        return val;
+      },
+
+      async d1Query(preset, extra) {
+        this.d1.loading = true;
+        this.d1.error = null;
+        this.d1.activePreset = preset;
         try {
-          const form = new FormData();
-          form.append("file", this.selectedFile);
-          if (this.authState === "guest") {
-            form.append("guestEmail", this.guestEmail);
+          let url = "/api/d1/demo/query?preset=" + encodeURIComponent(preset);
+          if (extra) url += "&" + extra;
+          const res = await fetch(url);
+          const data = await this.parseJson(res);
+          if (!res.ok || data.error) {
+            this.d1.error = data.error || "Query failed.";
+            this.d1.rows = [];
+            this.d1.sql = data.sql || "";
+            this.d1.rowsRead = null;
+            return;
           }
-          const res = await fetch("/api/r2/upload", { method: "POST", body: form });
-          const data = await res.json();
-          if (res.ok && data.success) {
-            this.uploadResult = {
-              success: true,
-              title: "✓ Upload successful",
-              message: `File ${data.filename} (${this.formatBytes(data.size)}) stored in R2. Scan: ${data.scanStatus ?? "clean"}.`,
-              detail: data.scanDetails ? JSON.stringify(data.scanDetails, null, 2) : null,
-            };
-            this.selectedFile = null;
-            document.querySelector("input[type=file]").value = "";
-            if (this.authState === "authenticated") this.loadFiles();
-          } else {
-            this.uploadResult = {
-              success: false,
-              title: data.scanStatus === "malicious" ? "⚠ Malicious file blocked" : "✗ Upload rejected",
-              message: data.error || "Upload failed.",
-              detail: data.scanDetails ? JSON.stringify(data.scanDetails, null, 2) : null,
-            };
-          }
+          this.d1.rows = data.rows ?? [];
+          this.d1.sql = data.sql ?? "";
+          this.d1.rowsRead = data.rowsRead ?? null;
         } catch (e) {
-          this.uploadResult = {
-            success: false,
-            title: "Network error",
-            message: e?.message ?? String(e),
-          };
+          this.d1.error = String(e);
         } finally {
-          this.uploading = false;
+          this.d1.loading = false;
         }
-      },
-
-      async loadFiles() {
-        if (this.authState !== "authenticated") return;
-        this.loadingFiles = true;
-        try {
-          const res = await fetch("/api/r2/list");
-          const data = await res.json();
-          if (res.ok) this.files = data.files ?? [];
-        } catch {}
-        this.loadingFiles = false;
-      },
-
-      async deleteFile(fileId) {
-        if (!confirm("Delete this file?")) return;
-        try {
-          const res = await fetch("/api/r2/delete/" + fileId, { method: "DELETE" });
-          if (res.ok) this.loadFiles();
-        } catch {}
       },
     };
   }
