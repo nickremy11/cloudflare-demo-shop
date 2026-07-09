@@ -1,14 +1,37 @@
 ---
-// Workers AI demo — sends a prompt to /api/chat which routes through
-// AI Gateway → Workers AI (Llama 3.3 70B). Same backend as the floating chatbot.
+// Workers AI demo — sends a prompt to a Cloudflare backend model.
+//
+// Two modes:
+//   • Base model  → /api/chat        → AI Gateway → Workers AI (Llama 3.3 70B)
+//   • RAG enabled → /api/aboutme-rag → service binding → AI Search / AutoRAG
+//                    (retrieves from R2 via Vectorize, then generates)
+//
+// The RAG toggle is the demo's punchline: the base model does not know the
+// fake "Remy Calder" facts, but with RAG on it answers correctly and cites
+// the retrieved source chunks.
 ---
 
 <div x-data="workersAiDemo()" class="space-y-4">
   <p class="text-sm text-gray-600">
-    Send a prompt below. Behind the scenes, the request goes:
-    <code>browser → Worker (/api/chat) → Cloudflare AI Gateway → Workers AI (Llama 3.3 70B fast)</code>.
-    Try asking the model about something Cloudflare-specific.
+    Send a prompt below. With RAG off, the request goes
+    <code>browser → /api/chat → AI Gateway → Workers AI (Llama 3.3 70B)</code>.
+    With RAG on, it goes
+    <code>browser → /api/aboutme-rag → AI Search (AutoRAG) → Vectorize + R2 → Workers AI</code>.
   </p>
+
+  <label
+    class="flex items-start gap-3 rounded-md border border-silver-200 bg-pine-50 p-3 cursor-pointer"
+  >
+    <input type="checkbox" x-model="ragEnabled" class="mt-1" />
+    <span class="text-sm">
+      <span class="font-semibold text-pine-700">Enable RAG (AutoRAG “About Me”)</span>
+      <span class="block text-xs text-gray-600">
+        Grounds answers in the private
+        <a href="/aboutme" class="underline">/aboutme</a> source doc indexed by AI Search.
+        Try <em>“What is Remy Calder's internal codename?”</em> with it off, then on.
+      </span>
+    </span>
+  </label>
 
   <div class="space-y-2">
     <label class="text-xs text-gray-600">Prompt</label>
@@ -16,21 +39,40 @@
       x-model="prompt"
       class="demo-input"
       rows="3"
-      placeholder="Explain in one paragraph what Cloudflare Workers are good for."
+      placeholder="What is Remy Calder's internal codename?"
     ></textarea>
   </div>
 
   <button type="button" @click="send" :disabled="loading || !prompt.trim()" class="btn-primary">
-    <span x-show="!loading">Send to Llama 3.3 70B</span>
+    <span x-show="!loading && !ragEnabled">Send to Llama 3.3 70B</span>
+    <span x-show="!loading && ragEnabled">Send with RAG</span>
     <span x-show="loading">Generating...</span>
   </button>
 
   <div x-show="response" x-transition class="demo-panel safe">
-    <h3>Response</h3>
+    <h3 x-text="ragUsed ? 'Response (RAG-grounded)' : 'Response (base model)'"></h3>
     <div class="whitespace-pre-wrap text-sm leading-relaxed" x-text="response"></div>
+
+    <template x-if="ragUsed && sources.length">
+      <div class="mt-4">
+        <div class="text-xs font-semibold text-pine-700 uppercase tracking-wide mb-1">
+          Retrieved sources
+        </div>
+        <ul class="space-y-1">
+          <template x-for="(src, i) in sources" :key="i">
+            <li class="text-xs text-gray-600 font-mono flex justify-between gap-3">
+              <span x-text="src.key"></span>
+              <span x-show="src.score !== null" x-text="'score ' + src.score"></span>
+            </li>
+          </template>
+        </ul>
+      </div>
+    </template>
+
     <div class="mt-3 text-xs text-gray-500 flex flex-wrap gap-3">
       <span x-show="latencyMs !== null" x-text="'Latency: ' + latencyMs + ' ms'"></span>
-      <span class="text-pine-600">Routed via AI Gateway</span>
+      <span x-show="!ragUsed" class="text-pine-600">Routed via AI Gateway</span>
+      <span x-show="ragUsed" class="text-pine-600">Routed via AI Search (AutoRAG)</span>
     </div>
   </div>
 
@@ -43,11 +85,14 @@
 <script is:inline>
   function workersAiDemo() {
     return {
-      prompt: "Explain in one paragraph what Cloudflare Workers are good for.",
+      prompt: "What is Remy Calder's internal codename?",
+      ragEnabled: false,
       response: "",
       error: "",
       loading: false,
       latencyMs: null,
+      ragUsed: false,
+      sources: [],
 
       async send() {
         if (!this.prompt.trim()) return;
@@ -55,21 +100,41 @@
         this.response = "";
         this.error = "";
         this.latencyMs = null;
+        this.sources = [];
+        this.ragUsed = this.ragEnabled;
         const start = performance.now();
 
         try {
-          const res = await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              messages: [{ role: "user", content: this.prompt }],
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-          this.response = data.choices?.[0]?.message?.content
-            ?? data.error
-            ?? "(empty response)";
+          if (this.ragEnabled) {
+            const res = await fetch("/api/aboutme-rag", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: this.prompt }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            this.response = data.answer || "(empty response)";
+            this.sources = (data.chunks || []).map((chunk) => ({
+              key: chunk?.item?.key ?? chunk?.filename ?? "(unknown source)",
+              score:
+                typeof chunk?.score === "number"
+                  ? chunk.score.toFixed(3)
+                  : null,
+            }));
+          } else {
+            const res = await fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                messages: [{ role: "user", content: this.prompt }],
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            this.response = data.choices?.[0]?.message?.content
+              ?? data.error
+              ?? "(empty response)";
+          }
         } catch (e) {
           this.error = e?.message ?? String(e);
         } finally {

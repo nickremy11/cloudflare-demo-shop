@@ -33,6 +33,9 @@ cloudflare-demo-shop/
 ├── chat-worker/                  # Standalone Worker hosting the ChatRoom DO
 │   ├── wrangler.toml
 │   └── src/index.ts
+├── aboutme-rag-worker/           # Standalone Worker with AI Search binding
+│   ├── wrangler.toml
+│   └── src/index.ts
 ├── README.md                     # this file
 ├── CONTRIBUTING.md               # ← how to add solutions, demos, etc.
 │
@@ -87,6 +90,7 @@ npm run dev          # http://localhost:4321
 # If the chat-worker has changed, deploy it first so the CHAT_ROOM binding
 # resolves locally as well as in production.
 npx wrangler deploy --config chat-worker/wrangler.toml
+npm run deploy:aboutme-rag
 npm run dev:full     # http://localhost:8788
 
 # One-shot static build
@@ -107,26 +111,34 @@ or anything that requires the real Pages Functions runtime.
 Connected to Cloudflare Pages via GitHub. Push to `main` triggers an automatic
 build (`npm run build`) and deploys `dist/`.
 
-### Durable Objects deploy order
+### Standalone Worker deploy order
 
 The `/durable-objects` demo is backed by a **standalone Worker** named
 `demo-shop-chat`, which hosts the `ChatRoom` Durable Object class. The Pages
 project binds to that class via `script_name = "demo-shop-chat"` in
 `wrangler.toml`.
 
-If you change `chat-worker/src/index.ts`, you must deploy the chat worker
-**before** deploying Pages:
+The `/aboutme` RAG demo is also backed by a **standalone Worker** named
+`demo-shop-aboutme-rag`. That Worker owns the `AI_SEARCH` binding because Pages
+Functions do not currently expose AI Search bindings directly. The Pages project
+calls it through the `ABOUTME_RAG` service binding.
+
+If either standalone Worker changes, deploy it **before** deploying Pages:
 
 ```bash
 # 1. Deploy the Worker that owns the ChatRoom DO class
 npx wrangler deploy --config chat-worker/wrangler.toml
 
-# 2. Then deploy Pages as normal
+# 2. Deploy the Worker that owns the AI Search binding
+npm run deploy:aboutme-rag
+
+# 3. Then deploy Pages as normal
 npm run deploy
 ```
 
 Normal content / Astro / Pages Function changes still deploy through the usual
-GitHub → Pages flow. Only DO class changes require the extra Worker deploy.
+GitHub → Pages flow. Changes to `chat-worker/` or `aboutme-rag-worker/` require
+the extra Worker deploy first.
 
 ### Environment variables / secrets
 
@@ -136,7 +148,6 @@ Set in the Cloudflare Pages dashboard (Settings → Environment variables) or vi
 | Name | Type | Used by |
 |---|---|---|
 | `AIG_TOKEN` | secret | Chatbot, Workers AI demo, AI Gateway demo |
-| `ABOUTME_AI_SEARCH_INSTANCE` | plain | About Me AutoRAG / AI Search demo instance name |
 | `CF_ZONE_ID` | plain | CDN cache purge demo |
 | `CF_CACHE_PURGE_TOKEN` | secret | CDN cache purge demo (API token with Zone:Cache Purge) |
 | `TURNSTILE_SECRET` | secret | Turnstile demo (optional — falls back to CF's test secret) |
@@ -149,8 +160,15 @@ Other runtime bindings configured in `wrangler.toml`:
 | `DIAGRAMS_BUCKET` | R2 bucket | Diagram browser |
 | `DEMO_KV` | KV namespace | R2 metadata, Page Shield scenarios |
 | `AI` | Workers AI binding | Chatbot, Workers AI demo, chat PG moderation |
-| `AI_SEARCH` | AI Search namespace binding | About Me AutoRAG / AI Search demo |
+| `ABOUTME_RAG` | Service binding | Calls the standalone About Me RAG Worker |
 | `CHAT_ROOM` | DO binding (`script_name = demo-shop-chat`) | Durable Objects chat room demo |
+
+Standalone Worker bindings:
+
+| Name | Type | Used by |
+|---|---|---|
+| `ABOUTME_AI_SEARCH_INSTANCE` | plain | About Me AutoRAG / AI Search demo instance name |
+| `AI_SEARCH` | AI Search namespace binding | `aboutme-rag-worker` querying `remydemo-aboutme-rag` |
 
 ---
 
@@ -180,7 +198,14 @@ npx wrangler r2 object put remydemo-autorag-source/remydemo/aboutme.html --file 
 7. Select the existing AI Gateway named `demo-shop-gateway` so model usage and generated responses are observable.
 8. Wait for indexing to complete. AutoRAG / AI Search provisions and uses Vectorize for the embeddings behind the scenes.
 9. Test in the dashboard playground with: `What is Remy Calder's internal codename?`
-10. Test from the Pages Function endpoint:
+10. Deploy the standalone RAG Worker, then deploy Pages so the `ABOUTME_RAG` service binding points at an existing Worker:
+
+```bash
+npm run deploy:aboutme-rag
+npm run deploy
+```
+
+11. Test from the Pages Function endpoint:
 
 ```bash
 curl -X POST https://remydemo.com/api/aboutme-rag \
@@ -189,8 +214,9 @@ curl -X POST https://remydemo.com/api/aboutme-rag \
 ```
 
 The demo path is: `/aboutme` source content → R2 object → AutoRAG / AI Search
-indexing → Vectorize embeddings → `/api/aboutme-rag` Pages Function → generated
-answer, with model calls observable in AI Gateway.
+indexing → Vectorize embeddings → `/api/aboutme-rag` Pages Function →
+`ABOUTME_RAG` service binding → standalone Worker with `AI_SEARCH` binding →
+generated answer, with model calls observable in AI Gateway.
 
 ---
 

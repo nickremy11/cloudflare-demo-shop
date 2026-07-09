@@ -1,0 +1,14 @@
+name = "demo-shop-aboutme-rag"
+main = "src/index.ts"
+compatibility_date = "2026-07-09"
+
+[vars]
+ABOUTME_AI_SEARCH_INSTANCE = "remydemo-aboutme-rag"
+
+[[ai_search_namespaces]]
+binding = "AI_SEARCH"
+namespace = "default"
+remote = true
+
+[observability]
+enabled = true
