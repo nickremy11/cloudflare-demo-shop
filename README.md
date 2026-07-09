@@ -177,7 +177,7 @@ npx wrangler r2 object put remydemo-autorag-source/remydemo/aboutme.html --file 
 4. In the Cloudflare dashboard, go to **AI > AutoRAG / AI Search** and create an instance named `remydemo-aboutme-rag`.
 5. Select the `remydemo-autorag-source` R2 bucket as the data source.
 6. Use the default embedding and generation models unless the demo needs a specific model comparison.
-7. Select or create an AI Gateway named `remydemo-ai-gateway` so model usage and generated responses are observable.
+7. Select the existing AI Gateway named `demo-shop-gateway` so model usage and generated responses are observable.
 8. Wait for indexing to complete. AutoRAG / AI Search provisions and uses Vectorize for the embeddings behind the scenes.
 9. Test in the dashboard playground with: `What is Remy Calder's internal codename?`
 10. Test from the Pages Function endpoint:
