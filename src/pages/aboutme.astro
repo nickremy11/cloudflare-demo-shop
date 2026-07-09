@@ -1,0 +1,154 @@
+---
+import Base from "../layouts/Base.astro";
+
+const facts = [
+  ["Demo persona", "Remy Calder"],
+  ["Internal codename", "Mosslight"],
+  ["Favorite database-shaped snack", "Pinecone biscotti"],
+  ["Preferred demo question", "What is Remy's secret launch ritual?"],
+  ["Demo-only contact phrase", "Ask for the green lantern notebook"],
+];
+
+const ragQuestions = [
+  "What is Remy Calder's internal codename?",
+  "What does Remy do before a product demo?",
+  "Which Cloudflare products power the About Me RAG demo?",
+  "What is the green lantern notebook used for?",
+];
+---
+
+<Base
+  title="About Me — RemyDemo Private Knowledge"
+  description="Synthetic private profile data for the RemyDemo AutoRAG demonstration."
+  robots="noindex,nofollow,noarchive"
+  hideChat
+>
+  <main class="bg-[#f6f2e8] text-slate-900">
+    <article class="max-w-5xl mx-auto px-6 py-12 md:py-16">
+      <header class="border-4 border-slate-900 bg-white shadow-[10px_10px_0_#2f4f2f] p-6 md:p-10 mb-10">
+        <p class="font-mono text-xs uppercase tracking-[0.25em] text-pine-600 mb-3">
+          Synthetic Private Source Document
+        </p>
+        <h1 class="font-retro text-5xl md:text-7xl leading-none mb-5">
+          About Remy Calder
+        </h1>
+        <p class="text-lg md:text-xl max-w-3xl text-slate-700 leading-8">
+          This page is intentionally fake, specific, and structured so it can be
+          used as proprietary source material for a Cloudflare AutoRAG demo. An
+          LLM should not know these details unless the RAG pipeline retrieves
+          this page from the indexed data source.
+        </p>
+      </header>
+
+      <section class="grid md:grid-cols-[1.4fr_0.8fr] gap-6 mb-10">
+        <div class="bg-white border-2 border-slate-900 p-6 md:p-8">
+          <h2 class="font-retro text-3xl mb-4">Profile</h2>
+          <p class="leading-7 text-slate-700 mb-4">
+            Remy Calder is a fictional edge-computing demo architect who lives
+            in the imaginary town of Fern Harbor and keeps a workshop above an
+            old bookbinding studio. Remy specializes in explaining Cloudflare's
+            developer platform through short, memorable demos involving AI,
+            storage, security, and performance.
+          </p>
+          <p class="leading-7 text-slate-700">
+            Remy's private project codename is <strong>Mosslight</strong>. The
+            codename refers to a demo flow where a hidden profile page is stored
+            in R2, indexed by AutoRAG, embedded into Vectorize, observed through
+            AI Gateway, and queried from a Worker.
+          </p>
+        </div>
+
+        <aside class="bg-pine-500 text-white border-2 border-slate-900 p-6 md:p-8">
+          <h2 class="font-retro text-3xl mb-4">Key Facts</h2>
+          <dl class="space-y-4">
+            {
+              facts.map(([label, value]) => (
+                <div>
+                  <dt class="font-mono text-xs uppercase tracking-widest text-pine-200">
+                    {label}
+                  </dt>
+                  <dd class="text-lg font-semibold">{value}</dd>
+                </div>
+              ))
+            }
+          </dl>
+        </aside>
+      </section>
+
+      <section class="bg-white border-2 border-slate-900 p-6 md:p-8 mb-10">
+        <h2 class="font-retro text-3xl mb-4">Private Demo Details</h2>
+        <div class="grid md:grid-cols-2 gap-6 text-slate-700 leading-7">
+          <div>
+            <h3 class="font-semibold text-slate-900 mb-2">Secret launch ritual</h3>
+            <p>
+              Before every live demo, Remy writes the phrase
+              <strong> green lantern notebook</strong> on a sticky note, checks
+              that AI Gateway request logging is enabled, and asks the first
+              test question: <em>What is Remy's internal codename?</em>
+            </p>
+          </div>
+          <div>
+            <h3 class="font-semibold text-slate-900 mb-2">Favorite answer style</h3>
+            <p>
+              Remy prefers answers that cite the source page, mention when the
+              information came from retrieved context, and avoid inventing
+              personal facts that are not present in the About Me document.
+            </p>
+          </div>
+          <div>
+            <h3 class="font-semibold text-slate-900 mb-2">Demo storyline</h3>
+            <p>
+              The intended storyline is: a base LLM does not know Remy Calder,
+              but the same question succeeds after AutoRAG retrieves this source
+              document from R2 and passes the relevant chunks to the model.
+            </p>
+          </div>
+          <div>
+            <h3 class="font-semibold text-slate-900 mb-2">Canonical source key</h3>
+            <p>
+              When this page is copied into R2 for the demo, use an object key
+              like <code>remydemo/aboutme.html</code> or
+              <code>remydemo/aboutme.md</code> so the retrieval source is easy
+              to identify in logs and search results.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid md:grid-cols-2 gap-6 mb-10">
+        <div class="bg-[#fff8dc] border-2 border-slate-900 p-6 md:p-8">
+          <h2 class="font-retro text-3xl mb-4">Cloudflare Demo Flow</h2>
+          <ol class="list-decimal pl-5 space-y-3 leading-7 text-slate-700">
+            <li>Publish this page at <code>https://remydemo.com/aboutme</code>.</li>
+            <li>Render or export the page content into an R2 bucket.</li>
+            <li>Create an AutoRAG instance pointed at that R2 bucket.</li>
+            <li>Let AutoRAG chunk, embed, and store vectors in Vectorize.</li>
+            <li>Query AutoRAG from a Worker using the Workers AI binding.</li>
+            <li>Use AI Gateway logs to show the model request and response path.</li>
+          </ol>
+        </div>
+
+        <div class="bg-white border-2 border-slate-900 p-6 md:p-8">
+          <h2 class="font-retro text-3xl mb-4">Good RAG Questions</h2>
+          <ul class="space-y-3 leading-7 text-slate-700">
+            {ragQuestions.map((question) => <li class="pl-4 border-l-4 border-pine-500">{question}</li>)}
+          </ul>
+        </div>
+      </section>
+
+      <section class="bg-slate-900 text-slate-100 border-2 border-slate-900 p-6 md:p-8">
+        <h2 class="font-retro text-3xl mb-4">Source Document Notes</h2>
+        <p class="leading-7 mb-4">
+          This document is synthetic demo data. It should be safe to publish, but
+          it is designed to behave like private company knowledge: specific,
+          current, and absent from the model's training data.
+        </p>
+        <p class="font-mono text-sm text-pine-200">
+          Recommended AutoRAG name: remydemo-aboutme-rag<br />
+          Recommended R2 bucket: remydemo-autorag-source<br />
+          Recommended AI Gateway: remydemo-ai-gateway
+        </p>
+      </section>
+    </article>
+  </main>
+</Base>

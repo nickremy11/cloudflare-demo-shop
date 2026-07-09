@@ -7,6 +7,7 @@ import ChatWidget from "../components/ChatWidget.astro";
 interface Props {
   title: string;
   description?: string;
+  robots?: string;
   /** Hide the AI chat widget on this page (defaults to false) */
   hideChat?: boolean;
 }
@@ -14,6 +15,7 @@ interface Props {
 const {
   title,
   description = "Cloudflare Demo Shop — explore the Cloudflare platform",
+  robots,
   hideChat = false,
 } = Astro.props;
 ---
@@ -39,6 +41,7 @@ const {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
+    {robots && <meta name="robots" content={robots} />}
     <title>{title}</title>
 
     <!-- Tailwind via CDN (matches legacy pages so the retro vibe is preserved) -->

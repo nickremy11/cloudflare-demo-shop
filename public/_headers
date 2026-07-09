@@ -18,3 +18,9 @@
 
 /api/page-shield/analytics.js
   Cache-Control: no-cache, no-store, must-revalidate
+
+/aboutme
+  X-Robots-Tag: noindex, nofollow, noarchive
+
+/aboutme/*
+  X-Robots-Tag: noindex, nofollow, noarchive

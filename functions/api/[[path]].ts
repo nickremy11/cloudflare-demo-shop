@@ -18,6 +18,7 @@
 //   POST /api/cache/purge                                — Real CF Cache Purge API call
 //   POST /api/turnstile/verify                           — siteverify call
 //   POST /api/chat                                       — AI Gateway → Llama 3.3 70B
+//   POST /api/aboutme-rag                                — AI Search / AutoRAG query
 //
 // Legacy aliases kept for backwards compat:
 //   GET /api/waf-test?attack=...  → forwards to /api/waf/testattack
@@ -33,7 +34,9 @@ type Bindings = {
   DEMO_KV: KVNamespace;
   demo_d1: D1Database;
   AI: Ai;
+  AI_SEARCH: any;
   AIG_TOKEN: string;
+  ABOUTME_AI_SEARCH_INSTANCE?: string;
   CHAT_ROOM: DurableObjectNamespace;
   CF_ZONE_ID?: string;
   CF_CACHE_PURGE_TOKEN?: string;
@@ -913,6 +916,47 @@ you receive has been routed through gateway.ai.cloudflare.com to Workers AI (Lla
     return c.json(result);
   } catch (error: any) {
     return c.json({ error: "Chat failed: " + error.message }, 500);
+  }
+});
+
+// ── About Me RAG demo (Worker → AI Search / AutoRAG) ─────────
+
+app.post("/api/aboutme-rag", async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const query = typeof body.query === "string" ? body.query.trim() : "";
+    if (!query) return c.json({ error: "query required" }, 400);
+    if (!c.env.AI_SEARCH) return c.json({ error: "AI_SEARCH binding not configured" }, 500);
+
+    const instanceName = c.env.ABOUTME_AI_SEARCH_INSTANCE || "remydemo-aboutme-rag";
+    const instance = c.env.AI_SEARCH.get(instanceName);
+    const result = await instance.chatCompletions({
+      messages: [
+        {
+          role: "system",
+          content:
+            "Answer only from retrieved RemyDemo About Me context. If the answer is not in the retrieved context, say you do not know from the indexed About Me source.",
+        },
+        { role: "user", content: query },
+      ],
+      ai_search_options: {
+        retrieval: {
+          retrieval_type: "hybrid",
+          max_num_results: 5,
+          context_expansion: 1,
+        },
+        query_rewrite: { enabled: true },
+      },
+    });
+
+    return c.json({
+      instance: instanceName,
+      answer: result.choices?.[0]?.message?.content || "",
+      chunks: result.chunks || [],
+      raw: result,
+    });
+  } catch (error: any) {
+    return c.json({ error: "About Me RAG query failed: " + error.message }, 500);
   }
 });
 

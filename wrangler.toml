@@ -11,6 +11,7 @@ pages_build_output_dir = "dist"
 [vars]
 CF_ZONE_ID = "00fe352511075ed27384acfcb5828e51"
 TURNSTILE_SITE_KEY = "0x4AAAAAADnbsExT-_BvgdJT"
+ABOUTME_AI_SEARCH_INSTANCE = "remydemo-aboutme-rag"
 
 # ── R2 Storage Demo Bindings ────────────────────────────────
 # R2 bucket for file storage
@@ -38,6 +39,14 @@ database_id = "296d1067-4549-4116-9951-c83bad3b502f"
 [ai]
 binding = "AI"
 
+# ── AI Search / AutoRAG binding for About Me RAG demo ───────
+# The instance is created in the dashboard and configured to index the
+# remydemo-autorag-source R2 bucket.
+[[ai_search_namespaces]]
+binding = "AI_SEARCH"
+namespace = "default"
+remote = true
+
 # ── Durable Objects: Chat Room demo ────────────────────────
 # The ChatRoom DO class is defined in the standalone `demo-shop-chat`
 # Worker (see chat-worker/). Pages binds to it by script_name.
@@ -58,5 +67,4 @@ script_name = "demo-shop-chat"
 #
 # Set via:  wrangler pages secret put <NAME>
 # Or in the Pages dashboard: Settings → Environment variables
-
 

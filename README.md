@@ -136,6 +136,7 @@ Set in the Cloudflare Pages dashboard (Settings → Environment variables) or vi
 | Name | Type | Used by |
 |---|---|---|
 | `AIG_TOKEN` | secret | Chatbot, Workers AI demo, AI Gateway demo |
+| `ABOUTME_AI_SEARCH_INSTANCE` | plain | About Me AutoRAG / AI Search demo instance name |
 | `CF_ZONE_ID` | plain | CDN cache purge demo |
 | `CF_CACHE_PURGE_TOKEN` | secret | CDN cache purge demo (API token with Zone:Cache Purge) |
 | `TURNSTILE_SECRET` | secret | Turnstile demo (optional — falls back to CF's test secret) |
@@ -148,7 +149,48 @@ Other runtime bindings configured in `wrangler.toml`:
 | `DIAGRAMS_BUCKET` | R2 bucket | Diagram browser |
 | `DEMO_KV` | KV namespace | R2 metadata, Page Shield scenarios |
 | `AI` | Workers AI binding | Chatbot, Workers AI demo, chat PG moderation |
+| `AI_SEARCH` | AI Search namespace binding | About Me AutoRAG / AI Search demo |
 | `CHAT_ROOM` | DO binding (`script_name = demo-shop-chat`) | Durable Objects chat room demo |
+
+---
+
+## About Me AutoRAG demo
+
+The `/aboutme` page is synthetic private source data for demonstrating that an
+LLM cannot answer specific questions unless the app retrieves the page through
+RAG. The page is public at <https://remydemo.com/aboutme> so it is easy to
+render and ingest, but it is marked `noindex,nofollow,noarchive` in both HTML
+metadata and `public/_headers`.
+
+Recommended setup:
+
+1. Build and deploy the site so `/aboutme` is available.
+2. Create an R2 bucket named `remydemo-autorag-source`.
+3. Upload the rendered page as the source document:
+
+```bash
+npm run build
+npx wrangler r2 bucket create remydemo-autorag-source
+npx wrangler r2 object put remydemo-autorag-source/remydemo/aboutme.html --file dist/aboutme/index.html
+```
+
+4. In the Cloudflare dashboard, go to **AI > AutoRAG / AI Search** and create an instance named `remydemo-aboutme-rag`.
+5. Select the `remydemo-autorag-source` R2 bucket as the data source.
+6. Use the default embedding and generation models unless the demo needs a specific model comparison.
+7. Select or create an AI Gateway named `remydemo-ai-gateway` so model usage and generated responses are observable.
+8. Wait for indexing to complete. AutoRAG / AI Search provisions and uses Vectorize for the embeddings behind the scenes.
+9. Test in the dashboard playground with: `What is Remy Calder's internal codename?`
+10. Test from the Pages Function endpoint:
+
+```bash
+curl -X POST https://remydemo.com/api/aboutme-rag \
+  -H "Content-Type: application/json" \
+  -d '{"query":"What is Remy Calder internal codename?"}'
+```
+
+The demo path is: `/aboutme` source content → R2 object → AutoRAG / AI Search
+indexing → Vectorize embeddings → `/api/aboutme-rag` Pages Function → generated
+answer, with model calls observable in AI Gateway.
 
 ---
 
