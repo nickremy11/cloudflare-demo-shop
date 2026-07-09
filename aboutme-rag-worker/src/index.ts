@@ -30,11 +30,11 @@ export default {
         ],
         ai_search_options: {
           retrieval: {
-            retrieval_type: "hybrid",
+            retrieval_type: "vector",
             max_num_results: 5,
             context_expansion: 1,
           },
-          query_rewrite: { enabled: true },
+          query_rewrite: { enabled: false },
         },
       });
 
