@@ -9,9 +9,9 @@ challenge:
   detail: "Traditional VPNs put every authenticated user on the corporate network, granting broad access far beyond what any one role actually needs. One compromised credential or stolen laptop becomes a lateral-movement event. On top of that, VPN concentrators become single points of failure and add real latency for remote employees, contractors, and partners — all while creating friction every time someone needs to reach an internal app."
 
 diagram:
-  src: "/diagrams/cf-overall-traffic.png"
-  alt: "Cloudflare Zero Trust traffic flow"
-  caption: "Users connect to specific apps through Cloudflare — never to a flat corporate network."
+  src: "/diagrams/cf-ztna-vpn-replacement.png"
+  alt: "Comparison of a legacy VPN (flat network access) versus Cloudflare Zero Trust Network Access (per-app, identity- and posture-checked access) across office, home, and coffee-shop on-ramps, including SSH, internal web/database apps, and public SaaS."
+  caption: "Legacy VPN vs. Cloudflare ZTNA: multiple on-ramps, identity- and posture-based policy checks, and per-application least-privilege access to private apps and public SaaS."
 
 solutionPoints:
   - title: "Per-application access, not network access. "

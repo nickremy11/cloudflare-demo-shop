@@ -1,0 +1,181 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="ZOP-VvoqOCcHgkkStuYV" name="Page-1">
+    <mxGraphModel dx="1798" dy="894" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1900" pageHeight="1160" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title1" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=20;fontColor=#333333;" value="&lt;b&gt;Cloudflare Zero Trust Network Access (ZTNA): Replacing the VPN&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="1800" x="40" as="geometry" />
+        </mxCell>
+        <mxCell id="legacy" parent="1" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=14;" value="BEFORE · LEGACY VPN" vertex="1">
+          <mxGeometry height="480" width="1800" x="40" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="officeUser1" parent="legacy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Office" vertex="1">
+          <mxGeometry height="70" width="200" x="20" y="51" as="geometry" />
+        </mxCell>
+        <mxCell id="homeUser1" parent="legacy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Home" vertex="1">
+          <mxGeometry height="70" width="200" x="20" y="136" as="geometry" />
+        </mxCell>
+        <mxCell id="coffeeUser1" parent="legacy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Coffee Shop&#xa;(untrusted Wi-Fi)" vertex="1">
+          <mxGeometry height="70" width="200" x="20" y="221" as="geometry" />
+        </mxCell>
+        <mxCell id="vpnClient" parent="legacy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="VPN Client&#xa;(same software, every location)" vertex="1">
+          <mxGeometry height="90" width="380" x="280" y="126" as="geometry" />
+        </mxCell>
+        <mxCell id="vpnConcentrator" parent="legacy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="VPN Concentrator&#xa;(network-level access)" vertex="1">
+          <mxGeometry height="90" width="240" x="720" y="126" as="geometry" />
+        </mxCell>
+        <mxCell id="flatnet" parent="legacy" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=12;" value="Flat Internal Network — everything reachable" vertex="1">
+          <mxGeometry height="340" width="460" x="1000" y="51" as="geometry" />
+        </mxCell>
+        <mxCell id="sshApp1" parent="flatnet" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="⚠ SSH Server" vertex="1">
+          <mxGeometry height="70" width="200" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="webApp1" parent="flatnet" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="⚠ Internal Web App" vertex="1">
+          <mxGeometry height="70" width="200" x="240" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="dbApp1" parent="flatnet" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="⚠ Internal Database" vertex="1">
+          <mxGeometry height="70" width="200" x="20" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="otherApp1" parent="flatnet" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="⚠ Other Internal App" vertex="1">
+          <mxGeometry height="70" width="200" x="240" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="flatnetNote" parent="flatnet" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#7a3030;" value="All reachable once connected — no segmentation, no per-app policy. Broad blast radius, easy lateral movement." vertex="1">
+          <mxGeometry height="110" width="420" x="20" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="saasGap" parent="legacy" style="rounded=1;dashed=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontColor=#999999;" value="SaaS Apps&#xa;Not protected by the VPN —&#xa;accessed directly, unmanaged" vertex="1">
+          <mxGeometry height="140" width="260" x="1500" y="126" as="geometry" />
+        </mxCell>
+        <mxCell id="legacyCallout" parent="legacy" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=14;fontStyle=1;fontColor=#b85450;" value="❌ One on-ramp, one tunnel, network-level trust — the whole network is reachable" vertex="1">
+          <mxGeometry height="60" width="1740" x="20" y="411" as="geometry" />
+        </mxCell>
+        <mxCell id="vsText" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;fontColor=#999999;" value="VS" vertex="1">
+          <mxGeometry height="20" width="80" x="900" y="538" as="geometry" />
+        </mxCell>
+        <mxCell id="ztna" parent="1" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#f6821f;fontStyle=1;fontSize=14;" value="AFTER · CLOUDFLARE ZERO TRUST (WAN + Access)" vertex="1">
+          <mxGeometry height="560" width="1800" x="40" y="570" as="geometry" />
+        </mxCell>
+        <mxCell id="officeUser2" parent="ztna" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Office" vertex="1">
+          <mxGeometry height="70" width="200" x="20" y="124" as="geometry" />
+        </mxCell>
+        <mxCell id="homeUser2" parent="ztna" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Home" vertex="1">
+          <mxGeometry height="70" width="200" x="20" y="219" as="geometry" />
+        </mxCell>
+        <mxCell id="coffeeUser2" parent="ztna" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Coffee Shop&#xa;(untrusted Wi-Fi)" vertex="1">
+          <mxGeometry height="70" width="200" x="20" y="314" as="geometry" />
+        </mxCell>
+        <mxCell id="onramps" parent="ztna" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=12;" value="On-Ramps (Cloudflare WAN &amp; Zero Trust)" vertex="1">
+          <mxGeometry height="430" width="420" x="260" y="39" as="geometry" />
+        </mxCell>
+        <mxCell id="siteOnramp" parent="onramps" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" value="Site On-Ramp — Office / Branch" vertex="1">
+          <mxGeometry height="160" width="380" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="appliance" parent="siteOnramp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="Cloudflare One&#xa;Appliance" vertex="1">
+          <mxGeometry height="80" width="110" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="greIpsec" parent="siteOnramp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="GRE / IPsec&#xa;Tunnel" vertex="1">
+          <mxGeometry height="80" width="110" x="140" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="cni" parent="siteOnramp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="Network&#xa;Interconnect (CNI)" vertex="1">
+          <mxGeometry height="80" width="100" x="260" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="deviceOnramp" parent="onramps" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" value="Device On-Ramp — Home / Coffee Shop / Any Device" vertex="1">
+          <mxGeometry height="180" width="380" x="20" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="warpClient" parent="deviceOnramp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="Cloudflare One&#xa;Client (WARP)" vertex="1">
+          <mxGeometry height="100" width="110" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="clientless" parent="deviceOnramp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="Clientless&#xa;Browser Access" vertex="1">
+          <mxGeometry height="100" width="110" x="140" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="browserRendered" parent="deviceOnramp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" value="Browser-Rendered&#xa;SSH / RDP / VNC" vertex="1">
+          <mxGeometry height="100" width="100" x="260" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="policy" parent="ztna" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=12;" value="Cloudflare Access — Policy Check" vertex="1">
+          <mxGeometry height="430" width="240" x="720" y="39" as="geometry" />
+        </mxCell>
+        <mxCell id="identityNode" parent="policy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" value="Identity &amp; MFA&#xa;(Okta, Entra, Google, GitHub…)" vertex="1">
+          <mxGeometry height="100" width="200" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="postureNode" parent="policy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" value="Device Posture&#xa;(OS, disk encryption, EDR)" vertex="1">
+          <mxGeometry height="100" width="200" x="20" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="perAppNode" parent="policy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" value="Per-App&#xa;Authorization" vertex="1">
+          <mxGeometry height="100" width="200" x="20" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="privateApps" parent="ztna" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=12;" value="Private Apps — via Cloudflare Tunnel (outbound-only)" vertex="1">
+          <mxGeometry height="430" width="460" x="1000" y="39" as="geometry" />
+        </mxCell>
+        <mxCell id="sshApp2" parent="privateApps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="✅ SSH Server" vertex="1">
+          <mxGeometry height="70" width="200" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="webApp2" parent="privateApps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="✅ Internal Web App" vertex="1">
+          <mxGeometry height="70" width="200" x="240" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="dbApp2" parent="privateApps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="✅ Internal Database" vertex="1">
+          <mxGeometry height="70" width="200" x="20" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="otherApp2" parent="privateApps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" value="🚫 Other Internal App&#xa;(no policy match)" vertex="1">
+          <mxGeometry height="70" width="200" x="240" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="privateNote" parent="privateApps" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#666666;" value="Each app requires its own explicit Allow policy. No inbound firewall ports opened; no changes to the app itself. Access to one app never grants access to others." vertex="1">
+          <mxGeometry height="180" width="420" x="20" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="saas" parent="ztna" style="swimlane;startSize=30;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=12;" value="Public SaaS Apps — Access for SaaS (SAML/OIDC)" vertex="1">
+          <mxGeometry height="430" width="260" x="1500" y="39" as="geometry" />
+        </mxCell>
+        <mxCell id="saasApp" parent="saas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" value="✅ e.g. Salesforce,&#xa;Workday, Google SaaS" vertex="1">
+          <mxGeometry height="80" width="220" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="saasNote" parent="saas" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;fontSize=11;fontColor=#666666;" value="Cloudflare enforces identity + MFA in front of the SaaS login — the same policy engine used for private apps. Extends Zero Trust coverage the legacy VPN never had." vertex="1">
+          <mxGeometry height="270" width="220" x="20" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="ztnaCallout" parent="ztna" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=14;fontStyle=1;fontColor=#c1690a;" value="✅ Per-application, least-privilege access — same policy on every on-ramp, any device, any network" vertex="1">
+          <mxGeometry height="60" width="1740" x="20" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="officeUser1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#b85450;endArrow=block;" target="vpnClient">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="homeUser1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#b85450;endArrow=block;" target="vpnClient">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="coffeeUser1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#b85450;endArrow=block;" target="vpnClient">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="vpnClient" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#b85450;endArrow=block;" target="vpnConcentrator">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="vpnConcentrator" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#b85450;endArrow=block;" target="flatnet" value="grants access to&#xa;entire network">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="vpnConcentrator" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#999999;endArrow=block;" target="saasGap" value="not covered">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="officeUser2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6c8ebf;endArrow=block;" target="siteOnramp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="homeUser2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6c8ebf;endArrow=block;" target="deviceOnramp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="coffeeUser2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6c8ebf;endArrow=block;" target="deviceOnramp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="siteOnramp" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;endArrow=block;" target="policy" value="same policy engine">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="deviceOnramp" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82b366;endArrow=block;" target="policy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="policy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#d79b00;endArrow=block;" target="privateApps" value="Allow (per app)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="policy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9673a6;endArrow=block;" target="saas" value="Allow (per app)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="perAppNode" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#b85450;endArrow=block;" target="otherApp2" value="Deny — no matching policy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
