@@ -19,6 +19,8 @@ solutionPoints:
     detail: "Inside a Worker, run inference with <code>await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { prompt: '...' })</code>. No HTTP, no auth tokens — just a function call."
   - title: "Integrated stack. "
     detail: "Pair Workers AI with Vectorize (vector DB), R2 (object storage), D1 (SQL), and AI Gateway (observability, caching, fallback) — all on one platform, with sub-millisecond bindings between them."
+  - title: "RAG in a few lines with AI Search. "
+    detail: "AI Search (AutoRAG) turns an R2 bucket into a managed retrieval pipeline: it chunks and embeds your documents into Vectorize, then at query time embeds the question, retrieves the closest chunks, reranks them for true relevance, and feeds them to a Workers AI model — every step powered by Workers AI models (embeddings, reranker, and the LLM). The demo below toggles this on and off."
 
 faq:
   - question: "How does this differ from calling OpenAI from a Worker?"
@@ -29,11 +31,15 @@ faq:
     answer: "LoRA adapters are supported on selected base models. Upload your trained LoRA weights and run inference with them at runtime. Full fine-tuning of base weights happens off-platform."
   - question: "What's the latency like compared to a self-hosted GPU?"
     answer: "Inference latency depends on model size. Small models (1–3B) typically respond in low hundreds of milliseconds. Larger models (70B) take longer to generate but still avoid the cross-region hop you'd have with a centralized GPU farm."
+  - question: "What is RAG, and how does the toggle in the demo work?"
+    answer: "RAG (Retrieval-Augmented Generation) grounds an LLM in your own data instead of relying only on what the model memorised during training. With the toggle OFF, the prompt goes straight to Llama 3.3 70B — ask it about a private persona ('Remy Calder') and it correctly says it doesn't know. With the toggle ON, the request goes through AI Search (AutoRAG): the question is embedded, matched against a private profile document stored in R2 and indexed in Vectorize, reranked for relevance, and the top passages are handed to the same Llama model — which now answers correctly and cites the retrieved source. It's the same model in both cases; RAG just changes what context it's given."
+  - question: "Does RAG replace the model's general knowledge?"
+    answer: "No. The pipeline uses a reranker to decide whether the retrieved passages are actually relevant to the question. Ask something the private document covers and you get a grounded, cited answer; ask a general question it doesn't cover (e.g. 'What is Cloudflare?') and the retrieval is discarded so the model answers from its own training. Add more documents to the R2 bucket and those questions start getting grounded answers too — no code change required."
 
 demo:
   type: "interactive"
   component: "WorkersAiDemo"
-  note: "Send a prompt below — it runs against Llama 3.3 70B via this site's existing AI Gateway → Workers AI pipeline. Same path the chatbot uses."
+  note: "Send a prompt below. With RAG off, it runs against Llama 3.3 70B via this site's AI Gateway → Workers AI pipeline (the same path the chatbot uses). Flip on Enable RAG to route through AI Search (AutoRAG) instead — the question is embedded, matched against a private /aboutme profile stored in R2 + Vectorize, reranked, and answered with citations. Try “What is Remy Calder's internal codename?” both ways: off, the model doesn't know; on, it answers from the retrieved source. Ask a general question like “What is Cloudflare?” with RAG on and it falls back to the model's own knowledge."
 
 diveDeeper:
   docs:

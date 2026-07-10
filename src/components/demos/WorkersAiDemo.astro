@@ -50,7 +50,7 @@
   </button>
 
   <div x-show="response" x-transition class="demo-panel safe">
-    <h3 x-text="ragUsed ? 'Response (RAG-grounded)' : 'Response (base model)'"></h3>
+    <h3 x-text="sources.length > 0 ? 'Response (RAG-grounded)' : 'Response (base model)'"></h3>
     <div class="whitespace-pre-wrap text-sm leading-relaxed" x-text="response"></div>
 
     <template x-if="ragUsed && sources.length">

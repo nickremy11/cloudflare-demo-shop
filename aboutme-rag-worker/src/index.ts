@@ -24,7 +24,7 @@ export default {
           {
             role: "system",
             content:
-              "Answer only from retrieved RemyDemo About Me context. If the answer is not in the retrieved context, say you do not know from the indexed About Me source.",
+              "You are a helpful assistant. If relevant context has been retrieved and provided above, use it to answer and cite the source. If no relevant context was retrieved, answer from your general knowledge.",
           },
           { role: "user", content: query },
         ],
@@ -33,8 +33,15 @@ export default {
             retrieval_type: "vector",
             max_num_results: 5,
             context_expansion: 1,
+            match_threshold: 0,
+          },
+          reranking: {
+            enabled: true,
+            model: "@cf/baai/bge-reranker-base",
+            match_threshold: 0.4,
           },
           query_rewrite: { enabled: false },
+          cache: { enabled: false },
         },
       });
 
