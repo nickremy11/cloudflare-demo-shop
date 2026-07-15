@@ -1,11 +1,19 @@
 ---
-// /turnstile/login?scenario=human|interactive|blocked
+// /turnstile/login?scenario=human|human-test|interactive|blocked
 //
 // Mock login page for the Turnstile demo. This is NOT a real login — no
 // account is created or accessed. It exists purely to show, on a
-// realistic-looking form, what a visitor actually sees under three fixed
+// realistic-looking form, what a visitor actually sees under four fixed
 // Turnstile outcomes:
 //   human       — production widget / CF's "always passes" test key
+//   human-test  — same "invisible instant pass" UX, forced onto CF's
+//                 "always passes" test key/secret even in production.
+//                 Reliable fallback if this zone's Bot Fight Mode /
+//                 Security Level issues a Managed/JS Challenge, which
+//                 fetch() calls can't solve (see the "human" scenario's
+//                 comment in functions/api/[[path]].ts for the full
+//                 explanation + the real production fix — Turnstile
+//                 pre-clearance).
 //   interactive — CF's test key that forces the checkbox challenge
 //   blocked     — CF's test key that always fails, visibly, client-side
 //
@@ -38,10 +46,21 @@ import Base from "../../layouts/Base.astro";
         </div>
         <div class="flex gap-2 text-xs">
           <a href="/turnstile/login?scenario=human" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">Human</a>
+          <a href="/turnstile/login?scenario=human-test" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">Human (test key)</a>
           <a href="/turnstile/login?scenario=interactive" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">Suspicious</a>
           <a href="/turnstile/login?scenario=blocked" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">Bot</a>
         </div>
       </div>
+
+      <p x-show="scenario === 'human'" class="text-xs text-gray-500 text-center" style="display: none;">
+        Seeing a network error here ("Unexpected token '&lt;'")? This zone
+        issues a Managed/JS Challenge to fresh sessions, and Challenge pages
+        can't be solved by a fetch() call — only a full page load. Try
+        <a href="/turnstile/login?scenario=human-test" class="text-pine-600 hover:underline">Human (test key)</a>
+        for a reliable demo, or enable
+        <a href="https://developers.cloudflare.com/cloudflare-challenges/concepts/clearance/#pre-clearance-support-in-turnstile" target="_blank" rel="noopener" class="text-pine-600 hover:underline">Turnstile pre-clearance</a>
+        on the production widget to fix it for real.
+      </p>
 
       <!-- Mock login card -->
       <div class="max-w-md mx-auto bg-white border border-silver-100 rounded-lg shadow-sm p-8">
@@ -117,6 +136,11 @@ import Base from "../../layouts/Base.astro";
         description:
           "Browser signals look normal, so the challenge runs invisibly and the widget passes almost immediately.",
       },
+      "human-test": {
+        label: "Trusted human (test key)",
+        description:
+          "Same invisible instant-pass behavior as a trusted human, but forced onto Cloudflare's public test key/secret — reliable for demos regardless of the zone's own Challenge/pre-clearance configuration.",
+      },
       interactive: {
         label: "Suspicious visitor",
         description:
@@ -148,7 +172,10 @@ import Base from "../../layouts/Base.astro";
       async init() {
         const params = new URLSearchParams(window.location.search);
         const requested = params.get("scenario");
-        this.scenario = requested === "interactive" || requested === "blocked" ? requested : "human";
+        this.scenario =
+          requested === "human-test" || requested === "interactive" || requested === "blocked"
+            ? requested
+            : "human";
         const meta = SCENARIOS[this.scenario];
         this.scenarioLabel = meta.label;
         this.scenarioDescription = meta.description;

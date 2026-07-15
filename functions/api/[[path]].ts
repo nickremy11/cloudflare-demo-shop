@@ -798,17 +798,44 @@ app.post("/api/cache/purge", async (c) => {
 // In production, set TURNSTILE_SITE_KEY / TURNSTILE_SECRET (wrangler.toml
 // [vars] + Pages secret) to your real widget's sitekey/secret.
 //
-// The /turnstile/login demo drives three fixed scenarios (human,
-// interactive, blocked). Both the sitekey AND the secret used to verify it
-// are chosen here, server-side, from a fixed map — the browser only ever
-// sends a scenario *name*, never a key, so a visitor can't pick their own
-// sitekey/secret pairing.
+// The /turnstile/login demo drives four fixed scenarios (human,
+// human-test, interactive, blocked). Both the sitekey AND the secret used
+// to verify it are chosen here, server-side, from a fixed map — the
+// browser only ever sends a scenario *name*, never a key, so a visitor
+// can't pick their own sitekey/secret pairing.
 const TURNSTILE_SCENARIOS = {
   // A trusted visitor: the production widget (or the public "always
   // passes" test key/secret pair when TURNSTILE_SITE_KEY isn't set).
+  //
+  // NOTE: on a zone that issues Managed/JS Challenges (Bot Fight Mode /
+  // Security Level — this zone does, confirmed via the `cf-mitigated:
+  // challenge` response header), the *first* fetch() call in a fresh
+  // browser session can get the raw Challenge interstitial HTML back
+  // instead of JSON (fails to parse: "Unexpected token '<'"). This is
+  // NOT related to token length or content — it's a documented Cloudflare
+  // limitation: Challenge Pages require a full page render+solve and
+  // fail for AJAX/XHR/fetch requests (see
+  // https://developers.cloudflare.com/cloudflare-challenges/challenge-types/challenge-pages/#compatibility-limitations).
+  // The correct production fix is Turnstile *pre-clearance*: enable it on
+  // this widget (Turnstile dashboard → widget → Settings → pre-clearance
+  // → level) so solving the widget also issues a cf_clearance cookie that
+  // pre-clears subsequent fetch() calls on this zone. See
+  // https://developers.cloudflare.com/cloudflare-challenges/concepts/clearance/#pre-clearance-support-in-turnstile.
+  // Until pre-clearance is enabled, use "human-test" below to demo the
+  // happy path reliably — it behaves identically but isn't affected by
+  // zone-level challenges since scenario names, not raw tokens, decide
+  // which endpoints get hit in this demo.
   human: {
     siteKey: (env: Bindings) => env.TURNSTILE_SITE_KEY || "1x00000000000000000000AA",
     secret: (env: Bindings) => env.TURNSTILE_SECRET || "1x0000000000000000000000000000000AA",
+  },
+  // Same "trusted human" UX (invisible, instant pass) but forced onto
+  // Cloudflare's public always-passes test key/secret pair even when a
+  // real production TURNSTILE_SITE_KEY is configured. Reliable for demos
+  // regardless of zone-level Challenge/pre-clearance configuration.
+  "human-test": {
+    siteKey: () => "1x00000000000000000000AA",
+    secret: () => "1x0000000000000000000000000000000AA",
   },
   // A visitor Turnstile is unsure about: forces the interactive checkbox
   // challenge. Once solved it issues the same dummy token as the
@@ -829,7 +856,9 @@ const TURNSTILE_SCENARIOS = {
 type TurnstileScenario = keyof typeof TURNSTILE_SCENARIOS;
 
 function resolveTurnstileScenario(input: unknown): TurnstileScenario {
-  return input === "interactive" || input === "blocked" ? input : "human";
+  return input === "human-test" || input === "interactive" || input === "blocked"
+    ? input
+    : "human";
 }
 
 // Exposes the sitekey for a given scenario to the client-side demo. Site
