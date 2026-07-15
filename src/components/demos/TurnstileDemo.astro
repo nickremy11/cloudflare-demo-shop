@@ -1,192 +1,60 @@
 ---
 // Turnstile interactive demo.
-// Site key is fetched at runtime from /api/turnstile/config (sourced from
-// wrangler.toml [vars] TURNSTILE_SITE_KEY). The verify endpoint uses
-// TURNSTILE_SECRET (set as a secret in the Pages dashboard). Both fall back
-// to Cloudflare's public test keys if not configured.
 //
-// Test keys (public): https://developers.cloudflare.com/turnstile/troubleshooting/testing/
-//   Always-passes site key:  1x00000000000000000000AA
-//   Always-passes secret:    1x0000000000000000000000000000000AA
+// Rather than a single form, this shows three scenarios side by side, each
+// opening a dedicated mock login page (/turnstile/login?scenario=...) so
+// the "is the visitor a bot?" outcome is visually obvious without touching
+// DevTools:
+//   - human       — production widget (or CF's "always passes" test key)
+//   - interactive — CF's test key that forces the checkbox challenge
+//   - blocked     — CF's test key that always fails, visibly, client-side
+//
+// The scenario only ever picks a sitekey server-side (functions/api/
+// [[path]].ts) — the browser never supplies its own key or secret.
 ---
 
-<div x-data="turnstileDemo()" class="space-y-4">
+<div class="space-y-4">
   <p class="text-sm text-gray-600">
-    Fill out the form below. The Turnstile widget issues a token; on submit,
-    the server calls Cloudflare's <code>siteverify</code> endpoint to confirm
-    the token before accepting the submission. The site key is loaded from
-    the server config so it can be rotated without rebuilding.
+    Turnstile's outcome depends on what its risk signals say about the
+    visitor. Pick a scenario below to open a mock login page pre-wired to
+    Cloudflare's public test keys for that outcome — each one shows what a
+    real visitor would actually see.
   </p>
 
-  <form @submit.prevent="submit" class="space-y-3 max-w-lg">
-    <div>
-      <label class="text-xs text-gray-600 block mb-1">Your name</label>
-      <input
-        type="text"
-        x-model="name"
-        class="demo-input"
-        placeholder="Ada Lovelace"
-        required
-      />
-    </div>
-    <div>
-      <label class="text-xs text-gray-600 block mb-1">Message</label>
-      <textarea
-        x-model="message"
-        class="demo-input"
-        rows="3"
-        placeholder="Just testing the form..."
-        required
-      ></textarea>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="demo-panel safe">
+      <h3>Trusted human</h3>
+      <p class="text-sm text-gray-600 mb-4">
+        Browser signals look normal. The challenge runs invisibly and the
+        widget shows a green check almost immediately — no interaction
+        needed.
+      </p>
+      <a href="/turnstile/login?scenario=human" target="_blank" rel="noopener" class="btn-primary">
+        Open as a human →
+      </a>
     </div>
 
-    <!-- Turnstile widget mount point — populated by turnstile.render() -->
-    <div id="turnstile-container"></div>
-    <p x-show="!widgetReady" class="text-xs text-gray-500">Loading Turnstile widget...</p>
+    <div class="demo-panel" style="border-top: 3px solid #d97706;">
+      <h3 style="color: #b45309;">Suspicious visitor</h3>
+      <p class="text-sm text-gray-600 mb-4">
+        Turnstile isn't sure and presents an interactive checkbox challenge.
+        Solve it and the widget still passes — login proceeds normally.
+      </p>
+      <a href="/turnstile/login?scenario=interactive" target="_blank" rel="noopener" class="btn-primary">
+        Open as suspicious →
+      </a>
+    </div>
 
-    <!-- Demo-only: simulate a server-side rejection without needing DevTools.
-         When checked, the client sends a garbage token to /api/turnstile/verify
-         so Cloudflare's siteverify returns success:false. -->
-    <label class="flex items-start gap-2 text-xs text-gray-600 cursor-pointer select-none border border-dashed border-gray-300 rounded p-2 bg-gray-50">
-      <input type="checkbox" x-model="simulateFailure" class="mt-0.5" />
-      <span>
-        <strong>Simulate failed verification</strong> — sends an invalid token to
-        the server so siteverify rejects it. Useful for demoing the failure path.
-      </span>
-    </label>
-
-    <button type="submit" :disabled="!token || submitting" class="btn-primary">
-      <span x-show="!submitting">Submit</span>
-      <span x-show="submitting">Verifying...</span>
-    </button>
-  </form>
-
-  <div x-show="result" x-transition class="demo-panel" :class="resultPanelClass">
-    <h3 x-text="result?.title"></h3>
-    <p class="text-sm" x-text="result?.message"></p>
-    <pre x-show="result?.details" class="code-output mt-2 text-xs" x-text="result?.details"></pre>
+    <div class="demo-panel danger">
+      <h3>Confirmed bot</h3>
+      <p class="text-sm text-gray-600 mb-4">
+        Turnstile classifies the session as automated and never issues a
+        token. The widget shows its own failure state and login stays
+        disabled — nothing reaches the server.
+      </p>
+      <a href="/turnstile/login?scenario=blocked" target="_blank" rel="noopener" class="btn-danger">
+        Open as a bot →
+      </a>
+    </div>
   </div>
 </div>
-
-<!-- Turnstile script — explicit rendering, no auto-render -->
-<script
-  is:inline
-  src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-  async
-  defer></script>
-
-<script is:inline>
-  function turnstileDemo() {
-    return {
-      name: "",
-      message: "",
-      token: null,
-      submitting: false,
-      result: null,
-      widgetReady: false,
-      widgetId: null,
-      simulateFailure: false,
-
-      get resultPanelClass() {
-        return this.result?.success ? "safe" : "danger";
-      },
-
-      async init() {
-        // 1. Fetch the site key from the server (sourced from wrangler.toml [vars])
-        let siteKey;
-        try {
-          const res = await fetch("/api/turnstile/config");
-          const data = await res.json();
-          siteKey = data.siteKey;
-        } catch (e) {
-          console.error("Failed to load Turnstile config", e);
-          this.result = {
-            success: false,
-            title: "Config error",
-            message: "Could not load Turnstile site key from server.",
-          };
-          return;
-        }
-
-        // 2. Wait for the Turnstile script to load, then render the widget
-        const renderWhenReady = () => {
-          if (window.turnstile) {
-            this.widgetId = window.turnstile.render("#turnstile-container", {
-              sitekey: siteKey,
-              callback: (token) => { this.token = token; },
-              "error-callback": () => {
-                this.token = null;
-                this.result = {
-                  success: false,
-                  title: "Widget error",
-                  message: "Turnstile widget reported an error. Reload the page to try again.",
-                };
-              },
-              "expired-callback": () => { this.token = null; },
-            });
-            this.widgetReady = true;
-          } else {
-            setTimeout(renderWhenReady, 100);
-          }
-        };
-        renderWhenReady();
-      },
-
-      async submit() {
-        if (!this.token) return;
-        this.submitting = true;
-        this.result = null;
-
-        // When the demo toggle is on, send a garbage token. The real token
-        // is still issued by the widget (so the button enables), we just
-        // discard it on the wire to demonstrate a server-side rejection.
-        const tokenToSend = this.simulateFailure
-          ? "demo-invalid-token-" + Date.now()
-          : this.token;
-
-        try {
-          const res = await fetch("/api/turnstile/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              token: tokenToSend,
-              name: this.name,
-              message: this.message,
-            }),
-          });
-          const data = await res.json();
-
-          if (res.ok && data.success) {
-            this.result = {
-              success: true,
-              title: "✓ Verified",
-              message: "Cloudflare confirmed the token. Form would now be processed.",
-              details: JSON.stringify(data.siteverify ?? data, null, 2),
-            };
-          } else {
-            this.result = {
-              success: false,
-              title: "✗ Verification failed",
-              message: data.error || "Turnstile rejected the token.",
-              details: JSON.stringify(data, null, 2),
-            };
-          }
-
-          // Reset the widget so the user can retry
-          if (this.widgetId && window.turnstile) {
-            window.turnstile.reset(this.widgetId);
-            this.token = null;
-          }
-        } catch (e) {
-          this.result = {
-            success: false,
-            title: "Network error",
-            message: e?.message ?? String(e),
-          };
-        } finally {
-          this.submitting = false;
-        }
-      },
-    };
-  }
-</script>

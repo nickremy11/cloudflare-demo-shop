@@ -442,7 +442,7 @@ Registered in `src/components/DemoSlot.astro`. Reference these in the
 | `BotRateDemo` | `/bot-management` | Shows `_cfbm` cookie, rate-limit burst tester |
 | `CdnCacheDemo` | `/cdn-caching` | Fetches diagram + shows cache headers/TTFB + real purge |
 | `DnsDemo` | `/dns` | DoH lookups via `1.1.1.1/dns-query` (browser → CF directly) |
-| `TurnstileDemo` | `/turnstile` | Renders widget + verifies via `/api/turnstile/verify` |
+| `TurnstileDemo` | `/turnstile` | Scenario picker linking to `/turnstile/login?scenario=human\|interactive\|blocked` |
 | `WorkersAiDemo` | `/workers`, `/workers-ai` | Sends prompt through `/api/chat` → AI Gateway → Llama 3.3 70B |
 | `AiGatewayDemo` | `/ai-gateway` | Same chat pipeline; shows the routing explicitly |
 | `R2Demo` | `/cloud-storage` | Guest+Access upload, malicious scan, pricing calculator |
@@ -467,7 +467,8 @@ All in `functions/api/[[path]].ts`.
 | PUT | `/api/diagrams/:name/tags` | none | Tag mgmt |
 | GET | `/api/diagrams/:name` | none | Cached diagram stream |
 | POST | `/api/cache/purge` | none (server uses CF token) | CDN demo purge |
-| POST | `/api/turnstile/verify` | none | Turnstile demo |
+| GET | `/api/turnstile/config?scenario=human\|interactive\|blocked` | none | Turnstile demo — sitekey for the scenario (server picks the key, not the browser) |
+| POST | `/api/turnstile/verify` | none | Turnstile demo — siteverify, secret picked server-side from the same scenario map |
 | POST | `/api/chat` | none | Chatbot + Workers AI + AI Gateway demos |
 | GET | `/api/chatroom/messages` | none | DO chat room initial history |
 | GET | `/api/chatroom/ws` | none | DO chat room WebSocket upgrade |

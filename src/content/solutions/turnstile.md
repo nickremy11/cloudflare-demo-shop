@@ -33,7 +33,7 @@ faq:
 demo:
   type: "interactive"
   component: "TurnstileDemo"
-  note: "Submit the form below. Your Turnstile token is verified against Cloudflare's siteverify endpoint on the server. The site key on this page is Cloudflare's public demo key; in production you'd use your own."
+  note: "Pick a scenario below to open a mock login page under that outcome. Each one uses one of Cloudflare's public test sitekeys, verified against the real siteverify endpoint on the server — the site itself never sees or chooses the key."
 
 diveDeeper:
   docs:

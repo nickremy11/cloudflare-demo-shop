@@ -1,0 +1,262 @@
+---
+// /turnstile/login?scenario=human|interactive|blocked
+//
+// Mock login page for the Turnstile demo. This is NOT a real login — no
+// account is created or accessed. It exists purely to show, on a
+// realistic-looking form, what a visitor actually sees under three fixed
+// Turnstile outcomes:
+//   human       — production widget / CF's "always passes" test key
+//   interactive — CF's test key that forces the checkbox challenge
+//   blocked     — CF's test key that always fails, visibly, client-side
+//
+// Astro prerenders this page statically (output: "static"), so there's no
+// server-side request to read ?scenario= from at build time. The scenario
+// is read client-side from window.location.search instead — see the
+// inline script below. The server (functions/api/[[path]].ts) is the only
+// place that maps a scenario name to an actual sitekey/secret pair.
+import Base from "../../layouts/Base.astro";
+---
+
+<Base
+  title="Sign in — Turnstile demo — Cloudflare Demo Shop"
+  description="Mock login page demonstrating Cloudflare Turnstile's three visitor outcomes."
+  robots="noindex"
+  hideChat={true}
+>
+  <main class="max-w-5xl mx-auto px-6 py-10">
+    <div x-data="turnstileLoginDemo()" class="space-y-6">
+      <!-- Demo control banner -->
+      <div class="bg-pine-50 border border-pine-100 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div class="text-xs font-semibold text-pine-700 uppercase tracking-wide">
+            Demo scenario
+          </div>
+          <div class="text-sm text-gray-700">
+            <span class="font-semibold" x-text="scenarioLabel"></span> —
+            <span x-text="scenarioDescription"></span>
+          </div>
+        </div>
+        <div class="flex gap-2 text-xs">
+          <a href="/turnstile/login?scenario=human" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">Human</a>
+          <a href="/turnstile/login?scenario=interactive" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">Suspicious</a>
+          <a href="/turnstile/login?scenario=blocked" class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;">Bot</a>
+        </div>
+      </div>
+
+      <!-- Mock login card -->
+      <div class="max-w-md mx-auto bg-white border border-silver-100 rounded-lg shadow-sm p-8">
+        <h1 class="text-xl font-bold text-pine-700 mb-1">Sign in</h1>
+        <p class="text-sm text-gray-500 mb-6">
+          Acme Outfitters account — demo only, nothing is submitted anywhere real.
+        </p>
+
+        <form @submit.prevent="submit" class="space-y-4">
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">Username</label>
+            <input
+              type="text"
+              x-model="username"
+              class="demo-input"
+              placeholder="ada@example.com"
+              autocomplete="username"
+            />
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">Password</label>
+            <input
+              type="password"
+              x-model="password"
+              class="demo-input"
+              placeholder="••••••••"
+              autocomplete="current-password"
+            />
+          </div>
+
+          <!-- Turnstile widget mount point — populated by turnstile.render() -->
+          <div id="turnstile-container"></div>
+          <p x-show="!widgetReady" class="text-xs text-gray-500">Loading Turnstile widget...</p>
+
+          <button type="submit" :disabled="!token || submitting" class="btn-primary w-full">
+            <span x-show="!submitting">Sign in</span>
+            <span x-show="submitting">Verifying...</span>
+          </button>
+        </form>
+      </div>
+
+      <div
+        x-show="result"
+        x-transition
+        class="max-w-md mx-auto demo-panel"
+        :class="resultPanelClass"
+        style="display: none;"
+      >
+        <h3 x-text="result?.title"></h3>
+        <p class="text-sm" x-text="result?.message"></p>
+        <pre x-show="result?.details" class="code-output mt-2 text-xs" x-text="result?.details"></pre>
+      </div>
+
+      <div class="text-center">
+        <a href="/turnstile" class="text-sm text-pine-600 hover:underline">← Back to the Turnstile demo</a>
+      </div>
+    </div>
+  </main>
+</Base>
+
+<!-- Turnstile script — explicit rendering, no auto-render -->
+<script
+  is:inline
+  src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+  async
+  defer></script>
+
+<script is:inline>
+  function turnstileLoginDemo() {
+    const SCENARIOS = {
+      human: {
+        label: "Trusted human",
+        description:
+          "Browser signals look normal, so the challenge runs invisibly and the widget passes almost immediately.",
+      },
+      interactive: {
+        label: "Suspicious visitor",
+        description:
+          "Turnstile isn't sure and presents an interactive checkbox challenge. Solving it still passes.",
+      },
+      blocked: {
+        label: "Confirmed bot",
+        description:
+          "Turnstile classifies this session as automated and never issues a token — sign-in stays disabled.",
+      },
+    };
+
+    return {
+      scenario: "human",
+      scenarioLabel: SCENARIOS.human.label,
+      scenarioDescription: SCENARIOS.human.description,
+      username: "",
+      password: "",
+      token: null,
+      submitting: false,
+      result: null,
+      widgetReady: false,
+      widgetId: null,
+
+      get resultPanelClass() {
+        return this.result?.success ? "safe" : "danger";
+      },
+
+      async init() {
+        const params = new URLSearchParams(window.location.search);
+        const requested = params.get("scenario");
+        this.scenario = requested === "interactive" || requested === "blocked" ? requested : "human";
+        const meta = SCENARIOS[this.scenario];
+        this.scenarioLabel = meta.label;
+        this.scenarioDescription = meta.description;
+
+        // 1. Fetch the sitekey for this scenario from the server. The
+        // server (not the browser) decides which sitekey maps to which
+        // scenario — see functions/api/[[path]].ts.
+        let siteKey;
+        try {
+          const res = await fetch(`/api/turnstile/config?scenario=${this.scenario}`);
+          const data = await res.json();
+          siteKey = data.siteKey;
+        } catch (e) {
+          console.error("Failed to load Turnstile config", e);
+          this.result = {
+            success: false,
+            title: "Config error",
+            message: "Could not load Turnstile site key from server.",
+          };
+          return;
+        }
+
+        // 2. Wait for the Turnstile script to load, then render the widget.
+        const renderWhenReady = () => {
+          if (window.turnstile) {
+            this.widgetId = window.turnstile.render("#turnstile-container", {
+              sitekey: siteKey,
+              // The "blocked" scenario's test key always fails. Disabling
+              // auto-retry keeps it in that failure state instead of
+              // endlessly retrying every few seconds.
+              retry: this.scenario === "blocked" ? "never" : "auto",
+              callback: (token) => {
+                this.token = token;
+              },
+              "error-callback": () => {
+                this.token = null;
+                if (this.scenario === "blocked") {
+                  this.result = {
+                    success: false,
+                    title: "✗ Access rejected",
+                    message:
+                      "Turnstile classified this session as automated traffic and did not issue a token. Sign-in is blocked before the request ever reaches the server.",
+                  };
+                }
+                // Returning true tells Turnstile we've handled the error
+                // so it doesn't also log a console warning.
+                return true;
+              },
+              "expired-callback": () => {
+                this.token = null;
+              },
+            });
+            this.widgetReady = true;
+          } else {
+            setTimeout(renderWhenReady, 100);
+          }
+        };
+        renderWhenReady();
+      },
+
+      async submit() {
+        if (!this.token) return;
+        this.submitting = true;
+        this.result = null;
+
+        try {
+          const res = await fetch("/api/turnstile/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: this.token,
+              scenario: this.scenario,
+            }),
+          });
+          const data = await res.json();
+
+          if (res.ok && data.success) {
+            this.result = {
+              success: true,
+              title: "✓ Signed in",
+              message:
+                "Cloudflare's siteverify endpoint confirmed the token server-side. (Demo only — no real account was accessed.)",
+              details: JSON.stringify(data.siteverify ?? data, null, 2),
+            };
+          } else {
+            this.result = {
+              success: false,
+              title: "✗ Sign-in rejected",
+              message: data.error || "Cloudflare's siteverify endpoint rejected the token.",
+              details: JSON.stringify(data, null, 2),
+            };
+          }
+
+          // Reset the widget so the scenario can be retried.
+          if (this.widgetId && window.turnstile) {
+            window.turnstile.reset(this.widgetId);
+            this.token = null;
+          }
+        } catch (e) {
+          this.result = {
+            success: false,
+            title: "Network error",
+            message: e?.message ?? String(e),
+          };
+        } finally {
+          this.submitting = false;
+        }
+      },
+    };
+  }
+</script>

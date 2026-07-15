@@ -786,28 +786,74 @@ app.post("/api/cache/purge", async (c) => {
 });
 
 // ── Turnstile siteverify ────────────────────────────────────
-// Cloudflare's test secret keys (PUBLIC):
-//   1x0000000000000000000000000000000AA — always passes
-//   2x0000000000000000000000000000000AA — always fails
-// In production, set TURNSTILE_SECRET to your real widget secret.
+// Cloudflare's public test keys (documented at
+// https://developers.cloudflare.com/turnstile/troubleshooting/testing/):
+//   Sitekeys:
+//     1x00000000000000000000AA — always passes (visible widget)
+//     2x00000000000000000000AB — always fails (visible widget)
+//     3x00000000000000000000FF — forces an interactive challenge (visible)
+//   Secrets:
+//     1x0000000000000000000000000000000AA — always passes validation
+//     2x0000000000000000000000000000000AA — always fails validation
+// In production, set TURNSTILE_SITE_KEY / TURNSTILE_SECRET (wrangler.toml
+// [vars] + Pages secret) to your real widget's sitekey/secret.
+//
+// The /turnstile/login demo drives three fixed scenarios (human,
+// interactive, blocked). Both the sitekey AND the secret used to verify it
+// are chosen here, server-side, from a fixed map — the browser only ever
+// sends a scenario *name*, never a key, so a visitor can't pick their own
+// sitekey/secret pairing.
+const TURNSTILE_SCENARIOS = {
+  // A trusted visitor: the production widget (or the public "always
+  // passes" test key/secret pair when TURNSTILE_SITE_KEY isn't set).
+  human: {
+    siteKey: (env: Bindings) => env.TURNSTILE_SITE_KEY || "1x00000000000000000000AA",
+    secret: (env: Bindings) => env.TURNSTILE_SECRET || "1x0000000000000000000000000000000AA",
+  },
+  // A visitor Turnstile is unsure about: forces the interactive checkbox
+  // challenge. Once solved it issues the same dummy token as the
+  // always-passes test key, so pair it with the always-passes test secret.
+  interactive: {
+    siteKey: () => "3x00000000000000000000FF",
+    secret: () => "1x0000000000000000000000000000000AA",
+  },
+  // A confirmed bot: the widget always fails client-side and never issues
+  // a token in normal use. If a request is forged directly to this
+  // endpoint anyway, the always-fails test secret rejects it too.
+  blocked: {
+    siteKey: () => "2x00000000000000000000AB",
+    secret: () => "2x0000000000000000000000000000000AA",
+  },
+} as const;
 
-// Exposes the public site key to the client-side demo. The site key is public
-// (always visible in HTML), but routing through here lets us swap it via
-// wrangler.toml [vars] without rebuilding the Astro component.
+type TurnstileScenario = keyof typeof TURNSTILE_SCENARIOS;
+
+function resolveTurnstileScenario(input: unknown): TurnstileScenario {
+  return input === "interactive" || input === "blocked" ? input : "human";
+}
+
+// Exposes the sitekey for a given scenario to the client-side demo. Site
+// keys are always public (visible in HTML/JS either way); routing through
+// here keeps the server as the sole source of truth for which key maps to
+// which scenario, and lets the production key rotate via wrangler.toml
+// [vars] without rebuilding the Astro component.
 app.get("/api/turnstile/config", (c) => {
+  const scenario = resolveTurnstileScenario(c.req.query("scenario"));
+  const cfg = TURNSTILE_SCENARIOS[scenario];
   return c.json({
-    siteKey: c.env.TURNSTILE_SITE_KEY || "1x00000000000000000000AA",
-    usingTestKey: !c.env.TURNSTILE_SITE_KEY,
+    scenario,
+    siteKey: cfg.siteKey(c.env),
+    usingTestKey: scenario !== "human" || !c.env.TURNSTILE_SITE_KEY,
   });
 });
 
 app.post("/api/turnstile/verify", async (c) => {
   try {
-    const { token } = await c.req.json();
+    const { token, scenario: rawScenario } = await c.req.json();
     if (!token) return c.json({ success: false, error: "Missing token" }, 400);
 
-    // Default to test secret if not configured
-    const secret = c.env.TURNSTILE_SECRET || "1x0000000000000000000000000000000AA";
+    const scenario = resolveTurnstileScenario(rawScenario);
+    const secret = TURNSTILE_SCENARIOS[scenario].secret(c.env);
     const remoteip = c.req.header("cf-connecting-ip") || "";
 
     const form = new FormData();
@@ -823,8 +869,9 @@ app.post("/api/turnstile/verify", async (c) => {
 
     return c.json({
       success: data.success === true,
+      scenario,
       siteverify: data,
-      usingTestSecret: !c.env.TURNSTILE_SECRET,
+      usingTestSecret: scenario !== "human" || !c.env.TURNSTILE_SECRET,
     });
   } catch (error: any) {
     return c.json({ success: false, error: "Verify failed: " + error.message }, 500);
