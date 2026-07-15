@@ -8,14 +8,20 @@
 //   human       — production widget / CF's "always passes" test key
 //   human-test  — same "invisible instant pass" UX, forced onto CF's
 //                 "always passes" test key/secret even in production.
-//                 Reliable fallback if this zone's Bot Fight Mode /
-//                 Security Level issues a Managed/JS Challenge, which
-//                 fetch() calls can't solve (see the "human" scenario's
-//                 comment in functions/api/[[path]].ts for the full
-//                 explanation + the real production fix — Turnstile
-//                 pre-clearance).
+//                 Convenience only — NOT a workaround for Precursor (see
+//                 below), since Precursor's re-verification isn't tied to
+//                 scenario or token content.
 //   interactive — CF's test key that forces the checkbox challenge
 //   blocked     — CF's test key that always fails, visibly, client-side
+//
+// If /api/turnstile/verify intermittently 403s with a raw HTML body
+// ("Unexpected token '<'") regardless of which scenario or token is sent,
+// that's Precursor (Security → Settings → Precursor) set to "Maximize
+// Security" re-validating the session mid-flight — a fetch() can't solve
+// the resulting interstitial Challenge. Fix: switch Precursor to
+// "Minimize Friction" (globally, or via a Precursor Rule scoped to
+// /api/*). See functions/api/[[path]].ts's "human" scenario comment and
+// https://developers.cloudflare.com/cloudflare-challenges/precursor/.
 //
 // Astro prerenders this page statically (output: "static"), so there's no
 // server-side request to read ?scenario= from at build time. The scenario
@@ -53,13 +59,14 @@ import Base from "../../layouts/Base.astro";
       </div>
 
       <p x-show="scenario === 'human'" class="text-xs text-gray-500 text-center" style="display: none;">
-        Seeing a network error here ("Unexpected token '&lt;'")? This zone
-        issues a Managed/JS Challenge to fresh sessions, and Challenge pages
-        can't be solved by a fetch() call — only a full page load. Try
-        <a href="/turnstile/login?scenario=human-test" class="text-pine-600 hover:underline">Human (test key)</a>
-        for a reliable demo, or enable
-        <a href="https://developers.cloudflare.com/cloudflare-challenges/concepts/clearance/#pre-clearance-support-in-turnstile" target="_blank" rel="noopener" class="text-pine-600 hover:underline">Turnstile pre-clearance</a>
-        on the production widget to fix it for real.
+        Seeing a network error here ("Unexpected token '&lt;'")? Check
+        Security → Settings →
+        <a href="https://developers.cloudflare.com/cloudflare-challenges/precursor/" target="_blank" rel="noopener" class="text-pine-600 hover:underline">Precursor</a>
+        on this zone. "Maximize Security" mode re-verifies sessions
+        mid-flight, and a fetch() call can't solve the resulting
+        interstitial Challenge. Switch to "Minimize Friction" (or scope it
+        with a Precursor Rule on /api/*) to fix it — it's intermittent and
+        unrelated to which scenario you pick.
       </p>
 
       <!-- Mock login card -->

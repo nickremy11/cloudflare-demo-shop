@@ -807,32 +807,40 @@ const TURNSTILE_SCENARIOS = {
   // A trusted visitor: the production widget (or the public "always
   // passes" test key/secret pair when TURNSTILE_SITE_KEY isn't set).
   //
-  // NOTE: on a zone that issues Managed/JS Challenges (Bot Fight Mode /
-  // Security Level — this zone does, confirmed via the `cf-mitigated:
-  // challenge` response header), the *first* fetch() call in a fresh
-  // browser session can get the raw Challenge interstitial HTML back
-  // instead of JSON (fails to parse: "Unexpected token '<'"). This is
-  // NOT related to token length or content — it's a documented Cloudflare
-  // limitation: Challenge Pages require a full page render+solve and
-  // fail for AJAX/XHR/fetch requests (see
-  // https://developers.cloudflare.com/cloudflare-challenges/challenge-types/challenge-pages/#compatibility-limitations).
-  // The correct production fix is Turnstile *pre-clearance*: enable it on
-  // this widget (Turnstile dashboard → widget → Settings → pre-clearance
-  // → level) so solving the widget also issues a cf_clearance cookie that
-  // pre-clears subsequent fetch() calls on this zone. See
-  // https://developers.cloudflare.com/cloudflare-challenges/concepts/clearance/#pre-clearance-support-in-turnstile.
-  // Until pre-clearance is enabled, use "human-test" below to demo the
-  // happy path reliably — it behaves identically but isn't affected by
-  // zone-level challenges since scenario names, not raw tokens, decide
-  // which endpoints get hit in this demo.
+  // NOTE (confirmed root cause, don't relitigate): this zone had Precursor
+  // (https://developers.cloudflare.com/cloudflare-challenges/precursor/)
+  // set to "Maximize Security". That mode continuously re-validates
+  // session behavior and, whenever it decides to re-verify, requires the
+  // request to already carry a currently-valid cf_clearance cookie —
+  // otherwise it serves a fresh interstitial Challenge (`cf-mitigated:
+  // challenge`, raw HTML body). A bare fetch() can never solve a fresh
+  // Challenge (no page render), so whichever /api/turnstile/verify call
+  // happened to land during a re-verification window failed with
+  // "Unexpected token '<'" — regardless of scenario or token
+  // length/content (verified: even the "human-test" scenario's short
+  // dummy token failed under the same conditions). This is NOT a WAF rule
+  // and NOT related to the real widget's token being long/opaque — both
+  // earlier theories were wrong; keeping this note so nobody re-derives
+  // them from scratch.
+  //
+  // Fix applied at the zone level: switch Precursor to "Minimize Friction"
+  // globally (or add a Precursor Rule scoping "Minimize Friction" to
+  // /api/* specifically while keeping "Maximize Security" elsewhere, per
+  // Cloudflare's own recommended pattern for mixed HTML/API zones). No
+  // code change fixes this — it's a Security → Settings → Precursor
+  // configuration, not something this endpoint can control.
   human: {
     siteKey: (env: Bindings) => env.TURNSTILE_SITE_KEY || "1x00000000000000000000AA",
     secret: (env: Bindings) => env.TURNSTILE_SECRET || "1x0000000000000000000000000000000AA",
   },
   // Same "trusted human" UX (invisible, instant pass) but forced onto
   // Cloudflare's public always-passes test key/secret pair even when a
-  // real production TURNSTILE_SITE_KEY is configured. Reliable for demos
-  // regardless of zone-level Challenge/pre-clearance configuration.
+  // real production TURNSTILE_SITE_KEY is configured. NOTE: this is NOT
+  // immune to the Precursor issue described above — under "Maximize
+  // Security" any /api/turnstile/verify fetch() can be caught mid
+  // re-verification regardless of scenario. It's kept as a convenience
+  // for demos that don't need the real production widget, not as a
+  // workaround for Precursor.
   "human-test": {
     siteKey: () => "1x00000000000000000000AA",
     secret: () => "1x0000000000000000000000000000000AA",
