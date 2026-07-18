@@ -19,6 +19,7 @@
 //   POST /api/turnstile/verify                           — siteverify call
 //   POST /api/chat                                       — AI Gateway → Llama 3.3 70B
 //   POST /api/aboutme-rag                                — Service binding → AI Search / AutoRAG Worker
+//   POST /api/email/send                                 — Email Sending: fixed message → visitor-entered address
 //
 // Legacy aliases kept for backwards compat:
 //   GET /api/waf-test?attack=...  → forwards to /api/waf/testattack
@@ -41,6 +42,7 @@ type Bindings = {
   CF_CACHE_PURGE_TOKEN?: string;
   TURNSTILE_SECRET?: string;
   TURNSTILE_SITE_KEY?: string;
+  EMAIL: SendEmail;
 };
 
 type Variables = {
@@ -99,6 +101,29 @@ const INSPECT_KEYS = [
   "cf-ipcountry", "x-forwarded-for", "x-forwarded-proto",
   "x-test-injection", "x-override-host", "x-cache-poison",
 ];
+
+// Email Service demo — fixed sender + fixed template. Only the recipient
+// (entered by the visitor) varies. Replying lands on support@remydemo.com,
+// which an existing Email Routing rule forwards to the demo owner's inbox.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const DEMO_EMAIL_HTML = `
+  <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+    <h2 style="color: #0d3b34;">Thanks for reaching out</h2>
+    <p>This is a demo message sent with <strong>Cloudflare Email Sending</strong>
+    from <code>support@remydemo.com</code>.</p>
+    <p>Reply to this email and <strong>Cloudflare Email Routing</strong> will
+    forward your reply to our support inbox — no mail server required.</p>
+    <p style="color: #6b7280; font-size: 13px;">— Cloudflare Demo Shop</p>
+  </div>
+`;
+
+const DEMO_EMAIL_TEXT =
+  "Thanks for reaching out.\n\n" +
+  "This is a demo message sent with Cloudflare Email Sending from support@remydemo.com.\n\n" +
+  "Reply to this email and Cloudflare Email Routing will forward your reply to our " +
+  "support inbox — no mail server required.\n\n" +
+  "— Cloudflare Demo Shop";
 
 const ACCESS_HEADER_VARIANTS = [
   "cf-access-authenticated-user-email",
@@ -1668,6 +1693,39 @@ app.post("/api/chatroom/clear", async (c) => {
     return c.json({ ok: true });
   } catch (error: any) {
     return c.json({ error: "Failed to clear messages: " + error.message }, 500);
+  }
+});
+
+// ── Email Service Demo ───────────────────────────────────────
+// Sends a fixed transactional-style message from the fixed demo sender
+// support@remydemo.com to a visitor-entered address, using the Email
+// Sending binding. The visitor controls only the recipient — sender,
+// subject, and body are fixed server-side. Replying to the message
+// exercises Email Routing via the existing support@remydemo.com rule.
+
+app.post("/api/email/send", async (c) => {
+  try {
+    const body = await c.req.json().catch(() => null);
+    const rawTo = typeof body?.to === "string" ? body.to.trim() : "";
+
+    if (!rawTo) {
+      return c.json({ error: "Enter an email address to send to." }, 400);
+    }
+    if (rawTo.length > 254 || /[,;\r\n]/.test(rawTo) || !EMAIL_RE.test(rawTo)) {
+      return c.json({ error: "Enter a single, valid email address." }, 400);
+    }
+
+    const result = await c.env.EMAIL.send({
+      to: rawTo,
+      from: { email: "support@remydemo.com", name: "Cloudflare Demo Support" },
+      subject: "We received your message — Cloudflare Demo Shop",
+      html: DEMO_EMAIL_HTML,
+      text: DEMO_EMAIL_TEXT,
+    });
+
+    return c.json({ success: true, to: rawTo, messageId: (result as any)?.messageId ?? null });
+  } catch (error: any) {
+    return c.json({ error: error?.message || "Failed to send email." }, 500);
   }
 });
 

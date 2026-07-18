@@ -55,6 +55,15 @@ name = "CHAT_ROOM"
 class_name = "ChatRoom"
 script_name = "demo-shop-chat"
 
+# ── Email Service Demo Binding ─────────────────────────────
+# Cloudflare Email Sending. Restricted to the fixed demo sender so the
+# public form can only ever send "from" support@remydemo.com — the
+# recipient (entered by the visitor) is the only variable part.
+# Requires remydemo.com to be onboarded to Email Sending in the dashboard.
+[[send_email]]
+name = "EMAIL"
+allowed_sender_addresses = ["support@remydemo.com"]
+
 # ── Cache Purge Demo Variables ─────────────────────────────
 # These need to be set in the Cloudflare Pages dashboard:
 #   - CF_ZONE_ID:           plain text env var (your zone ID for remydemo.com)
