@@ -163,6 +163,11 @@
   margin-bottom: 1.5rem;
 }
 
+/* ─── Alpine.js: hide elements until initialized ──────────────*/
+[x-cloak] {
+  display: none !important;
+}
+
 /* ─── Diagram slot ─────────────────────────────────────────── */
 .diagram-slot {
   border: 2px dashed #c1d9c1;

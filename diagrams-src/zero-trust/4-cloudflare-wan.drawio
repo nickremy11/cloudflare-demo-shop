@@ -1,0 +1,76 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="cf-wan-1" name="Cloudflare WAN">
+    <mxGraphModel dx="1348" dy="791" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1450" pageHeight="620" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;fontSize=22;fontStyle=1;fontColor=#1a1a1a;html=1;" value="Cloudflare WAN — Global Backbone Replacing MPLS &amp; SD-WAN" vertex="1">
+          <mxGeometry height="30" width="800" x="40" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;fontSize=12;fontColor=#6b7280;html=1;" value="Branches, data centers, cloud VPCs, and remote users all connect to one global network — with Network Firewall, Gateway, and Cloudflare One policy applied to every packet." vertex="1">
+          <mxGeometry height="18" width="1100" x="40" y="32" as="geometry" />
+        </mxCell>
+        <mxCell id="branchAppliance" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#1f2937;fontSize=12;" value="Branch Office A&lt;br&gt;+ Cloudflare One Appliance&lt;br&gt;(hardware or virtual)" vertex="1">
+          <mxGeometry height="80" width="220" x="40" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="branchRouter" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#1f2937;fontSize=12;" value="Branch Office B&lt;br&gt;+ Existing Router / Firewall&lt;br&gt;(no proprietary hardware)" vertex="1">
+          <mxGeometry height="80" width="220" x="40" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="wanHub" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0ece0;strokeColor=#2F4F2F;fontColor=#1f381f;fontSize=13;fontStyle=1;" value="Cloudflare WAN&lt;br&gt;Global Backbone + Network Firewall + Gateway Policy" vertex="1">
+          <mxGeometry height="150" width="320" x="560" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="wanAnnotation" parent="1" style="text;fontSize=11;fontColor=#5e975e;align=center;html=1;" value="Any-to-any: branch ↔ branch, branch ↔ cloud, branch ↔ remote user — all through one network, one policy set." vertex="1">
+          <mxGeometry height="40" width="320" x="560" y="305" as="geometry" />
+        </mxCell>
+        <mxCell id="dataCenter" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#1f2937;fontSize=12;" value="Data Center&lt;br&gt;(HQ)" vertex="1">
+          <mxGeometry height="70" width="200" x="1150" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="remoteUser" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#1f2937;fontSize=12;" value="Remote User&lt;br&gt;(Cloudflare One Client)" vertex="1">
+          <mxGeometry height="70" width="200" x="1150" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d1d5db;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#374151;align=left;spacingLeft=10;spacingTop=6;" value="Legend" vertex="1">
+          <mxGeometry height="140" width="560" x="40" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="legendLine1" edge="1" parent="1" style="edgeStyle=none;html=1;strokeColor=#6b7280;strokeWidth=2;startArrow=classic;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="60" y="475" as="sourcePoint" />
+            <mxPoint x="110" y="475" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legendLabel1" parent="1" style="text;fontSize=12;fontColor=#374151;html=1;align=left;" value="IPsec / GRE tunnel to Cloudflare WAN" vertex="1">
+          <mxGeometry height="24" width="330" x="120" y="463" as="geometry" />
+        </mxCell>
+        <mxCell id="legendLine2" edge="1" parent="1" style="edgeStyle=none;html=1;strokeColor=#2F4F2F;strokeWidth=2;startArrow=classic;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="60" y="505" as="sourcePoint" />
+            <mxPoint x="110" y="505" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legendLabel2" parent="1" style="text;fontSize=12;fontColor=#374151;html=1;align=left;" value="Any-to-any backbone routing (branch, data center, cloud, remote user)" vertex="1">
+          <mxGeometry height="24" width="380" x="120" y="493" as="geometry" />
+        </mxCell>
+        <mxCell id="legendLabel3" parent="1" style="text;fontSize=11;fontColor=#6b7280;html=1;align=left;fontStyle=2;" value="Note: Cloudflare One Appliance (hardware or virtual) or any existing IPsec/GRE-capable router or firewall." vertex="1">
+          <mxGeometry height="40" width="420" x="60" y="535" as="geometry" />
+        </mxCell>
+        <mxCell id="eApplianceHub" edge="1" parent="1" source="branchAppliance" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6b7280;strokeWidth=2;startArrow=classic;endArrow=classic;fontSize=11;" target="wanHub" value="IPsec (Cloudflare One Appliance)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eRouterHub" edge="1" parent="1" source="branchRouter" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6b7280;strokeWidth=2;startArrow=classic;endArrow=classic;fontSize=11;" target="wanHub" value="IPsec / GRE (existing router/firewall)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eHubDC" edge="1" parent="1" source="wanHub" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F4F2F;strokeWidth=2;startArrow=classic;endArrow=classic;" target="dataCenter">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eHubCloud" edge="1" parent="1" source="wanHub" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F4F2F;strokeWidth=2;startArrow=classic;endArrow=classic;" target="cloudVPC">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eHubRemote" edge="1" parent="1" source="wanHub" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F4F2F;strokeWidth=2;startArrow=classic;endArrow=classic;" target="remoteUser">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cloudVPC" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#1f2937;fontSize=12;" value="Cloud VPC&lt;br&gt;(AWS / Azure / GCP)" vertex="1">
+          <mxGeometry height="70" width="200" x="1150" y="185" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

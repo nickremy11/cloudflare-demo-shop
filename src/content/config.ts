@@ -18,6 +18,22 @@ const solutions = defineCollection({
         src: z.string().optional(),
         alt: z.string().optional(),
         caption: z.string().optional(),
+        // Optional set of alternate/clickable views (e.g. different
+        // architecture scenarios for the same solution). When present,
+        // DiagramSlot renders a tabbed switcher; `src`/`alt`/`caption`
+        // above act as the fallback for the first tab if an option
+        // omits them.
+        options: z
+          .array(
+            z.object({
+              key: z.string(),
+              label: z.string(),
+              src: z.string(),
+              alt: z.string().optional(),
+              caption: z.string().optional(),
+            })
+          )
+          .optional(),
       })
       .optional(),
 

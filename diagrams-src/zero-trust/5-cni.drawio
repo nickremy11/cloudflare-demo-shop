@@ -1,0 +1,88 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="cf-cni-1" name="Cloudflare Network Interconnect">
+    <mxGraphModel dx="1437" dy="844" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1450" pageHeight="620" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;fontSize=22;fontStyle=1;fontColor=#1a1a1a;html=1;" value="Cloudflare Network Interconnect (CNI) — Private, Direct Connectivity" vertex="1">
+          <mxGeometry height="30" width="900" x="40" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;fontSize=12;fontColor=#6b7280;html=1;" value="Skip the public Internet entirely. Connect your network directly to the nearest Cloudflare data center via a physical cross-connect or partner circuit — with BGP peering for automatic route management." vertex="1">
+          <mxGeometry height="18" width="1100" x="40" y="32" as="geometry" />
+        </mxCell>
+        <mxCell id="dataCenter" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#1f2937;fontSize=12;" value="Data Center / Colocation Facility&lt;br&gt;(e.g., Equinix)" vertex="1">
+          <mxGeometry height="90" width="220" x="40" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="cniBox" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0ece0;strokeColor=#2F4F2F;fontColor=#1f381f;fontSize=13;fontStyle=1;" value="Cloudflare Network Interconnect&lt;br&gt;(CNI)" vertex="1">
+          <mxGeometry height="90" width="260" x="340" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="directCni" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f2f7f2;strokeColor=#2F4F2F;dashed=1;fontColor=#1f381f;fontSize=10;" value="Direct CNI" vertex="1">
+          <mxGeometry height="36" width="110" x="340" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="partnerCni" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f2f7f2;strokeColor=#2F4F2F;dashed=1;fontColor=#1f381f;fontSize=10;" value="Partner CNI" vertex="1">
+          <mxGeometry height="36" width="110" x="465" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="cloudCni" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f2f7f2;strokeColor=#2F4F2F;dashed=1;fontColor=#1f381f;fontSize=10;" value="Cloud CNI" vertex="1">
+          <mxGeometry height="36" width="110" x="590" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="nearestDc" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef2f7;strokeColor=#64748b;fontColor=#1f2937;fontSize=12;" value="Nearest Cloudflare&lt;br&gt;Data Center (edge location)" vertex="1">
+          <mxGeometry height="90" width="220" x="680" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="wanHub" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0ece0;strokeColor=#2F4F2F;fontColor=#1f381f;fontSize=13;fontStyle=1;" value="Cloudflare WAN / Magic Transit&lt;br&gt;Global Backbone + Network Firewall" vertex="1">
+          <mxGeometry height="160" width="300" x="980" y="115" as="geometry" />
+        </mxCell>
+        <mxCell id="wanAnnotation" parent="1" style="text;fontSize=11;fontColor=#5e975e;align=center;html=1;fontStyle=2;" value="→ Onward to other branches, data centers, cloud VPCs, and remote users (see the Cloudflare WAN diagram)" vertex="1">
+          <mxGeometry height="40" width="300" x="980" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d1d5db;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#374151;align=left;spacingLeft=10;spacingTop=6;" value="Legend" vertex="1">
+          <mxGeometry height="140" width="640" x="40" y="323" as="geometry" />
+        </mxCell>
+        <mxCell id="legendLine1" edge="1" parent="1" style="edgeStyle=none;html=1;strokeColor=#2F4F2F;strokeWidth=2;endArrow=classic;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="60" y="358" as="sourcePoint" />
+            <mxPoint x="110" y="358" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legendLabel1" parent="1" style="text;fontSize=12;fontColor=#374151;html=1;align=left;" value="Private, direct connection (no Internet transit)" vertex="1">
+          <mxGeometry height="24" width="340" x="120" y="346" as="geometry" />
+        </mxCell>
+        <mxCell id="legendLine2" edge="1" parent="1" style="edgeStyle=none;html=1;strokeColor=#2F4F2F;strokeWidth=2;dashed=1;endArrow=none;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="60" y="393" as="sourcePoint" />
+            <mxPoint x="110" y="393" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legendLabel2" parent="1" style="text;fontSize=12;fontColor=#374151;html=1;align=left;" value="CNI variant — Direct (dedicated), Partner (via NSP), or Cloud (from a cloud provider)" vertex="1">
+          <mxGeometry height="24" width="360" x="120" y="381" as="geometry" />
+        </mxCell>
+        <mxCell id="legendLabel3" parent="1" style="text;fontSize=11;fontColor=#6b7280;html=1;align=left;fontStyle=2;" value="Best for high-bandwidth, latency-sensitive, or compliance-driven connectivity where Internet-based IPsec/GRE isn&#39;t sufficient." vertex="1">
+          <mxGeometry height="40" width="440" x="60" y="421" as="geometry" />
+        </mxCell>
+        <mxCell id="eDcCni" edge="1" parent="1" source="dataCenter" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F4F2F;strokeWidth=2;endArrow=classic;fontSize=11;fontColor=#1f381f;" target="cniBox" value="Cross-connect / partner circuit&lt;br&gt;(no public Internet)">
+          <mxGeometry relative="1" y="65" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eCniDirect" edge="1" parent="1" source="cniBox" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F4F2F;dashed=1;endArrow=none;" target="directCni">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eCniPartner" edge="1" parent="1" source="cniBox" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F4F2F;dashed=1;endArrow=none;" target="partnerCni">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eCniCloud" edge="1" parent="1" source="cniBox" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F4F2F;dashed=1;endArrow=none;" target="cloudCni">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="eCniNearest" edge="1" parent="1" source="cniBox" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F4F2F;strokeWidth=2;endArrow=classic;fontSize=11;fontColor=#1f381f;" target="nearestDc" value="BGP peering&lt;br&gt;(automatic route add/remove)">
+          <mxGeometry relative="1" y="65" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eNearestWan" edge="1" parent="1" source="nearestDc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2F4F2F;strokeWidth=2;endArrow=classic;fontSize=11;fontColor=#1f381f;" target="wanHub" value="Anycast onto Cloudflare backbone">
+          <mxGeometry relative="1" x="0.0611" y="70" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

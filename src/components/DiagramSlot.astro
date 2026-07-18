@@ -1,25 +1,74 @@
 ---
-interface Props {
-  src?: string;
+interface DiagramOption {
+  key: string;
+  label: string;
+  src: string;
   alt?: string;
   caption?: string;
 }
 
-const { src, alt, caption } = Astro.props;
+interface Props {
+  src?: string;
+  alt?: string;
+  caption?: string;
+  options?: DiagramOption[];
+}
+
+const { src, alt, caption, options } = Astro.props;
+
+const hasOptions = Array.isArray(options) && options.length > 0;
+
+// Normalize into a single list of panels. When `options` is provided it
+// drives the tabbed switcher; otherwise fall back to the single src/alt/caption.
+const panels: DiagramOption[] = hasOptions
+  ? options!
+  : src
+    ? [{ key: "default", label: "Diagram", src, alt, caption }]
+    : [];
 ---
 
 {
-  src ? (
-    <figure>
-      <img src={src} alt={alt ?? ""} />
-      {caption && <figcaption class="text-center text-sm text-gray-500 mt-3">{caption}</figcaption>}
-    </figure>
-  ) : (
+  panels.length === 0 ? (
     <div class="diagram-slot">
       <p class="font-medium">Diagram coming soon</p>
       <p class="text-xs mt-1 opacity-75">
         Architecture diagram for this solution will be added here.
       </p>
     </div>
+  ) : hasOptions ? (
+    <div x-data={`{ active: '${panels[0].key}' }`}>
+      <div class="flex flex-wrap gap-2 mb-4" role="tablist">
+        {panels.map((p) => (
+          <button
+            type="button"
+            role="tab"
+            x-on:click={`active = '${p.key}'`}
+            x-bind:class={`active === '${p.key}' ? 'bg-pine-500 text-white border-pine-500' : 'bg-white text-gray-700 border-silver-200 hover:border-pine-300'`}
+            class="px-3 py-1.5 text-sm font-medium rounded-full border transition-colors"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {panels.map((p) => (
+        <figure x-show={`active === '${p.key}'`} x-cloak>
+          <img src={p.src} alt={p.alt ?? p.label} />
+          {p.caption && (
+            <figcaption class="text-center text-sm text-gray-500 mt-3">
+              {p.caption}
+            </figcaption>
+          )}
+        </figure>
+      ))}
+    </div>
+  ) : (
+    <figure>
+      <img src={panels[0].src} alt={panels[0].alt ?? ""} />
+      {panels[0].caption && (
+        <figcaption class="text-center text-sm text-gray-500 mt-3">
+          {panels[0].caption}
+        </figcaption>
+      )}
+    </figure>
   )
 }

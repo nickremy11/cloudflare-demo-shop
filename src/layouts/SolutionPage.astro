@@ -12,7 +12,12 @@ interface Props {
     blurb: string;
     pillar: PillarSlug;
     challenge: { question: string; detail: string };
-    diagram?: { src?: string; alt?: string; caption?: string };
+    diagram?: {
+      src?: string;
+      alt?: string;
+      caption?: string;
+      options?: { key: string; label: string; src: string; alt?: string; caption?: string }[];
+    };
     solutionPoints: { title: string; detail: string }[];
     solutionTable?: {
       columns: string[];
@@ -71,6 +76,7 @@ const pillar = getPillar(frontmatter.pillar);
         src={frontmatter.diagram?.src}
         alt={frontmatter.diagram?.alt}
         caption={frontmatter.diagram?.caption}
+        options={frontmatter.diagram?.options}
       />
     </section>
 
