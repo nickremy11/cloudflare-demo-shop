@@ -37,7 +37,7 @@ faq:
 demo:
   type: "interactive"
   component: "EmailDemo"
-  note: "This demo exercises Email Sending and Email Routing end-to-end. Email Security (phishing/BEC inspection) isn't part of the live demo — see the solution points above for that half of the platform."
+  note: "This demo exercises Email Sending and Email Routing end-to-end, with the send action itself gated behind Cloudflare Access at /email-security/send so it can't be spammed by an anonymous visitor. Email Security (phishing/BEC inspection) isn't part of the live demo — see the solution points above for that half of the platform. Presenter tip: route replies to a personal inbox rather than a heavily-filtered corporate one — an auto-forwarded reply with a rewritten envelope sender is exactly the kind of pattern inbound security stacks quarantine, which corporate mailboxes protected by Cloudflare Email Security do especially well."
 
 diveDeeper:
   docs:

@@ -1,0 +1,192 @@
+---
+// /email-security/send
+//
+// The live Email Sending demo. This path (remydemo.com/email-security/send*)
+// is covered by a Cloudflare Access self-hosted application, so Cloudflare
+// intercepts the request at the edge and requires sign-in BEFORE this page
+// (or its API calls) ever reach Cloudflare Pages — there's no code here
+// that implements the login gate itself. Only who can trigger a send
+// changes vs. the old public demo: any signed-in identity can still send
+// the fixed message to any recipient.
+//
+// GET/POST /email-security/send/api (functions/email-security/send/api.ts)
+// independently verifies the Cf-Access-Jwt-Assertion Access attaches to
+// the request, so a send only ever goes through for a request Access has
+// actually vetted — see that file for why that matters even with the
+// Access application in front.
+import Base from "../../layouts/Base.astro";
+---
+
+<Base
+  title="Send a demo email — Email Sending — Cloudflare Demo Shop"
+  description="Cloudflare Access-protected Email Sending demo."
+  robots="noindex"
+  hideChat={true}
+>
+  <main class="max-w-3xl mx-auto px-6 py-10">
+    <div x-data="emailSendDemo()" class="space-y-6">
+      <div class="bg-pine-50 border border-pine-100 rounded-lg p-4">
+        <div class="text-xs font-semibold text-pine-700 uppercase tracking-wide">
+          Cloudflare Access
+        </div>
+        <p class="text-sm text-gray-700 mt-1">
+          This page and its API are covered by an Access self-hosted
+          application (<code>remydemo.com/email-security/send*</code>).
+          You already had to sign in to load this page — that's Access,
+          not this site, requiring it. This is what keeps the send demo
+          from being spammed: only an authenticated identity can trigger
+          it, and the API independently verifies that on every request.
+        </p>
+      </div>
+
+      <div class="demo-panel">
+        <h3>Send a demo email</h3>
+        <p class="text-sm text-gray-600 mb-3" x-show="identity">
+          Signed in as <strong x-text="identity?.email"></strong>. Sender and
+          message content are fixed server-side — enter any recipient you'd
+          like to send the demo message to.
+        </p>
+        <p class="text-sm text-gray-500" x-show="checkingIdentity">
+          Checking your Access session…
+        </p>
+
+        <div x-show="!checkingIdentity" class="flex flex-col sm:flex-row gap-2">
+          <input
+            type="email"
+            x-model="to"
+            @keydown.enter="send"
+            class="demo-input flex-1"
+            placeholder="you@example.com"
+            :disabled="sending || !identity"
+          />
+          <button
+            type="button"
+            @click="send"
+            :disabled="!canSend"
+            class="btn-primary whitespace-nowrap"
+          >
+            <span x-show="!sending">Send demo email</span>
+            <span x-show="sending">Sending…</span>
+          </button>
+        </div>
+
+        <div
+          x-show="sessionExpired"
+          x-transition
+          class="mt-4 demo-panel danger"
+          style="display: none;"
+        >
+          <h3>Access session expired</h3>
+          <p class="text-sm">
+            Your Access session is no longer valid. Reload the page to sign
+            in again.
+          </p>
+          <button type="button" @click="location.reload()" class="btn-secondary mt-2">
+            Reload
+          </button>
+        </div>
+
+        <div x-show="result" x-transition class="mt-4 demo-panel" :class="result?.success ? 'safe' : 'danger'" style="display: none;">
+          <h3 x-text="result?.title"></h3>
+          <p class="text-sm" x-text="result?.message"></p>
+        </div>
+      </div>
+
+      <div class="demo-panel">
+        <h3>What just happened</h3>
+        <ol class="text-sm text-gray-700 list-decimal list-inside space-y-1">
+          <li>Cloudflare Access checked your session before this page — and every call to <code>/email-security/send/api</code> — was allowed to reach Cloudflare Pages.</li>
+          <li>The Function verified the signed <code>Cf-Access-Jwt-Assertion</code> token itself (signature, issuer, audience, expiry) rather than trusting Access blindly, since Access applications are scoped by hostname and this project is also reachable on its <code>*.pages.dev</code> fallback domain.</li>
+          <li>Only after that verification did the server call the <strong>Email Sending</strong> API with a fixed subject/body and <code>from: support@remydemo.com</code>.</li>
+          <li>If you reply, your reply arrives at <code>support@remydemo.com</code>, where an existing <strong>Email Routing</strong> rule forwards it on — see the <a href="/email-security" class="text-pine-600 hover:underline">Email overview</a> for that half of the story.</li>
+        </ol>
+      </div>
+
+      <div class="text-center">
+        <a href="/email-security" class="text-sm text-pine-600 hover:underline">← Back to Email</a>
+      </div>
+    </div>
+  </main>
+</Base>
+
+<script is:inline>
+  function emailSendDemo() {
+    return {
+      to: "",
+      sending: false,
+      checkingIdentity: true,
+      identity: null,
+      sessionExpired: false,
+      result: null,
+
+      get canSend() {
+        return !this.sending && !!this.identity && /\S+@\S+\.\S+/.test(this.to);
+      },
+
+      async init() {
+        try {
+          const res = await fetch("/email-security/send/api");
+          const ctype = res.headers.get("content-type") || "";
+          if (res.ok && ctype.includes("application/json")) {
+            const data = await res.json();
+            if (data.authenticated) {
+              this.identity = { email: data.email };
+            } else {
+              this.sessionExpired = true;
+            }
+          } else {
+            this.sessionExpired = true;
+          }
+        } catch (e) {
+          this.sessionExpired = true;
+        } finally {
+          this.checkingIdentity = false;
+        }
+      },
+
+      async send() {
+        if (!this.canSend) return;
+        this.sending = true;
+        this.result = null;
+        try {
+          const res = await fetch("/email-security/send/api", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: this.to.trim() }),
+          });
+
+          const ctype = res.headers.get("content-type") || "";
+          if (!ctype.includes("application/json")) {
+            this.sessionExpired = true;
+            return;
+          }
+
+          const data = await res.json();
+
+          if (res.status === 401) {
+            this.sessionExpired = true;
+            return;
+          }
+
+          if (res.ok && data.success) {
+            this.result = {
+              success: true,
+              title: "✓ Email sent",
+              message: `Sent to ${data.to} from support@remydemo.com. Check that inbox — and try replying to see Email Routing forward it.`,
+            };
+          } else {
+            this.result = {
+              success: false,
+              title: "✗ Send failed",
+              message: data.error || "Something went wrong sending the email.",
+            };
+          }
+        } catch (e) {
+          this.result = { success: false, title: "Network error", message: e?.message ?? String(e) };
+        } finally {
+          this.sending = false;
+        }
+      },
+    };
+  }
+</script>

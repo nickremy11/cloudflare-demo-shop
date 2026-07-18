@@ -1,118 +1,40 @@
 ---
-// Email Service demo: Email Sending + Email Routing round trip.
-//
-// 1. Visitor enters a recipient address. The server sends a fixed
-//    transactional-style message from the fixed sender
-//    support@remydemo.com using the Email Sending binding — the visitor
-//    never controls sender, subject, or body.
-// 2. The recipient can reply to that message. An existing Email Routing
-//    rule (support@remydemo.com → the demo owner's inbox) forwards the
-//    reply automatically — no additional code runs for that half.
-//
-// This intentionally does not cover Cloudflare Email Security (Area 1),
-// which inspects mail for phishing/BEC before delivery — see the
-// "How Cloudflare solves it" section above for that half of the story.
+// Email Service demo teaser, shown on the public /email-security overview
+// page. The live send demo itself moved to /email-security/send, which is
+// covered by a Cloudflare Access self-hosted application — see
+// functions/email-security/send/api.ts. That's intentional: this page is
+// public and unauthenticated, and a mail-sending action shouldn't be
+// reachable by anyone who happens to land here. Access decides who can
+// use it; the recipient can still be anyone the signed-in visitor enters.
 ---
 
-<div x-data="emailDemo()" class="space-y-6">
+<div class="space-y-6">
   <p class="text-sm text-gray-600">
-    Enter an email address you control. We'll send it a real message from
-    <code>support@remydemo.com</code> using <strong>Email Sending</strong>.
-    Reply to that message and <strong>Email Routing</strong> will forward
-    your reply straight to the demo owner's inbox — no mail server involved
-    on either end.
+    The live demo sends a real message from <code>support@remydemo.com</code>
+    using <strong>Email Sending</strong>, and replying exercises
+    <strong>Email Routing</strong> — but sending is gated behind
+    <strong>Cloudflare Access</strong> first, so the capability can't be
+    spammed by an anonymous visitor.
   </p>
 
   <div class="demo-panel">
-    <h3>Send a demo email</h3>
+    <h3>Try it — sign-in required</h3>
     <p class="text-sm text-gray-600 mb-3">
-      Sender and message content are fixed server-side — you only choose the
-      recipient.
+      You'll be asked to authenticate via Cloudflare Access before you can
+      send anything. Once signed in, you pick the recipient — sender and
+      message content stay fixed server-side.
     </p>
-
-    <div class="flex flex-col sm:flex-row gap-2">
-      <input
-        type="email"
-        x-model="to"
-        @keydown.enter="send"
-        class="demo-input flex-1"
-        placeholder="you@example.com"
-        :disabled="sending"
-      />
-      <button type="button" @click="send" :disabled="!canSend" class="btn-primary whitespace-nowrap">
-        <span x-show="!sending">Send demo email</span>
-        <span x-show="sending">Sending…</span>
-      </button>
-    </div>
-
-    <div x-show="result" x-transition class="mt-4 demo-panel" :class="result?.success ? 'safe' : 'danger'">
-      <h3 x-text="result?.title"></h3>
-      <p class="text-sm" x-text="result?.message"></p>
-    </div>
+    <a href="/email-security/send" class="btn-primary inline-block">
+      Open the send demo →
+    </a>
   </div>
 
   <div class="demo-panel">
-    <h3>What just happened</h3>
+    <h3>What this demonstrates</h3>
     <ol class="text-sm text-gray-700 list-decimal list-inside space-y-1">
-      <li>The Worker called <code>env.EMAIL.send()</code> — <strong>Email Sending</strong> — with a fixed subject/body and <code>from: support@remydemo.com</code>.</li>
-      <li>Your inbox received a real email, sent entirely from Cloudflare's platform (no SMTP server to run or maintain).</li>
-      <li>If you reply, your reply arrives at <code>support@remydemo.com</code>, where an existing <strong>Email Routing</strong> rule forwards it to the demo owner's inbox.</li>
+      <li><strong>Access</strong> sits in front of the demo's only side-effecting action (sending mail), gating it to signed-in identities before the request ever reaches Cloudflare Pages.</li>
+      <li><strong>Email Sending</strong> delivers the message entirely from Cloudflare's platform — no mail server to run or maintain.</li>
+      <li><strong>Email Routing</strong> forwards any reply from <code>support@remydemo.com</code> on automatically.</li>
     </ol>
   </div>
 </div>
-
-<script is:inline>
-  function emailDemo() {
-    return {
-      to: "",
-      sending: false,
-      result: null,
-
-      get canSend() {
-        return !this.sending && /\S+@\S+\.\S+/.test(this.to);
-      },
-
-      async send() {
-        if (!this.canSend) return;
-        this.sending = true;
-        this.result = null;
-        try {
-          const res = await fetch("/api/email/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ to: this.to.trim() }),
-          });
-
-          const ctype = res.headers.get("content-type") || "";
-          if (!ctype.includes("application/json")) {
-            this.result = {
-              success: false,
-              title: "✗ Request blocked before it reached the Worker",
-              message: `Server returned ${res.status} ${res.statusText || ""} as ${ctype || "an unknown type"} instead of JSON.`,
-            };
-            return;
-          }
-
-          const data = await res.json();
-          if (res.ok && data.success) {
-            this.result = {
-              success: true,
-              title: "✓ Email sent",
-              message: `Sent to ${data.to} from support@remydemo.com. Check that inbox — and try replying to see Email Routing forward it.`,
-            };
-          } else {
-            this.result = {
-              success: false,
-              title: "✗ Send failed",
-              message: data.error || "Something went wrong sending the email.",
-            };
-          }
-        } catch (e) {
-          this.result = { success: false, title: "Network error", message: e?.message ?? String(e) };
-        } finally {
-          this.sending = false;
-        }
-      },
-    };
-  }
-</script>

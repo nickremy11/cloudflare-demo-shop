@@ -12,6 +12,10 @@ pages_build_output_dir = "dist"
 CF_ZONE_ID = "00fe352511075ed27384acfcb5828e51"
 CF_ACCOUNT_ID = "e2e9b1cd0acebaaf2aee23d918eee2b1"
 TURNSTILE_SITE_KEY = "0x4AAAAAADnbsExT-_BvgdJT"
+ACCESS_TEAM_DOMAIN = "https://cf-remydemo.cloudflareaccess.com"
+# AUD tag of the "Email Send Endpoint" Access app (remydemo.com/email-security/send*).
+# Not secret — it's an application identifier, not a credential.
+ACCESS_AUD = "bc044fe52c3e77e7f8394694fdfd6cd6a4f051e466772bf77e9b2c7f2ba0ee29"
 
 # ── R2 Storage Demo Bindings ────────────────────────────────
 # R2 bucket for file storage
@@ -57,11 +61,18 @@ class_name = "ChatRoom"
 script_name = "demo-shop-chat"
 
 # ── Email Service Demo ──────────────────────────────────────
-# Pages Functions do NOT support the `send_email` Workers binding — email
-# sending here goes over the Email Sending REST API instead, using
+# Lives at remydemo.com/email-security/send (functions/email-security/send/api.ts),
+# behind a Cloudflare Access self-hosted application scoped to
+# remydemo.com/email-security/send* — only a signed-in Access identity can
+# trigger a send. Pages Functions don't support the `send_email` Workers
+# binding, so sending goes over the Email Sending REST API instead, using
 # CF_ACCOUNT_ID (above) + the EMAIL_API_TOKEN secret below. The sender is
-# fixed to support@remydemo.com server-side; the visitor only picks the
-# recipient. Requires remydemo.com onboarded to Email Sending.
+# fixed to support@remydemo.com server-side; the signed-in visitor picks
+# the recipient. Requires remydemo.com onboarded to Email Sending.
+#
+# The Access app currently allows any @cloudflare.com identity (see the
+# "Allow Cloudflare Emails" policy on the "Email Send Endpoint" app) — the
+# recipient can still be anyone that signed-in visitor enters.
 
 # ── Cache Purge Demo Variables ─────────────────────────────
 # These need to be set in the Cloudflare Pages dashboard:
