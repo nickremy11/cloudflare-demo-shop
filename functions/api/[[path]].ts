@@ -42,7 +42,8 @@ type Bindings = {
   CF_CACHE_PURGE_TOKEN?: string;
   TURNSTILE_SECRET?: string;
   TURNSTILE_SITE_KEY?: string;
-  EMAIL: SendEmail;
+  CF_ACCOUNT_ID?: string;
+  EMAIL_API_TOKEN?: string;
 };
 
 type Variables = {
@@ -1699,9 +1700,10 @@ app.post("/api/chatroom/clear", async (c) => {
 // ── Email Service Demo ───────────────────────────────────────
 // Sends a fixed transactional-style message from the fixed demo sender
 // support@remydemo.com to a visitor-entered address, using the Email
-// Sending binding. The visitor controls only the recipient — sender,
-// subject, and body are fixed server-side. Replying to the message
-// exercises Email Routing via the existing support@remydemo.com rule.
+// Sending REST API (Pages Functions can't use the send_email Workers
+// binding). The visitor controls only the recipient — sender, subject,
+// and body are fixed server-side. Replying to the message exercises
+// Email Routing via the existing support@remydemo.com rule.
 
 app.post("/api/email/send", async (c) => {
   try {
@@ -1715,15 +1717,36 @@ app.post("/api/email/send", async (c) => {
       return c.json({ error: "Enter a single, valid email address." }, 400);
     }
 
-    const result = await c.env.EMAIL.send({
-      to: rawTo,
-      from: { email: "support@remydemo.com", name: "Cloudflare Demo Support" },
-      subject: "We received your message — Cloudflare Demo Shop",
-      html: DEMO_EMAIL_HTML,
-      text: DEMO_EMAIL_TEXT,
-    });
+    if (!c.env.CF_ACCOUNT_ID || !c.env.EMAIL_API_TOKEN) {
+      return c.json({ error: "Email Sending is not configured on the server." }, 500);
+    }
 
-    return c.json({ success: true, to: rawTo, messageId: (result as any)?.messageId ?? null });
+    const apiRes = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${c.env.CF_ACCOUNT_ID}/email/sending/send`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${c.env.EMAIL_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          to: rawTo,
+          from: { address: "support@remydemo.com", name: "Cloudflare Demo Support" },
+          subject: "We received your message — Cloudflare Demo Shop",
+          html: DEMO_EMAIL_HTML,
+          text: DEMO_EMAIL_TEXT,
+        }),
+      }
+    );
+
+    const data: any = await apiRes.json().catch(() => null);
+
+    if (!apiRes.ok || !data?.success) {
+      const message = data?.errors?.[0]?.message || "Failed to send email.";
+      return c.json({ error: message }, apiRes.status || 500);
+    }
+
+    return c.json({ success: true, to: rawTo, result: data.result });
   } catch (error: any) {
     return c.json({ error: error?.message || "Failed to send email." }, 500);
   }

@@ -10,6 +10,7 @@ pages_build_output_dir = "dist"
 # Secrets (CF_CACHE_PURGE_TOKEN, TURNSTILE_SECRET, AIG_TOKEN) live in the dashboard.
 [vars]
 CF_ZONE_ID = "00fe352511075ed27384acfcb5828e51"
+CF_ACCOUNT_ID = "e2e9b1cd0acebaaf2aee23d918eee2b1"
 TURNSTILE_SITE_KEY = "0x4AAAAAADnbsExT-_BvgdJT"
 
 # ── R2 Storage Demo Bindings ────────────────────────────────
@@ -55,21 +56,21 @@ name = "CHAT_ROOM"
 class_name = "ChatRoom"
 script_name = "demo-shop-chat"
 
-# ── Email Service Demo Binding ─────────────────────────────
-# Cloudflare Email Sending. Restricted to the fixed demo sender so the
-# public form can only ever send "from" support@remydemo.com — the
-# recipient (entered by the visitor) is the only variable part.
-# Requires remydemo.com to be onboarded to Email Sending in the dashboard.
-[[send_email]]
-name = "EMAIL"
-allowed_sender_addresses = ["support@remydemo.com"]
+# ── Email Service Demo ──────────────────────────────────────
+# Pages Functions do NOT support the `send_email` Workers binding — email
+# sending here goes over the Email Sending REST API instead, using
+# CF_ACCOUNT_ID (above) + the EMAIL_API_TOKEN secret below. The sender is
+# fixed to support@remydemo.com server-side; the visitor only picks the
+# recipient. Requires remydemo.com onboarded to Email Sending.
 
 # ── Cache Purge Demo Variables ─────────────────────────────
 # These need to be set in the Cloudflare Pages dashboard:
 #   - CF_ZONE_ID:           plain text env var (your zone ID for remydemo.com)
+#   - CF_ACCOUNT_ID:        plain text env var (RemyDemo account ID)
 #   - CF_CACHE_PURGE_TOKEN: secret (API token with Cache Purge permission)
 #   - TURNSTILE_SECRET:     secret (Turnstile widget secret key)
 #   - AIG_TOKEN:            secret (AI Gateway authentication token)
+#   - EMAIL_API_TOKEN:      secret (API token with Email Sending: Edit permission)
 #
 # Set via:  wrangler pages secret put <NAME>
 # Or in the Pages dashboard: Settings → Environment variables
