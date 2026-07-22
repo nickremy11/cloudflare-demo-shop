@@ -52,7 +52,15 @@ const panels: DiagramOption[] = hasOptions
       </div>
       {panels.map((p) => (
         <figure x-show={`active === '${p.key}'`} x-cloak>
-          <img src={p.src} alt={p.alt ?? p.label} />
+          <div
+            class="diagram-zoom"
+            data-src={p.src}
+            data-alt={p.alt ?? p.label ?? ""}
+            @click="$store.lightbox.open($el.dataset.src, $el.dataset.alt)"
+          >
+            <img src={p.src} alt={p.alt ?? p.label} />
+            <span class="diagram-zoom-hint">⤢ Click to enlarge</span>
+          </div>
           {p.caption && (
             <figcaption class="text-center text-sm text-gray-500 mt-3">
               {p.caption}
@@ -63,7 +71,16 @@ const panels: DiagramOption[] = hasOptions
     </div>
   ) : (
     <figure>
-      <img src={panels[0].src} alt={panels[0].alt ?? ""} />
+      <div
+        x-data="{}"
+        class="diagram-zoom"
+        data-src={panels[0].src}
+        data-alt={panels[0].alt ?? ""}
+        @click="$store.lightbox.open($el.dataset.src, $el.dataset.alt)"
+      >
+        <img src={panels[0].src} alt={panels[0].alt ?? ""} />
+        <span class="diagram-zoom-hint">⤢ Click to enlarge</span>
+      </div>
       {panels[0].caption && (
         <figcaption class="text-center text-sm text-gray-500 mt-3">
           {panels[0].caption}

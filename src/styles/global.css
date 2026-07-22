@@ -187,6 +187,46 @@
   border-radius: 0.375rem;
 }
 
+/* ─── Click-to-enlarge diagram zoom wrapper ────────────────── */
+.diagram-zoom {
+  position: relative;
+  display: block;
+  cursor: zoom-in;
+  border-radius: 0.375rem;
+  transition: box-shadow 0.15s ease;
+}
+
+.diagram-zoom:hover {
+  box-shadow: 0 0 0 2px #93bc93;
+}
+
+.diagram-zoom img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 0.375rem;
+}
+
+.diagram-zoom-hint {
+  position: absolute;
+  bottom: 0.625rem;
+  right: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #ffffff;
+  background: rgba(47, 79, 47, 0.85);
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.diagram-zoom:hover .diagram-zoom-hint {
+  opacity: 1;
+}
+
 /* ─── Solution bullet list ─────────────────────────────────── */
 .solution-bullets {
   list-style: none;
