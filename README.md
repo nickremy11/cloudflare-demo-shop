@@ -36,6 +36,18 @@ cloudflare-demo-shop/
 ├── aboutme-rag-worker/           # Standalone Worker with AI Search binding
 │   ├── wrangler.toml
 │   └── src/index.ts
+├── docs-sync-worker/             # Standalone Worker: weekly Cloudflare-docs
+│   │                             # accuracy sync (cron + AI + email, all
+│   │                             # native — see "Keeping content in sync
+│   │                             # with Cloudflare docs" below)
+│   ├── wrangler.toml
+│   └── src/
+│       ├── index.ts              # scheduled()/fetch() handlers, orchestration
+│       ├── schema.ts             # Zod + JSON schema for the model's output
+│       ├── yaml-surgery.ts       # Surgical frontmatter edits (minimal diffs)
+│       └── github.ts             # api.github.com client (read + atomic commit)
+├── content-sources.json          # Per-solution doc URLs + blog tags — the
+│                                 # source of truth docs-sync-worker reads
 ├── README.md                     # this file
 ├── CONTRIBUTING.md               # ← how to add solutions, demos, etc.
 │
@@ -140,6 +152,12 @@ Normal content / Astro / Pages Function changes still deploy through the usual
 GitHub → Pages flow. Changes to `chat-worker/` or `aboutme-rag-worker/` require
 the extra Worker deploy first.
 
+`docs-sync-worker/` (see "Keeping content in sync with Cloudflare docs" below)
+is **not** part of this chain — the Pages project has no binding to it and
+never calls it. It's deployed independently with `npm run deploy:docs-sync`
+and runs entirely on its own Cron Trigger; it just happens to be the thing
+that pushes commits the Pages project later builds from.
+
 ### Environment variables / secrets
 
 Set in the Cloudflare Pages dashboard (Settings → Environment variables) or via
@@ -222,55 +240,80 @@ generated answer, with model calls observable in AI Gateway.
 
 ## Keeping content in sync with Cloudflare docs
 
-`.github/workflows/docs-sync.yml` runs every **Monday 08:00 UTC** (and on-demand
-via `workflow_dispatch`) to check the copy on every solution page against live
-`developers.cloudflare.com` documentation. It is fully automated end to end —
-merged changes deploy through the normal GitHub → Pages flow, no one has to
-click anything for it to ship.
+`docs-sync-worker/` is a standalone Cloudflare Worker (deployed as
+`demo-shop-docs-sync`) that checks every solution page against live
+`developers.cloudflare.com` documentation every **Monday 08:00 UTC**, via a
+Cron Trigger. It's built to be as Cloudflare-native as possible: scheduling,
+doc/blog fetching, AI generation, and email notification all run as a Worker,
+not a CI job. The only thing outside Cloudflare is the GitHub repo itself —
+reached over plain `fetch()` calls to `api.github.com`, no GitHub Actions
+involved at all.
 
-**How it decides what to touch:** `content-sources.json` maps each solution
-slug to the canonical doc URLs that back it. `scripts/docs-sync/sync-docs.mjs`
-fetches each one as Markdown, hashes it, and compares against
-`scripts/docs-sync/state.json`. A solution is only regenerated if at least one
-of its cited docs actually changed since the last run — most weeks this
-touches nothing. The Cloudflare changelog RSS feed is also checked and
-`productNames` in `content-sources.json` matches entries against it, but this
-is informational only (it annotates *why* the run happened in the PR
-description) — it never gates whether a page gets rewritten.
+An earlier version of this ran as a GitHub Actions workflow. It was replaced
+because a Worker can do almost everything that version needed natively:
+
+| Piece | GitHub Actions version | This Worker |
+|---|---|---|
+| Scheduling | `schedule: cron` | Cron Trigger (`[triggers] crons` in `docs-sync-worker/wrangler.toml`) |
+| Call the model | REST call to AI Gateway with an `AIG_TOKEN` | Native `env.AI.run(model, input, { gateway: { id: "demo-shop-gateway" } })` — **no token at all** |
+| Send the status email | REST call with an `EMAIL_API_TOKEN` | Native `env.EMAIL.send(...)` (`send_email` binding) — **no token at all** |
+| Doc-hash / last-checked state | Committed `state.json` | **KV** (`DOCS_SYNC_KV`) — this was never meant to be human-read |
+| Commit changes to the repo | `git commit && git push`, then `gh pr create` + `gh pr merge --auto` | `docs-sync-worker/src/github.ts` calls the GitHub REST/Git Data API directly with `fetch()` — reads via the Contents API, writes as one atomic commit straight to `main` via the Git Data API (blob → tree → commit → ref update) |
+
+**By explicit choice, there's no pre-merge build-validation gate.** The
+GitHub Actions version ran `npm run build` before merging; a Worker can't run
+a real Node/Astro build (no subprocess, no bundler, no filesystem) — the only
+way to keep that gate would have been a thin GitHub Actions workflow just for
+build-and-merge. Given the automation only ever edits fields already covered
+by the Zod schema in `src/content/config.ts` (never `.astro`/component code),
+that risk is narrow, and Cloudflare Pages' own build-on-push is still the
+backstop: if a bad file ever did land on `main`, Pages' build would fail and
+the previous good deployment stays live. If something gets missed or the
+model returns a bad response despite the checks below, the plan is to catch
+it and adjust `content-sources.json` or the validation rules after the fact.
+
+**How it decides what to touch:** `content-sources.json` (read live from
+GitHub on every run — never duplicated into the Worker, so adding a solution
+never requires redeploying it) maps each slug to the canonical doc URLs that
+back it. The Worker fetches each one as Markdown, hashes it, and compares
+against KV. A solution is only regenerated if at least one of its cited docs
+actually changed since the last run — most weeks this touches nothing. The
+Cloudflare changelog RSS feed is also checked and `productNames` matches
+entries against it, but this is informational only (why the run happened) —
+it never gates whether a page gets rewritten.
 
 **How it avoids publishing hallucinations:** for a solution whose docs did
-change, Workers AI (via this site's own AI Gateway) regenerates `blurb`,
-`solutionPoints`, `faq`, and `diveDeeper.docs` from the fetched text only,
-using JSON mode with a schema that forces a verbatim supporting quote + source
-URL for every non-obvious claim. The script then independently re-verifies
-every quote actually appears in the fetched doc text (case/whitespace
-insensitive) before accepting anything — the model's own claim that it
-followed the rules is never trusted. Anything that fails to fetch, fails
-schema validation, fails the quote check, or drifts too far in length from the
-current copy is left completely untouched and called out in the run summary
-for a human to look at — the pipeline fails closed, it never force-applies an
-unverified guess.
+change, Workers AI regenerates `blurb`, `solutionPoints`, `faq`, and
+`diveDeeper.docs` from the fetched text only, using JSON mode with a schema
+that forces a verbatim supporting quote + source URL for every non-obvious
+claim. The Worker then independently re-verifies every quote actually appears
+in the fetched doc text (case/whitespace insensitive) before accepting
+anything — the model's own claim that it followed the rules is never trusted.
+Anything that fails to fetch, fails schema validation, fails the quote check,
+or drifts too far in length from the current copy is left completely
+untouched and called out in the run summary for a human to look at — the
+pipeline fails closed, it never force-applies an unverified guess.
 
 **How it avoids unreviewable diffs:** rather than re-serializing the whole
 YAML frontmatter with a generic dumper (which reformats every field's
-quoting/wrapping and buries the real change), `scripts/docs-sync/yaml-surgery.mjs`
+quoting/wrapping and buries the real change), `docs-sync-worker/src/yaml-surgery.ts`
 edits only the specific blocks that changed and leaves every other byte —
 including `diveDeeper.blogs`, `challenge`, `diagram`, `demo`, etc. — exactly as
-a human wrote it.
+a human wrote it. All files changed in a run land in one atomic commit.
 
 **Blog scanning (informational, never auto-published):** each solution in
 `content-sources.json` also has a `blogTag` (e.g. `waf` → `web-application-firewall`).
-Every run, `sync-docs.mjs` checks `blog.cloudflare.com/tag/<slug>/rss/` for
-posts published since the last run and lists them in the run summary /
-changelog / email as "might be worth a look." Nothing is ever added to
-`diveDeeper.blogs` automatically — blog curation is still an editorial call,
-this just surfaces candidates so you don't have to go looking. The same
-`blogTag` also powers a link on every solution page: "Browse every Cloudflare
-blog post tagged '\<label\>'" → `blog.cloudflare.com/tag/<slug>/`. Cloudflare's
-blog tag slugs don't reliably follow simple lowercase-hyphenation of the tag
-name (`Cloudflare Workers` → `workers`, `Argo Smart Routing` → `argo`,
-`Load Balancing` → `loadbalancing`, no hyphen at all) — every slug currently in
-`content-sources.json` was verified with `curl -o /dev/null -w '%{http_code}'`
+Every run, the Worker checks `blog.cloudflare.com/tag/<slug>/rss/` for posts
+published since the last run and lists them in the run summary/changelog/
+email as "might be worth a look." Nothing is ever added to `diveDeeper.blogs`
+automatically — blog curation is still an editorial call, this just surfaces
+candidates so you don't have to go looking. The same `blogTag` also powers a
+link on every solution page: "Browse every Cloudflare blog post tagged
+'\<label\>'" → `blog.cloudflare.com/tag/<slug>/`. Cloudflare's blog tag slugs
+don't reliably follow simple lowercase-hyphenation of the tag name
+(`Cloudflare Workers` → `workers`, `Argo Smart Routing` → `argo`,
+`Load Balancing` → `loadbalancing`, no hyphen at all) — every slug currently
+in `content-sources.json` was verified with `curl -o /dev/null -w '%{http_code}'`
 before being added; do the same before adding a new one.
 
 **Where to see what happened:**
@@ -280,98 +323,78 @@ before being added; do the same before adding a new one.
   `src/content/` and `public/`, so Astro never builds it into the site. An
   entry is only added when a run actually changed something, hit a warning, or
   turned up a changelog/blog match — quiet weeks don't add noise.
-- A status email, if `EMAIL_API_TOKEN` and `NOTIFY_EMAIL_TO` are configured
-  (see setup below) — sent **every run**, including "nothing changed this
-  week," via Cloudflare Email Sending's REST API
-  (`POST /accounts/{account_id}/email/sending/send`, same product the
-  `/email-security/send` demo uses, called directly with a bearer token since
-  GitHub Actions isn't a Worker). Subject line tells you the outcome at a
+- A status email, if `NOTIFY_EMAIL_TO` is configured (see setup below) — sent
+  **every run**, including "nothing changed this week," via the native
+  `send_email` binding from `support@remydemo.com` (same sender the
+  `/email-security/send` demo uses). Subject line tells you the outcome at a
   glance: `updated`, `no changes`, or `needs a look`.
-- The PR itself (when one is opened) — its description is the same summary
-  text as the email/changelog entry.
+- The commit itself on `main` — its message and (via the `/run` endpoint
+  response, or Worker logs) summary text match the changelog/email.
 
 **What's manual:**
 
-- One-time repo setup (see below) — after that, nothing.
+- One-time Worker setup (see below) — after that, nothing.
 - If a run's grounding check fails or a doc 404s, it's flagged in the
-  PR/changelog/email (⚠️) instead of silently applied. Resolving that is a
-  human judgment call, e.g. Cloudflare renamed or restructured a product's
-  docs and `content-sources.json` needs a new URL (this happened twice during
-  initial setup — see `content-sources.json`'s `$comment`).
+  changelog/email (⚠️) instead of silently applied. Resolving that is a human
+  judgment call, e.g. Cloudflare renamed or restructured a product's docs and
+  `content-sources.json` needs a new URL (this happened twice during initial
+  setup — see `content-sources.json`'s `$comment`).
 - Blog posts surfaced as "might be worth a look" — deciding whether to add one
   to a solution's `diveDeeper.blogs` is manual, by design.
 - Adding a new solution: also add its `docs` and `blogTag` (and optional
-  `productNames`) to `content-sources.json`, or it's silently skipped by the
-  sync.
+  `productNames`) to `content-sources.json`, or it's silently skipped.
 - `demo`, `diagram`, `challenge`, `pillar`, `order`, and `diveDeeper.blogs` are
   never touched by automation — they're product/positioning decisions, not
   facts to verify against docs.
 
 **One-time manual setup required:**
 
-1. `AIG_TOKEN` must exist as a **GitHub Actions repo secret** (Settings →
-   Secrets and variables → Actions).
+1. Deploy the Worker: `npm run deploy:docs-sync` (wraps
+   `wrangler deploy --config docs-sync-worker/wrangler.toml`). This also
+   creates the Cron Trigger and wires up the `AI`/`EMAIL`/`DOCS_SYNC_KV`
+   bindings declared in `docs-sync-worker/wrangler.toml` — nothing to
+   configure by hand in the dashboard for those three.
+2. Set three secrets on the Worker (not in `wrangler.toml` — these are the
+   only credentials this automation needs):
 
-   **What this token actually is:** it's an [AI Gateway "Authenticated
-   Gateway" token](https://developers.cloudflare.com/ai-gateway/configuration/authentication/)
-   — created from a specific gateway's Settings page with only the `Run`
-   permission. It authenticates requests sent to
-   `gateway.ai.cloudflare.com/v1/{account}/{gateway}/...` via the
-   `cf-aig-authorization` header; that's it. It **cannot** read/write DNS,
-   zones, Workers scripts, R2, Pages config, billing, or anything else — its
-   entire scope is "allowed to invoke an AI Gateway." One important wrinkle
-   straight from Cloudflare's docs: **AI Gateway tokens are account-scoped,
-   not gateway-scoped** — a token with `Run` can invoke *every* gateway in the
-   account (including ones using stored BYOK provider keys), not just
-   `demo-shop-gateway`.
+   ```bash
+   npx wrangler secret put GITHUB_TOKEN --config docs-sync-worker/wrangler.toml
+   npx wrangler secret put NOTIFY_EMAIL_TO --config docs-sync-worker/wrangler.toml
+   npx wrangler secret put TRIGGER_SECRET --config docs-sync-worker/wrangler.toml
+   ```
 
-   Because of that account-wide scope, **create a brand-new token for GitHub
-   Actions rather than reusing the exact value already in the Cloudflare
-   Pages environment variables** (Dashboard → AI → AI Gateway →
-   `demo-shop-gateway` → Settings → Create authentication token). Same
-   permission (`Run`), same effective access — just a second, independently
-   revocable credential, so a GitHub Actions secret leak can't be used against
-   the live site's token (or vice versa) and you can rotate/kill either one
-   without touching the other. You do **not** need to reroll the existing
-   Pages token.
+   - **`GITHUB_TOKEN`** — a GitHub **fine-grained personal access token**
+     scoped to *only* this repository (`nickremy11/cloudflare-demo-shop`),
+     with **Contents: Read and write** permission and nothing else (no Pull
+     requests permission needed — this design commits straight to `main`,
+     no PRs). Create one at github.com → Settings → Developer settings →
+     Personal access tokens → Fine-grained tokens → scope to this repo only.
+     This is the one credential a Worker genuinely cannot avoid needing:
+     *something* has to be allowed to write to the GitHub repo, and unlike
+     GitHub Actions (which gets a scoped token injected automatically), a
+     Worker has to bring its own.
+   - **`NOTIFY_EMAIL_TO`** — the address you want the weekly status email
+     sent to.
+   - **`TRIGGER_SECRET`** — any random string you make up. Protects the
+     manual-trigger endpoint (see below) so it can't be called by randoms
+     hitting the Worker's URL.
 
-2. Enable **Settings → General → Pull Requests → Allow auto-merge**. Without
-   this, `gh pr merge --auto` in the workflow fails and the PR sits open for
-   manual merge (the workflow already leaves a warning annotation when this
-   happens).
-3. Optional but recommended: add a branch protection rule on `main` requiring
-   this workflow's own "Validate build" step to pass before merging, so a bad
-   run can never auto-merge even if the grounding check has a bug.
-4. **Optional — weekly status email.** Add two more GitHub Actions repo
-   secrets:
-   - `EMAIL_API_TOKEN` — reuse the same Cloudflare API token (`Email Sending: Edit`)
-     already backing the `/email-security/send` demo. **This has to be added
-     again as its own GitHub Actions secret** (Settings → Secrets and
-     variables → Actions) even though it already exists as a Cloudflare Pages
-     environment variable of the same name — those are two separate stores;
-     GitHub Actions can't read Pages' env vars. Copy the same token value into
-     both places.
-   - `NOTIFY_EMAIL_TO` — the address you want the weekly status email sent to.
+3. Trigger a manual run once to confirm everything's wired up before trusting
+   the Monday cron unattended:
 
-   If either is unset, `sync-docs.mjs` just skips sending and logs a note —
-   everything else (PRs, changelog, docs updates) still works. The sender
-   defaults to `support@remydemo.com` — the same address the
-   `/email-security/send` demo sends from — so this doubles as another live
-   example of Email Sending; override with a `NOTIFY_EMAIL_FROM` secret if
-   you'd rather send from something else.
-5. Trigger `workflow_dispatch` once manually to do the first full pass (the
-   very first run touches most/all 26 solutions, since `state.json` starts
-   empty) and confirm the PR it opens — and the email, if configured — look
-   right before trusting the Monday cron unattended.
+   ```bash
+   curl -X POST "https://demo-shop-docs-sync.<your-subdomain>.workers.dev/run?force=true&slug=waf" \
+     -H "Authorization: Bearer <TRIGGER_SECRET>"
+   ```
 
-Run it locally against a single slug for testing:
+   `force=true` bypasses the doc-hash cache (otherwise the very first run on
+   an empty KV namespace already counts as "changed" for every slug, so
+   `force` is mostly for repeat-testing the same slug). Drop `&slug=waf` to
+   run against all 26 solutions — that's what the Monday cron does.
 
-```bash
-AIG_TOKEN=... TARGET_SLUG=waf npm run sync-docs
-
-# also exercise the email path locally:
-AIG_TOKEN=... EMAIL_API_TOKEN=... NOTIFY_EMAIL_TO=you@example.com TARGET_SLUG=waf npm run sync-docs
-```
+No `Allow auto-merge` setting, no branch protection rule, no GitHub Actions
+secrets — those were specific to the previous design's PR-based flow and
+don't apply here.
 
 ---
 

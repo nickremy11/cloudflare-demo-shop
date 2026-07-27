@@ -1,0 +1,48 @@
+name = "demo-shop-docs-sync"
+main = "src/index.ts"
+compatibility_date = "2026-07-27"
+
+# ── Weekly schedule: Monday 08:00 UTC ──────────────────────────
+# Cloudflare Cron Trigger — replaces the `schedule:` trigger a GitHub Actions
+# workflow would otherwise need. Fires `scheduled()` in src/index.ts.
+[triggers]
+crons = ["0 8 * * 1"]
+
+# ── Workers AI, routed through this site's existing AI Gateway ─
+# No token needed — env.AI.run(..., { gateway: { id: AI_GATEWAY_ID } }) is
+# authenticated automatically as this Worker, and still gets AI Gateway's
+# logging/caching for the gateway named below.
+[ai]
+binding = "AI"
+
+# ── Cloudflare Email Sending, native binding ───────────────────
+# remydemo.com is already onboarded to Email Sending (see the
+# /email-security/send demo) — no separate onboarding needed. Locked to
+# sending only from support@remydemo.com; the destination (NOTIFY_EMAIL_TO)
+# is set as a secret, not here, since it's a personal address.
+[[send_email]]
+name = "EMAIL"
+allowed_sender_addresses = ["support@remydemo.com"]
+
+# ── KV: doc-hash cache + last-checked timestamps ───────────────
+# Replaces the git-committed scripts/docs-sync/state.json from the GitHub
+# Actions version — this is bookkeeping, not something a human needs to read,
+# so it lives in Cloudflare instead of the repo.
+[[kv_namespaces]]
+binding = "DOCS_SYNC_KV"
+id = "a571aae128e34ed58aa15849e9c01687"
+
+# ── Plain-text config ───────────────────────────────────────────
+# Secrets (GITHUB_TOKEN, NOTIFY_EMAIL_TO, TRIGGER_SECRET) are set via
+# `wrangler secret put <NAME> --config docs-sync-worker/wrangler.toml` —
+# see README.md → "Keeping content in sync with Cloudflare docs".
+[vars]
+GITHUB_OWNER = "nickremy11"
+GITHUB_REPO = "cloudflare-demo-shop"
+GITHUB_BRANCH = "main"
+AI_GATEWAY_ID = "demo-shop-gateway"
+AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+NOTIFY_EMAIL_FROM = "support@remydemo.com"
+
+[observability]
+enabled = true

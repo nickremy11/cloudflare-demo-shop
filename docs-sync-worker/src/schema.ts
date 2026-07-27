@@ -1,10 +1,13 @@
-// Shared validation for the docs-sync pipeline (scripts/docs-sync/sync-docs.mjs).
+// Shared validation for the docs-sync Worker. See src/index.ts for the
+// overall pipeline. This file is a straight TypeScript port of the logic
+// originally written as a GitHub Actions Node script — the validation rules
+// themselves are unchanged, only the runtime (Workers vs Node) differs.
 //
-// `RESPONSE_JSON_SCHEMA` is sent to the model as `response_format.schema` (Workers
-// AI / OpenAI-compatible JSON mode) so the completion is forced into this shape.
-// `GeneratedContentSchema` re-validates the parsed response independently in Node
-// before anything touches a content file — never trust a model's own claim that
-// it followed the schema.
+// `RESPONSE_JSON_SCHEMA` is sent to the model as `response_format.schema`
+// (Workers AI JSON mode via the native `env.AI` binding) so the completion is
+// forced into this shape. `GeneratedContentSchema` re-validates the parsed
+// response independently before anything is committed — never trust a
+// model's own claim that it followed the schema.
 
 import { z } from "zod";
 
@@ -119,11 +122,13 @@ export const GeneratedContentSchema = z.object({
     .max(24),
 });
 
+export type GeneratedContent = z.infer<typeof GeneratedContentSchema>;
+
 // Only ever accept generated copy and citations pointing at Cloudflare's own
 // documentation domain — never let the model cite (or link to) anything else.
 export const ALLOWED_SOURCE_HOST = "developers.cloudflare.com";
 
-export function isAllowedSourceUrl(url) {
+export function isAllowedSourceUrl(url: string): boolean {
   try {
     return new URL(url).hostname === ALLOWED_SOURCE_HOST;
   } catch {

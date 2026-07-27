@@ -134,10 +134,12 @@ Add an entry to `content-sources.json` under `solutions.<slug>` with:
 - `productNames` (optional) — display names to match against Cloudflare's
   changelog RSS feed, purely for the "why did this run" note.
 
-Without a `content-sources.json` entry, `.github/workflows/docs-sync.yml`
-silently skips the new solution forever — it never gets checked against live
-docs or scanned for new blog posts. See README.md → "Keeping content in sync
-with Cloudflare docs" for how the pipeline uses all of this.
+Without a `content-sources.json` entry, `docs-sync-worker` (the standalone
+Worker that runs this weekly) silently skips the new solution forever — it
+never gets checked against live docs or scanned for new blog posts. No
+redeploy of the Worker is needed either way — it reads `content-sources.json`
+live from GitHub on every run. See README.md → "Keeping content in sync with
+Cloudflare docs" for how the pipeline uses all of this.
 
 ### Step 6. (Optional) Add a diagram
 
