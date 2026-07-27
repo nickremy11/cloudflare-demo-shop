@@ -5,6 +5,7 @@ import DiagramSlot from "../components/DiagramSlot.astro";
 import FAQList from "../components/FAQList.astro";
 import DiveDeeper from "../components/DiveDeeper.astro";
 import DemoSlot from "../components/DemoSlot.astro";
+import FeatureMatrixSlot from "../components/FeatureMatrixSlot.astro";
 
 interface Props {
   frontmatter: {
@@ -22,6 +23,12 @@ interface Props {
     solutionTable?: {
       columns: string[];
       rows: { label: string; cells: string[] }[];
+    };
+    featureMatrix?: {
+      component: string;
+      label: string;
+      heading: string;
+      note?: string;
     };
     faq: { question: string; answer: string }[];
     demo: {
@@ -131,6 +138,20 @@ const pillar = getPillar(frontmatter.pillar);
         )
       }
     </section>
+
+    <!-- ─── Feature/plan comparison matrix ─── -->
+    {
+      frontmatter.featureMatrix && (
+        <section class="solution-section">
+          <div class="section-label">{frontmatter.featureMatrix.label}</div>
+          <h2 class="section-heading">{frontmatter.featureMatrix.heading}</h2>
+          <FeatureMatrixSlot
+            component={frontmatter.featureMatrix.component}
+            note={frontmatter.featureMatrix.note}
+          />
+        </section>
+      )
+    }
 
     <!-- ─── FAQ ─── -->
     <section class="solution-section">

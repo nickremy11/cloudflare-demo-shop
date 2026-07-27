@@ -63,6 +63,18 @@ const solutions = defineCollection({
       })
       .optional(),
 
+    // Optional standalone plan/feature comparison matrix, rendered as its
+    // own section (e.g. "which bot-management tier has which feature").
+    // `component` matches a component in src/components/matrices/.
+    featureMatrix: z
+      .object({
+        component: z.string(),
+        label: z.string().default("Compare plans"),
+        heading: z.string().default("Which plan do you need?"),
+        note: z.string().optional(),
+      })
+      .optional(),
+
     faq: z.array(
       z.object({
         question: z.string(),

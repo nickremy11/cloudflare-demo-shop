@@ -25,6 +25,12 @@ solutionPoints:
   - title: "Surgical actions. "
     detail: "Block, JS-challenge, managed challenge (Turnstile), rate-limit, log, or skip — picked per rule. Combine with WAF rules for layered defense (e.g. 'rate-limit logins to 5/min AND challenge on bot score &lt; 30')."
 
+featureMatrix:
+  component: "BotPlanMatrix"
+  label: "Plan Comparison"
+  heading: "Bot Fight Mode vs. Super Bot Fight Mode vs. Bot Management"
+  note: "Four products, one detection engine — the difference is how deep the detection goes and how much control you get over the response."
+
 faq:
   - question: "Will this affect good bots like Googlebot or Bingbot?"
     answer: "No. Cloudflare maintains a curated list of verified bots, and they're tagged with <code>cf.client.bot</code>. Default rules let verified bots through; you write your blocks to apply only to <code>cf.bot_management.score &lt; 30 AND NOT cf.client.bot</code>. Search engines, RSS aggregators, and monitoring services keep working."

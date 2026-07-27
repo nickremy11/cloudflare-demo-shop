@@ -1,0 +1,222 @@
+---
+// Bot management plan/feature comparison matrix.
+// Sourced from developers.cloudflare.com/bots/plans/* — kept deliberately
+// free of prices, since those change independently of feature availability.
+
+interface Tier {
+  key: string;
+  product: string;
+  plan: string;
+  blurb: string;
+}
+
+const TIERS: Tier[] = [
+  {
+    key: "bfm",
+    product: "Bot Fight Mode",
+    plan: "Free",
+    blurb: "One-click hygiene against obvious bots. Challenge action only, no configuration.",
+  },
+  {
+    key: "sbfm-pro",
+    product: "Super Bot Fight Mode",
+    plan: "Pro",
+    blurb: "Choose allow, block, or challenge for definitely-automated traffic, plus a Bot Report.",
+  },
+  {
+    key: "sbfm-biz",
+    product: "Super Bot Fight Mode",
+    plan: "Business (or Enterprise without the add-on)",
+    blurb: "Adds detection of likely-automated bots and a dedicated Bot Analytics tool.",
+  },
+  {
+    key: "bm",
+    product: "Bot Management",
+    plan: "Enterprise add-on",
+    blurb: "Per-request 1–99 bot score, custom rules, fingerprinting, and origin forwarding.",
+  },
+];
+
+// Cell value: `true` = fully supported · `false` = not available ·
+// string = supported with a caveat worth calling out.
+type Cell = boolean | string;
+
+interface Row {
+  feature: string;
+  detail: string;
+  values: [Cell, Cell, Cell, Cell];
+}
+
+const ROWS: Row[] = [
+  {
+    feature: "Detects simple bots & headless browsers",
+    detail: "Cloud-hosting-provider traffic, scripted clients, unmasked headless Chromium.",
+    values: [true, true, true, true],
+  },
+  {
+    feature: "Detects sophisticated, ML-evasive bots",
+    detail: "Bots that mimic human behavior closely enough to fool simple heuristics.",
+    values: [false, false, true, true],
+  },
+  {
+    feature: "Choose the action (allow / block / challenge)",
+    detail: "Free issues a fixed challenge; paid tiers let you pick per bot category.",
+    values: ["Challenge only", true, true, true],
+  },
+  {
+    feature: "Block or challenge definitely-automated traffic",
+    detail: "Score band representing obvious automation.",
+    values: [true, true, true, "Via custom rules"],
+  },
+  {
+    feature: "Block or challenge likely-automated traffic",
+    detail: "Score band for harder-to-detect automation — not available on Pro.",
+    values: [false, false, true, "Via custom rules"],
+  },
+  {
+    feature: "Verified-bot allow / block controls",
+    detail: "Explicit control over Googlebot, Bingbot, uptime monitors, etc.",
+    values: [false, true, true, true],
+  },
+  {
+    feature: "Static resource protection",
+    detail: "Exempt images, CSS, and other static file types from bot checks.",
+    values: [false, true, true, true],
+  },
+  {
+    feature: "JavaScript Detections",
+    detail: "Client-side signals injected to catch bots that don't run JS.",
+    values: ["Forced on", true, true, true],
+  },
+  {
+    feature: "Optimize for WordPress",
+    detail: "Reduces false positives against common WordPress plugin traffic.",
+    values: [false, true, true, true],
+  },
+  {
+    feature: "WAF custom-rule exceptions (Skip action)",
+    detail: "Runs on the Ruleset Engine, so you can carve out approved automated traffic.",
+    values: [false, true, true, true],
+  },
+  {
+    feature: "Bot traffic analytics",
+    detail: "Depth of reporting on what's hitting your domain.",
+    values: ["—", "Bot Report", "Bot Analytics tool", "Bot Analytics + BotBase"],
+  },
+  {
+    feature: "Granular 1–99 bot score in custom rules",
+    detail: "Write rules against the exact score, not just a fixed category.",
+    values: [false, false, false, true],
+  },
+  {
+    feature: "JA3 / JA4 fingerprinting & bot tags",
+    detail: "Identify clients by TLS handshake signature or named bot tag.",
+    values: [false, false, false, true],
+  },
+  {
+    feature: "Detection IDs (target individual bots)",
+    detail: "Write rules against a specific detection, not just a score band.",
+    values: [false, false, false, true],
+  },
+  {
+    feature: "Restrict scope by path, IP, and more",
+    detail: "Apply bot logic surgically instead of domain-wide.",
+    values: [false, false, false, true],
+  },
+  {
+    feature: "Forward bot score to origin",
+    detail: "Send the score to your app/SIEM via Transform Rules or Snippets.",
+    values: [false, false, false, true],
+  },
+  {
+    feature: "AI bot controls (block, AI Labyrinth, robots.txt)",
+    detail: "Presets to manage AI crawlers, agents, and training scrapers.",
+    values: [true, true, true, true],
+  },
+];
+---
+
+<div class="bot-matrix">
+  <p class="text-gray-700 leading-relaxed mb-6">
+    All four products run on the same underlying bot-detection engine — what
+    changes per plan is <strong>how deep the detection goes</strong>, how much
+    <strong>control</strong> you get over the action taken, and how much
+    <strong>visibility</strong> you have into what got caught.
+  </p>
+
+  <!-- ─── Tier cards ─── -->
+  <div class="bot-tier-grid">
+    {
+      TIERS.map((tier) => (
+        <div class="bot-tier-card">
+          <div class="bot-tier-card-plan">{tier.plan}</div>
+          <h3>{tier.product}</h3>
+          <p>{tier.blurb}</p>
+        </div>
+      ))
+    }
+  </div>
+
+  <!-- ─── Feature matrix ─── -->
+  <div class="bot-matrix-scroll">
+    <table class="bot-matrix-table">
+      <thead>
+        <tr>
+          <th class="bot-matrix-corner">Feature</th>
+          {
+            TIERS.map((tier) => (
+              <th>
+                <span class="block">{tier.product}</span>
+                <span class="bot-matrix-plan-tag">{tier.plan}</span>
+              </th>
+            ))
+          }
+        </tr>
+      </thead>
+      <tbody>
+        {
+          ROWS.map((row) => (
+            <tr>
+              <th scope="row">
+                <span class="block">{row.feature}</span>
+                <span class="bot-matrix-feature-detail">{row.detail}</span>
+              </th>
+              {
+                row.values.map((cell) => (
+                  <td>
+                    {cell === true && (
+                      <span class="bot-matrix-yes" title="Included">
+                        ✓
+                      </span>
+                    )}
+                    {cell === false && (
+                      <span class="bot-matrix-no" title="Not available">
+                        —
+                      </span>
+                    )}
+                    {typeof cell === "string" && (
+                      <span class="bot-matrix-partial">{cell}</span>
+                    )}
+                  </td>
+                ))
+              }
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="bot-matrix-legend">
+    <span><span class="bot-matrix-yes">✓</span> Included</span>
+    <span><span class="bot-matrix-partial">Label</span> Included, with a caveat</span>
+    <span><span class="bot-matrix-no">—</span> Not available</span>
+  </div>
+
+  <div class="callout-warning">
+    <strong>Heads up:</strong> Bot Fight Mode (Free) has no explicit verified-bot
+    controls, so it can occasionally challenge or block Googlebot and similar
+    crawlers. Run it in log mode first, or confirm your verified-bots allowance
+    before enabling it in production.
+  </div>
+</div>

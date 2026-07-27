@@ -1,0 +1,33 @@
+---
+// FeatureMatrixSlot routes to a named comparison-matrix component based on
+// frontmatter.featureMatrix.component — same lookup-table pattern as
+// DemoSlot, so new comparison matrices just get added to the map below.
+
+import BotPlanMatrix from "./matrices/BotPlanMatrix.astro";
+
+interface Props {
+  component: string;
+  note?: string;
+}
+
+const { component, note } = Astro.props;
+
+const MATRIX_COMPONENTS: Record<string, any> = {
+  BotPlanMatrix,
+};
+
+const Component = MATRIX_COMPONENTS[component];
+---
+
+{note && <p class="text-sm text-gray-600 mb-5">{note}</p>}
+
+{
+  Component ? (
+    <Component />
+  ) : (
+    <div class="coming-soon">
+      <h3>Comparison "{component}" not found</h3>
+      <p>This comparison matrix hasn't been wired in yet.</p>
+    </div>
+  )
+}
