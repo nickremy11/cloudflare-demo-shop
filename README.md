@@ -220,6 +220,159 @@ generated answer, with model calls observable in AI Gateway.
 
 ---
 
+## Keeping content in sync with Cloudflare docs
+
+`.github/workflows/docs-sync.yml` runs every **Monday 08:00 UTC** (and on-demand
+via `workflow_dispatch`) to check the copy on every solution page against live
+`developers.cloudflare.com` documentation. It is fully automated end to end —
+merged changes deploy through the normal GitHub → Pages flow, no one has to
+click anything for it to ship.
+
+**How it decides what to touch:** `content-sources.json` maps each solution
+slug to the canonical doc URLs that back it. `scripts/docs-sync/sync-docs.mjs`
+fetches each one as Markdown, hashes it, and compares against
+`scripts/docs-sync/state.json`. A solution is only regenerated if at least one
+of its cited docs actually changed since the last run — most weeks this
+touches nothing. The Cloudflare changelog RSS feed is also checked and
+`productNames` in `content-sources.json` matches entries against it, but this
+is informational only (it annotates *why* the run happened in the PR
+description) — it never gates whether a page gets rewritten.
+
+**How it avoids publishing hallucinations:** for a solution whose docs did
+change, Workers AI (via this site's own AI Gateway) regenerates `blurb`,
+`solutionPoints`, `faq`, and `diveDeeper.docs` from the fetched text only,
+using JSON mode with a schema that forces a verbatim supporting quote + source
+URL for every non-obvious claim. The script then independently re-verifies
+every quote actually appears in the fetched doc text (case/whitespace
+insensitive) before accepting anything — the model's own claim that it
+followed the rules is never trusted. Anything that fails to fetch, fails
+schema validation, fails the quote check, or drifts too far in length from the
+current copy is left completely untouched and called out in the run summary
+for a human to look at — the pipeline fails closed, it never force-applies an
+unverified guess.
+
+**How it avoids unreviewable diffs:** rather than re-serializing the whole
+YAML frontmatter with a generic dumper (which reformats every field's
+quoting/wrapping and buries the real change), `scripts/docs-sync/yaml-surgery.mjs`
+edits only the specific blocks that changed and leaves every other byte —
+including `diveDeeper.blogs`, `challenge`, `diagram`, `demo`, etc. — exactly as
+a human wrote it.
+
+**Blog scanning (informational, never auto-published):** each solution in
+`content-sources.json` also has a `blogTag` (e.g. `waf` → `web-application-firewall`).
+Every run, `sync-docs.mjs` checks `blog.cloudflare.com/tag/<slug>/rss/` for
+posts published since the last run and lists them in the run summary /
+changelog / email as "might be worth a look." Nothing is ever added to
+`diveDeeper.blogs` automatically — blog curation is still an editorial call,
+this just surfaces candidates so you don't have to go looking. The same
+`blogTag` also powers a link on every solution page: "Browse every Cloudflare
+blog post tagged '\<label\>'" → `blog.cloudflare.com/tag/<slug>/`. Cloudflare's
+blog tag slugs don't reliably follow simple lowercase-hyphenation of the tag
+name (`Cloudflare Workers` → `workers`, `Argo Smart Routing` → `argo`,
+`Load Balancing` → `loadbalancing`, no hyphen at all) — every slug currently in
+`content-sources.json` was verified with `curl -o /dev/null -w '%{http_code}'`
+before being added; do the same before adding a new one.
+
+**Where to see what happened:**
+
+- `scripts/docs-sync/CHANGELOG.md` — committed to the repo (so `git log -p` or
+  just opening the file gives you permanent history) but lives outside
+  `src/content/` and `public/`, so Astro never builds it into the site. An
+  entry is only added when a run actually changed something, hit a warning, or
+  turned up a changelog/blog match — quiet weeks don't add noise.
+- A status email, if `EMAIL_API_TOKEN` and `NOTIFY_EMAIL_TO` are configured
+  (see setup below) — sent **every run**, including "nothing changed this
+  week," via Cloudflare Email Sending's REST API
+  (`POST /accounts/{account_id}/email/sending/send`, same product the
+  `/email-security/send` demo uses, called directly with a bearer token since
+  GitHub Actions isn't a Worker). Subject line tells you the outcome at a
+  glance: `updated`, `no changes`, or `needs a look`.
+- The PR itself (when one is opened) — its description is the same summary
+  text as the email/changelog entry.
+
+**What's manual:**
+
+- One-time repo setup (see below) — after that, nothing.
+- If a run's grounding check fails or a doc 404s, it's flagged in the
+  PR/changelog/email (⚠️) instead of silently applied. Resolving that is a
+  human judgment call, e.g. Cloudflare renamed or restructured a product's
+  docs and `content-sources.json` needs a new URL (this happened twice during
+  initial setup — see `content-sources.json`'s `$comment`).
+- Blog posts surfaced as "might be worth a look" — deciding whether to add one
+  to a solution's `diveDeeper.blogs` is manual, by design.
+- Adding a new solution: also add its `docs` and `blogTag` (and optional
+  `productNames`) to `content-sources.json`, or it's silently skipped by the
+  sync.
+- `demo`, `diagram`, `challenge`, `pillar`, `order`, and `diveDeeper.blogs` are
+  never touched by automation — they're product/positioning decisions, not
+  facts to verify against docs.
+
+**One-time manual setup required:**
+
+1. `AIG_TOKEN` must exist as a **GitHub Actions repo secret** (Settings →
+   Secrets and variables → Actions).
+
+   **What this token actually is:** it's an [AI Gateway "Authenticated
+   Gateway" token](https://developers.cloudflare.com/ai-gateway/configuration/authentication/)
+   — created from a specific gateway's Settings page with only the `Run`
+   permission. It authenticates requests sent to
+   `gateway.ai.cloudflare.com/v1/{account}/{gateway}/...` via the
+   `cf-aig-authorization` header; that's it. It **cannot** read/write DNS,
+   zones, Workers scripts, R2, Pages config, billing, or anything else — its
+   entire scope is "allowed to invoke an AI Gateway." One important wrinkle
+   straight from Cloudflare's docs: **AI Gateway tokens are account-scoped,
+   not gateway-scoped** — a token with `Run` can invoke *every* gateway in the
+   account (including ones using stored BYOK provider keys), not just
+   `demo-shop-gateway`.
+
+   Because of that account-wide scope, **create a brand-new token for GitHub
+   Actions rather than reusing the exact value already in the Cloudflare
+   Pages environment variables** (Dashboard → AI → AI Gateway →
+   `demo-shop-gateway` → Settings → Create authentication token). Same
+   permission (`Run`), same effective access — just a second, independently
+   revocable credential, so a GitHub Actions secret leak can't be used against
+   the live site's token (or vice versa) and you can rotate/kill either one
+   without touching the other. You do **not** need to reroll the existing
+   Pages token.
+
+2. Enable **Settings → General → Pull Requests → Allow auto-merge**. Without
+   this, `gh pr merge --auto` in the workflow fails and the PR sits open for
+   manual merge (the workflow already leaves a warning annotation when this
+   happens).
+3. Optional but recommended: add a branch protection rule on `main` requiring
+   this workflow's own "Validate build" step to pass before merging, so a bad
+   run can never auto-merge even if the grounding check has a bug.
+4. **Optional — weekly status email.** Add two more GitHub Actions repo
+   secrets:
+   - `EMAIL_API_TOKEN` — a Cloudflare API token scoped to `Email Sending: Edit`
+     for this account. Can reuse the same token already backing the
+     `/email-security/send` demo (`Settings → Environment variables` in the
+     Pages dashboard, or create a fresh one the same way — either is fine,
+     this token can't do anything beyond sending mail from an onboarded
+     domain).
+   - `NOTIFY_EMAIL_TO` — the address you want the weekly status email sent to.
+
+   If either is unset, `sync-docs.mjs` just skips sending and logs a note —
+   everything else (PRs, changelog, docs updates) still works. The sender
+   address defaults to `docs-sync@remydemo.com` on the already-onboarded
+   `remydemo.com` domain; override with a `NOTIFY_EMAIL_FROM` secret if you'd
+   rather send from something else.
+5. Trigger `workflow_dispatch` once manually to do the first full pass (the
+   very first run touches most/all 26 solutions, since `state.json` starts
+   empty) and confirm the PR it opens — and the email, if configured — look
+   right before trusting the Monday cron unattended.
+
+Run it locally against a single slug for testing:
+
+```bash
+AIG_TOKEN=... TARGET_SLUG=waf npm run sync-docs
+
+# also exercise the email path locally:
+AIG_TOKEN=... EMAIL_API_TOKEN=... NOTIFY_EMAIL_TO=you@example.com TARGET_SLUG=waf npm run sync-docs
+```
+
+---
+
 ## How the Astro rebuild differs from the previous version
 
 The old site was one big `index.html` plus per-demo HTML files (~300 lines of

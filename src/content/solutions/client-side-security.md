@@ -50,4 +50,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/page-shield-generally-available/"
     - title: "Magecart attacks and how to stop them"
       url: "https://blog.cloudflare.com/introducing-page-shield/"
+  blogTag:
+    slug: "page-shield"
+    label: "Page Shield"
 ---

@@ -54,4 +54,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/spotlight-on-zero-trust-week-2023/"
     - title: "Cloudflare named a Leader in email security"
       url: "https://blog.cloudflare.com/category/email-security/"
+  blogTag:
+    slug: "email-security"
+    label: "Email Security"
 ---

@@ -46,4 +46,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/introducing-api-shield/"
     - title: "Sequence analytics for API security"
       url: "https://blog.cloudflare.com/api-sequence-analytics/"
+  blogTag:
+    slug: "api-security"
+    label: "API Security"
 ---

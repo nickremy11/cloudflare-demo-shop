@@ -40,7 +40,12 @@ interface Props {
     diveDeeper: {
       docs: { title: string; url: string }[];
       blogs: { title: string; url: string }[];
+      blogTag?: { slug: string; label: string };
     };
+    // Set automatically by scripts/docs-sync/sync-docs.mjs — see
+    // .github/workflows/docs-sync.yml (weekly Mon 08:00 UTC).
+    lastVerified?: string;
+    sources?: string[];
   };
   slug: string;
 }
@@ -174,7 +179,19 @@ const pillar = getPillar(frontmatter.pillar);
       <DiveDeeper
         docs={frontmatter.diveDeeper.docs}
         blogs={frontmatter.diveDeeper.blogs}
+        blogTag={frontmatter.diveDeeper.blogTag}
       />
+      {
+        frontmatter.lastVerified && (
+          <p class="mt-4 text-xs text-gray-500">
+            ✓ Verified against Cloudflare docs on {frontmatter.lastVerified}
+            {" · "}
+            <a href="https://github.com/nickremy11/cloudflare-demo-shop/blob/main/README.md#keeping-content-in-sync-with-cloudflare-docs" class="underline hover:text-gray-700">
+              how this stays current
+            </a>
+          </p>
+        )
+      }
     </section>
 
     <div class="mt-8 text-center">

@@ -53,4 +53,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/cve-2021-44228-log4j-rce-0-day-mitigation/"
     - title: "AI-powered WAF: detecting unknown threats"
       url: "https://blog.cloudflare.com/ai-waf/"
+  blogTag:
+    slug: "web-application-firewall"
+    label: "Web Application Firewall"
 ---

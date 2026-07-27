@@ -36,14 +36,17 @@ demo:
 diveDeeper:
   docs:
     - title: "Browser Isolation overview"
-      url: "https://developers.cloudflare.com/cloudflare-one/policies/browser-isolation/"
+      url: "https://developers.cloudflare.com/cloudflare-one/remote-browser-isolation/"
     - title: "Network Vector Rendering (NVR)"
-      url: "https://developers.cloudflare.com/cloudflare-one/policies/browser-isolation/setup/"
+      url: "https://developers.cloudflare.com/cloudflare-one/remote-browser-isolation/setup/"
     - title: "Clientless web isolation"
-      url: "https://developers.cloudflare.com/cloudflare-one/policies/browser-isolation/setup/clientless-browser-isolation/"
+      url: "https://developers.cloudflare.com/cloudflare-one/remote-browser-isolation/setup/clientless-browser-isolation/"
   blogs:
     - title: "Browser Isolation, redesigned"
       url: "https://blog.cloudflare.com/browser-isolation-data-protection/"
     - title: "Protecting employees from generative AI risks"
       url: "https://blog.cloudflare.com/cloudflare-one-for-ai/"
+  blogTag:
+    slug: "remote-browser-isolation"
+    label: "Remote Browser Isolation"
 ---

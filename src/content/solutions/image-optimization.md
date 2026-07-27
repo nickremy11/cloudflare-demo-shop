@@ -36,7 +36,7 @@ demo:
 diveDeeper:
   docs:
     - title: "Image Resizing"
-      url: "https://developers.cloudflare.com/images/transform-images/"
+      url: "https://developers.cloudflare.com/images/optimization/transformations/overview/"
     - title: "Polish"
       url: "https://developers.cloudflare.com/images/polish/"
     - title: "Cloudflare Images"
@@ -46,4 +46,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/category/images/"
     - title: "Cloudflare Images: simple media optimization"
       url: "https://blog.cloudflare.com/cloudflare-images/"
+  blogTag:
+    slug: "image-optimization"
+    label: "Image Optimization"
 ---

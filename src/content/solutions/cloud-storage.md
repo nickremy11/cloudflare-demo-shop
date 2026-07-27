@@ -75,4 +75,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/introducing-r2-object-storage/"
     - title: "D1 is generally available"
       url: "https://blog.cloudflare.com/making-full-stack-easier-with-d1-ga-hyperdrive-queues/"
+  blogTag:
+    slug: "r2"
+    label: "R2"
 ---

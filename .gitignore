@@ -24,3 +24,7 @@ Thumbs.db
 *.swp
 *.swo
 .legacy/
+
+# Scratch output from scripts/docs-sync/sync-docs.mjs (used as the PR body,
+# never committed — see .github/workflows/docs-sync.yml)
+.docs-sync-summary.md

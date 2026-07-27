@@ -11,13 +11,16 @@
     "preview": "astro preview",
     "deploy:aboutme-rag": "wrangler deploy --config aboutme-rag-worker/wrangler.toml",
     "deploy": "astro build && wrangler pages deploy dist",
-    "astro": "astro"
+    "astro": "astro",
+    "sync-docs": "node scripts/docs-sync/sync-docs.mjs"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
     "astro": "^5.1.1",
+    "gray-matter": "^4.0.3",
     "typescript": "^5.7.2",
-    "wrangler": "^4.91.0"
+    "wrangler": "^4.91.0",
+    "zod": "^3.24.1"
   },
   "dependencies": {
     "hono": "^4.12.22"

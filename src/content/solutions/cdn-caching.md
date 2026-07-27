@@ -48,4 +48,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/category/speed-week/"
     - title: "Tiered Cache: better hit ratios for free"
       url: "https://blog.cloudflare.com/orpheus/"
+  blogTag:
+    slug: "cdn"
+    label: "CDN"
 ---

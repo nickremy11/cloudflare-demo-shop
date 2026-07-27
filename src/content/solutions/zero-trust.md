@@ -64,14 +64,17 @@ demo:
 diveDeeper:
   docs:
     - title: "Cloudflare Access overview"
-      url: "https://developers.cloudflare.com/cloudflare-one/policies/access/"
+      url: "https://developers.cloudflare.com/cloudflare-one/access-controls/policies/"
     - title: "Cloudflare Tunnel"
-      url: "https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/"
+      url: "https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/"
     - title: "Replacing your VPN with Cloudflare Access"
-      url: "https://developers.cloudflare.com/learning-paths/replace-vpn/"
+      url: "https://developers.cloudflare.com/learning-paths/replace-vpn/concepts/"
   blogs:
     - title: "How Cloudflare runs without a VPN"
       url: "https://blog.cloudflare.com/how-cloudflare-implements-zero-trust/"
     - title: "Zero Trust SIM, WARP, and the post-VPN world"
       url: "https://blog.cloudflare.com/zero-trust-warp-with-a-twist/"
+  blogTag:
+    slug: "zero-trust"
+    label: "Zero Trust"
 ---

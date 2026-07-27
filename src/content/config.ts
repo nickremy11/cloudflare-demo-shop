@@ -106,7 +106,27 @@ const solutions = defineCollection({
           })
         )
         .default([]),
+      // Links to a pre-filtered blog.cloudflare.com/tag/<slug>/ search for this
+      // solution. Cloudflare's blog tag slugs don't reliably follow simple
+      // lowercase-hyphenation of the tag name, so `slug` must be verified
+      // against the live site (curl -o /dev/null -w '%{http_code}') before
+      // adding a new one — see content-sources.json's blogTag entries for the
+      // already-verified list.
+      blogTag: z
+        .object({
+          slug: z.string(),
+          label: z.string(),
+        })
+        .optional(),
     }),
+
+    // Populated automatically by scripts/docs-sync/sync-docs.mjs (see
+    // .github/workflows/docs-sync.yml, runs weekly Mon 08:00 UTC). Do not
+    // hand-edit these two fields — they record when `blurb`, `solutionPoints`,
+    // `faq`, and `diveDeeper.docs` were last checked against live Cloudflare
+    // documentation, and which doc URLs backed that check.
+    lastVerified: z.string().optional(),
+    sources: z.array(z.string().url()).default([]),
   }),
 });
 

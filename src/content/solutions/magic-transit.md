@@ -40,10 +40,13 @@ diveDeeper:
     - title: "BGP and prefix advertisement"
       url: "https://developers.cloudflare.com/magic-transit/reference/traffic-steering/"
     - title: "GRE and IPsec setup"
-      url: "https://developers.cloudflare.com/magic-transit/about/anycast-gre/"
+      url: "https://developers.cloudflare.com/magic-transit/reference/gre-ipsec-tunnels/"
   blogs:
     - title: "How Magic Transit works"
       url: "https://blog.cloudflare.com/magic-transit/"
     - title: "Mitigating a 71M rps DDoS attack"
       url: "https://blog.cloudflare.com/cloudflare-mitigates-record-breaking-71-million-request-per-second-ddos-attack/"
+  blogTag:
+    slug: "magic-transit"
+    label: "Magic Transit"
 ---

@@ -48,4 +48,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/workers-ai-ga/"
     - title: "Workers vs. Lambda — performance benchmarks"
       url: "https://blog.cloudflare.com/serverless-performance-comparison-workers-lambda/"
+  blogTag:
+    slug: "workers"
+    label: "Cloudflare Workers"
 ---

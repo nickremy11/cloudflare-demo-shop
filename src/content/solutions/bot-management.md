@@ -59,4 +59,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/declaring-your-aindependence-block-ai-bots-scrapers-and-crawlers-with-a-single-click/"
     - title: "How Cloudflare's bot management ML works"
       url: "https://blog.cloudflare.com/how-cloudflare-mitigated-yet-another-okta-compromise/"
+  blogTag:
+    slug: "bot-management"
+    label: "Bot Management"
 ---

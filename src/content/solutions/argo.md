@@ -37,11 +37,14 @@ diveDeeper:
   docs:
     - title: "Argo Smart Routing"
       url: "https://developers.cloudflare.com/argo-smart-routing/"
-    - title: "How Argo works"
-      url: "https://developers.cloudflare.com/argo-smart-routing/about/"
+    - title: "Get started with Argo Smart Routing"
+      url: "https://developers.cloudflare.com/argo-smart-routing/get-started/"
   blogs:
     - title: "Argo: routing intelligence for the internet"
       url: "https://blog.cloudflare.com/argo/"
     - title: "Argo 2.0 — faster, smarter"
       url: "https://blog.cloudflare.com/argo-2/"
+  blogTag:
+    slug: "argo"
+    label: "Argo Smart Routing"
 ---

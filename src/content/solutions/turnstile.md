@@ -48,4 +48,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/turnstile-private-captcha-alternative/"
     - title: "Turnstile is now generally available"
       url: "https://blog.cloudflare.com/turnstile-ga/"
+  blogTag:
+    slug: "turnstile"
+    label: "Turnstile"
 ---

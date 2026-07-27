@@ -46,4 +46,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/cloudflare-pages-goes-full-stack/"
     - title: "Building this site on Pages + Workers"
       url: "https://blog.cloudflare.com/full-stack-cloudflare-with-remix-and-supabase/"
+  blogTag:
+    slug: "cloudflare-pages"
+    label: "Cloudflare Pages"
 ---

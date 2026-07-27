@@ -1,0 +1,379 @@
+{
+  "$comment": "Consumed by scripts/docs-sync/sync-docs.mjs (see .github/workflows/docs-sync.yml, runs weekly Mon 08:00 UTC). `docs` is the authoritative source of truth: the script hashes the live Markdown of every URL and only regenerates a solution's copy when at least one of its docs actually changed. `productNames` is best-effort only — it is matched against Cloudflare changelog RSS entries purely to annotate the PR description with 'why this ran'; it never gates whether a slug is updated. Edit `docs` whenever a solution should be checked against a different/additional canonical page. Keep every URL under developers.cloudflare.com. `blogTag` links each solution to a pre-verified blog.cloudflare.com/tag/<slug>/ page (rendered on-site as a Dive Deeper link) and is also used by sync-docs.mjs to surface new posts under that tag since the last run — informational only, never auto-added to diveDeeper.blogs. Cloudflare blog tag slugs do not reliably match simple lowercase-hyphenation of the tag name, so verify any new one with curl before adding it.",
+  "solutions": {
+    "magic-transit": {
+      "productNames": [
+        "Magic Transit"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/magic-transit/",
+        "https://developers.cloudflare.com/magic-transit/reference/traffic-steering/",
+        "https://developers.cloudflare.com/magic-transit/reference/gre-ipsec-tunnels/"
+      ],
+      "blogTag": {
+        "slug": "magic-transit",
+        "label": "Magic Transit"
+      }
+    },
+    "cloudflare-wan": {
+      "productNames": [
+        "Cloudflare WAN"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/cloudflare-wan/",
+        "https://developers.cloudflare.com/cloudflare-wan/configuration/appliance/",
+        "https://developers.cloudflare.com/cloudflare-wan/configuration/multi-cloud-networking/"
+      ],
+      "blogTag": {
+        "slug": "magic-wan",
+        "label": "Magic WAN"
+      }
+    },
+    "api-security": {
+      "productNames": [
+        "API Shield"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/api-shield/",
+        "https://developers.cloudflare.com/api-shield/security/api-discovery/",
+        "https://developers.cloudflare.com/api-shield/security/schema-validation/"
+      ],
+      "blogTag": {
+        "slug": "api-security",
+        "label": "API Security"
+      }
+    },
+    "load-balancing": {
+      "productNames": [
+        "Load Balancing"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/load-balancing/",
+        "https://developers.cloudflare.com/load-balancing/monitors/",
+        "https://developers.cloudflare.com/load-balancing/understand-basics/traffic-steering/"
+      ],
+      "blogTag": {
+        "slug": "loadbalancing",
+        "label": "Load Balancing"
+      }
+    },
+    "dns": {
+      "productNames": [
+        "DNS"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/dns/",
+        "https://developers.cloudflare.com/dns/dnssec/",
+        "https://developers.cloudflare.com/dns/foundation-dns/"
+      ],
+      "blogTag": {
+        "slug": "dns",
+        "label": "DNS"
+      }
+    },
+    "casb": {
+      "productNames": [
+        "CASB"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/cloudflare-one/cloud-and-saas-findings/",
+        "https://developers.cloudflare.com/cloudflare-one/data-loss-prevention/",
+        "https://developers.cloudflare.com/cloudflare-one/insights/analytics/shadow-it-discovery/"
+      ],
+      "blogTag": {
+        "slug": "casb",
+        "label": "CASB"
+      }
+    },
+    "turnstile": {
+      "productNames": [
+        "Challenges",
+        "Turnstile"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/turnstile/",
+        "https://developers.cloudflare.com/turnstile/get-started/server-side-validation/",
+        "https://developers.cloudflare.com/turnstile/migration/"
+      ],
+      "blogTag": {
+        "slug": "turnstile",
+        "label": "Turnstile"
+      }
+    },
+    "workers-ai": {
+      "productNames": [
+        "Workers AI"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/workers-ai/",
+        "https://developers.cloudflare.com/workers-ai/models/",
+        "https://developers.cloudflare.com/workers-ai/configuration/bindings/"
+      ],
+      "blogTag": {
+        "slug": "workers-ai",
+        "label": "Workers AI"
+      }
+    },
+    "secure-web-gateway": {
+      "productNames": [
+        "Gateway"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/cloudflare-one/traffic-policies/",
+        "https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/"
+      ],
+      "blogTag": {
+        "slug": "secure-web-gateway",
+        "label": "Secure Web Gateway"
+      }
+    },
+    "magic-firewall": {
+      "productNames": [
+        "Cloudflare Network Firewall",
+        "Magic Firewall"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/cloudflare-network-firewall/",
+        "https://developers.cloudflare.com/cloudflare-network-firewall/how-to/add-policies/",
+        "https://developers.cloudflare.com/cloudflare-network-firewall/about/list-types/"
+      ],
+      "blogTag": {
+        "slug": "magic-firewall",
+        "label": "Magic Firewall"
+      }
+    },
+    "ai-gateway": {
+      "productNames": [
+        "AI Gateway"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/ai-gateway/",
+        "https://developers.cloudflare.com/ai-gateway/usage/providers/",
+        "https://developers.cloudflare.com/ai-gateway/features/caching/"
+      ],
+      "blogTag": {
+        "slug": "ai-gateway",
+        "label": "AI Gateway"
+      }
+    },
+    "waf": {
+      "productNames": [
+        "WAF"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/waf/",
+        "https://developers.cloudflare.com/waf/managed-rules/",
+        "https://developers.cloudflare.com/waf/custom-rules/"
+      ],
+      "blogTag": {
+        "slug": "web-application-firewall",
+        "label": "Web Application Firewall"
+      }
+    },
+    "workers": {
+      "productNames": [
+        "Workers"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/workers/",
+        "https://developers.cloudflare.com/workers/runtime-apis/",
+        "https://developers.cloudflare.com/workers/runtime-apis/bindings/"
+      ],
+      "blogTag": {
+        "slug": "workers",
+        "label": "Cloudflare Workers"
+      }
+    },
+    "cloud-storage": {
+      "productNames": [
+        "R2",
+        "D1",
+        "KV"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/r2/",
+        "https://developers.cloudflare.com/d1/",
+        "https://developers.cloudflare.com/kv/"
+      ],
+      "blogTag": {
+        "slug": "r2",
+        "label": "R2"
+      }
+    },
+    "zero-trust": {
+      "productNames": [
+        "Access",
+        "Cloudflare One"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/cloudflare-one/access-controls/policies/",
+        "https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/",
+        "https://developers.cloudflare.com/learning-paths/replace-vpn/concepts/"
+      ],
+      "blogTag": {
+        "slug": "zero-trust",
+        "label": "Zero Trust"
+      }
+    },
+    "cdn-caching": {
+      "productNames": [
+        "Cache / CDN"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/cache/",
+        "https://developers.cloudflare.com/cache/how-to/cache-rules/",
+        "https://developers.cloudflare.com/cache/how-to/tiered-cache/"
+      ],
+      "blogTag": {
+        "slug": "cdn",
+        "label": "CDN"
+      }
+    },
+    "l7-ddos": {
+      "productNames": [
+        "DDoS Protection",
+        "Security Overview"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/ddos-protection/",
+        "https://developers.cloudflare.com/ddos-protection/managed-rulesets/http/",
+        "https://developers.cloudflare.com/ddos-protection/managed-rulesets/adaptive-protection/"
+      ],
+      "blogTag": {
+        "slug": "ddos",
+        "label": "DDoS"
+      }
+    },
+    "bot-management": {
+      "productNames": [
+        "Bots",
+        "WAF"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/bots/",
+        "https://developers.cloudflare.com/waf/rate-limiting-rules/",
+        "https://developers.cloudflare.com/bots/concepts/bot-score/"
+      ],
+      "blogTag": {
+        "slug": "bot-management",
+        "label": "Bot Management"
+      }
+    },
+    "client-side-security": {
+      "productNames": [
+        "Page Shield",
+        "Security Center"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/client-side-security/",
+        "https://developers.cloudflare.com/client-side-security/detection/monitor-connections-scripts/",
+        "https://developers.cloudflare.com/client-side-security/rules/",
+        "https://developers.cloudflare.com/client-side-security/how-it-works/"
+      ],
+      "blogTag": {
+        "slug": "page-shield",
+        "label": "Page Shield"
+      }
+    },
+    "spectrum": {
+      "productNames": [
+        "Spectrum"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/spectrum/",
+        "https://developers.cloudflare.com/spectrum/protocols-per-plan/",
+        "https://developers.cloudflare.com/spectrum/reference/configuration-options/"
+      ],
+      "blogTag": {
+        "slug": "spectrum",
+        "label": "Spectrum"
+      }
+    },
+    "browser-isolation": {
+      "productNames": [
+        "Browser Isolation"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/cloudflare-one/remote-browser-isolation/",
+        "https://developers.cloudflare.com/cloudflare-one/remote-browser-isolation/setup/",
+        "https://developers.cloudflare.com/cloudflare-one/remote-browser-isolation/setup/clientless-browser-isolation/"
+      ],
+      "blogTag": {
+        "slug": "remote-browser-isolation",
+        "label": "Remote Browser Isolation"
+      }
+    },
+    "durable-objects": {
+      "productNames": [
+        "Durable Objects"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/durable-objects/",
+        "https://developers.cloudflare.com/durable-objects/api/sqlite-storage-api/",
+        "https://developers.cloudflare.com/durable-objects/best-practices/websockets/"
+      ],
+      "blogTag": {
+        "slug": "durable-objects",
+        "label": "Durable Objects"
+      }
+    },
+    "email-security": {
+      "productNames": [
+        "Email security",
+        "Email Service"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/email-service/",
+        "https://developers.cloudflare.com/email-service/api/send-emails/",
+        "https://developers.cloudflare.com/email-service/api/route-emails/",
+        "https://developers.cloudflare.com/cloudflare-one/email-security/"
+      ],
+      "blogTag": {
+        "slug": "email-security",
+        "label": "Email Security"
+      }
+    },
+    "image-optimization": {
+      "productNames": [
+        "Cloudflare Images",
+        "Speed"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/images/optimization/transformations/overview/",
+        "https://developers.cloudflare.com/images/polish/",
+        "https://developers.cloudflare.com/images/"
+      ],
+      "blogTag": {
+        "slug": "image-optimization",
+        "label": "Image Optimization"
+      }
+    },
+    "pages": {
+      "productNames": [
+        "Pages"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/pages/",
+        "https://developers.cloudflare.com/pages/functions/",
+        "https://developers.cloudflare.com/pages/framework-guides/"
+      ],
+      "blogTag": {
+        "slug": "cloudflare-pages",
+        "label": "Cloudflare Pages"
+      }
+    },
+    "argo": {
+      "productNames": [
+        "Speed"
+      ],
+      "docs": [
+        "https://developers.cloudflare.com/argo-smart-routing/",
+        "https://developers.cloudflare.com/argo-smart-routing/get-started/"
+      ],
+      "blogTag": {
+        "slug": "argo",
+        "label": "Argo Smart Routing"
+      }
+    }
+  }
+}

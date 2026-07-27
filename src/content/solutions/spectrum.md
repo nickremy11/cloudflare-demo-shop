@@ -37,8 +37,8 @@ diveDeeper:
   docs:
     - title: "Spectrum overview"
       url: "https://developers.cloudflare.com/spectrum/"
-    - title: "Supported protocols"
-      url: "https://developers.cloudflare.com/spectrum/protocols/"
+    - title: "Protocols per plan"
+      url: "https://developers.cloudflare.com/spectrum/protocols-per-plan/"
     - title: "Origin IP cloaking"
       url: "https://developers.cloudflare.com/spectrum/reference/configuration-options/"
   blogs:
@@ -46,4 +46,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/introducing-spectrum/"
     - title: "Protecting gaming infrastructure with Spectrum"
       url: "https://blog.cloudflare.com/cloudflare-magic-spectrum/"
+  blogTag:
+    slug: "spectrum"
+    label: "Spectrum"
 ---

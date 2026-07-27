@@ -36,14 +36,17 @@ demo:
 diveDeeper:
   docs:
     - title: "Cloudflare Gateway overview"
-      url: "https://developers.cloudflare.com/cloudflare-one/policies/gateway/"
+      url: "https://developers.cloudflare.com/cloudflare-one/traffic-policies/"
     - title: "DNS, network, and HTTP policies"
-      url: "https://developers.cloudflare.com/cloudflare-one/policies/gateway/"
-    - title: "Deploying WARP"
-      url: "https://developers.cloudflare.com/cloudflare-one/connections/connect-devices/warp/"
+      url: "https://developers.cloudflare.com/cloudflare-one/traffic-policies/"
+    - title: "Deploying the Cloudflare One Client (WARP)"
+      url: "https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/"
   blogs:
     - title: "Stopping phishing attacks with Cloudflare Gateway"
       url: "https://blog.cloudflare.com/category/zero-trust-week-2023/"
     - title: "How Cloudflare protects its own employees"
       url: "https://blog.cloudflare.com/how-cloudflare-implements-zero-trust/"
+  blogTag:
+    slug: "secure-web-gateway"
+    label: "Secure Web Gateway"
 ---

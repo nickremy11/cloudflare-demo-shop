@@ -2,9 +2,10 @@
 interface Props {
   docs: { title: string; url: string }[];
   blogs: { title: string; url: string }[];
+  blogTag?: { slug: string; label: string };
 }
 
-const { docs, blogs } = Astro.props;
+const { docs, blogs, blogTag } = Astro.props;
 ---
 
 <div class="space-y-5">
@@ -43,6 +44,21 @@ const { docs, blogs } = Astro.props;
           ))}
         </ul>
       </div>
+    )
+  }
+
+  {
+    blogTag && (
+      <p class="text-sm">
+        <a
+          href={`https://blog.cloudflare.com/tag/${blogTag.slug}/`}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="underline hover:text-pine-700"
+        >
+          Browse every Cloudflare blog post tagged "{blogTag.label}" →
+        </a>
+      </p>
     )
   }
 </div>

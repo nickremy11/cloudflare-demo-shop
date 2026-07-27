@@ -40,7 +40,7 @@ diveDeeper:
     - title: "Durable Objects overview"
       url: "https://developers.cloudflare.com/durable-objects/"
     - title: "DO storage API"
-      url: "https://developers.cloudflare.com/durable-objects/api/storage-api/"
+      url: "https://developers.cloudflare.com/durable-objects/api/sqlite-storage-api/"
     - title: "WebSockets in DOs"
       url: "https://developers.cloudflare.com/durable-objects/best-practices/websockets/"
   blogs:
@@ -48,4 +48,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/introducing-workers-durable-objects/"
     - title: "WebSocket hibernation: persistent connections at cheap cost"
       url: "https://blog.cloudflare.com/workers-durable-objects-easy-mode/"
+  blogTag:
+    slug: "durable-objects"
+    label: "Durable Objects"
 ---

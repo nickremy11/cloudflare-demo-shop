@@ -25,6 +25,7 @@ route handler running as a Cloudflare Pages Function.
 | Change header / footer / chat widget | `src/components/Header.astro`, `Footer.astro`, `ChatWidget.astro` |
 | Add a diagram | Drop the PNG in `public/diagrams/` and reference it from the solution `.md` |
 | Update the chatbot's system prompt | The `systemPrompt` string in `functions/api/[[path]].ts` (`POST /api/chat`) |
+| Keep a solution's docs/FAQ/blurb accurate over time | Add its canonical doc URLs to `content-sources.json` — see README.md → "Keeping content in sync with Cloudflare docs" |
 
 ---
 
@@ -90,6 +91,9 @@ diveDeeper:
   blogs:
     - title: "Blog post title"
       url: "https://blog.cloudflare.com/..."
+  blogTag:                # optional — see Step 5 below before adding this
+    slug: "your-verified-tag-slug"
+    label: "Display Label"
 ---
 ```
 
@@ -112,7 +116,30 @@ pillar's section. If the build fails, the error message will point to the
 schema mismatch in your frontmatter (the schema lives in
 `src/content/config.ts`).
 
-### Step 5. (Optional) Add a diagram
+### Step 5. (Recommended) Register it for the weekly docs-accuracy sync
+
+Add an entry to `content-sources.json` under `solutions.<slug>` with:
+
+- `docs` — the canonical `developers.cloudflare.com` URLs that back this
+  page's claims (the same URLs you just put in `diveDeeper.docs` are a good
+  starting point).
+- `blogTag` — `{ slug, label }` for a `blog.cloudflare.com/tag/<slug>/` page.
+  **Verify the slug resolves with curl first** — Cloudflare's blog tag slugs
+  don't reliably match lowercase-hyphenation of the display name (e.g.
+  `Cloudflare Workers` → `workers`, not `cloudflare-workers`):
+  `curl -s -o /dev/null -w '%{http_code}\n' https://blog.cloudflare.com/tag/your-slug/`
+  should print `200`. Then add the same `diveDeeper.blogTag: { slug, label }`
+  to the solution's `.md` frontmatter so the page renders the "browse this
+  tag" link.
+- `productNames` (optional) — display names to match against Cloudflare's
+  changelog RSS feed, purely for the "why did this run" note.
+
+Without a `content-sources.json` entry, `.github/workflows/docs-sync.yml`
+silently skips the new solution forever — it never gets checked against live
+docs or scanned for new blog posts. See README.md → "Keeping content in sync
+with Cloudflare docs" for how the pipeline uses all of this.
+
+### Step 6. (Optional) Add a diagram
 
 Drop a PNG in `public/diagrams/<file>.png`. Reference it in the solution
 frontmatter:

@@ -40,10 +40,13 @@ diveDeeper:
     - title: "HTTP DDoS managed ruleset"
       url: "https://developers.cloudflare.com/ddos-protection/managed-rulesets/http/"
     - title: "Adaptive DDoS Protection"
-      url: "https://developers.cloudflare.com/ddos-protection/managed-rulesets/http/adaptive-protection/"
+      url: "https://developers.cloudflare.com/ddos-protection/managed-rulesets/adaptive-protection/"
   blogs:
     - title: "Cloudflare mitigated the largest DDoS attack ever recorded"
       url: "https://blog.cloudflare.com/cloudflare-mitigates-record-breaking-71-million-request-per-second-ddos-attack/"
     - title: "HTTP/2 Rapid Reset attack disclosure"
       url: "https://blog.cloudflare.com/technical-breakdown-http2-rapid-reset-ddos-attack/"
+  blogTag:
+    slug: "ddos"
+    label: "DDoS"
 ---

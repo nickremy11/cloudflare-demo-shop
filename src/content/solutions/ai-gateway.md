@@ -40,12 +40,15 @@ diveDeeper:
     - title: "AI Gateway overview"
       url: "https://developers.cloudflare.com/ai-gateway/"
     - title: "Providers and routing"
-      url: "https://developers.cloudflare.com/ai-gateway/providers/"
+      url: "https://developers.cloudflare.com/ai-gateway/usage/providers/"
     - title: "Caching and rate limiting"
-      url: "https://developers.cloudflare.com/ai-gateway/configuration/caching/"
+      url: "https://developers.cloudflare.com/ai-gateway/features/caching/"
   blogs:
     - title: "Cloudflare AI Gateway is now GA"
       url: "https://blog.cloudflare.com/ai-gateway-general-availability/"
     - title: "Building reliable AI apps with fallback"
       url: "https://blog.cloudflare.com/ai-gateway-fallbacks-universal-logs-mistral/"
+  blogTag:
+    slug: "ai-gateway"
+    label: "AI Gateway"
 ---

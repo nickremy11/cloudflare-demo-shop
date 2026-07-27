@@ -36,14 +36,17 @@ demo:
 diveDeeper:
   docs:
     - title: "Magic Firewall overview"
-      url: "https://developers.cloudflare.com/magic-firewall/"
+      url: "https://developers.cloudflare.com/cloudflare-network-firewall/"
     - title: "Rules and expressions"
-      url: "https://developers.cloudflare.com/magic-firewall/how-to/add-rules/"
-    - title: "Managed lists"
-      url: "https://developers.cloudflare.com/magic-firewall/about/configurable-managed-lists/"
+      url: "https://developers.cloudflare.com/cloudflare-network-firewall/how-to/add-policies/"
+    - title: "IP list types"
+      url: "https://developers.cloudflare.com/cloudflare-network-firewall/about/list-types/"
   blogs:
     - title: "Introducing Magic Firewall"
       url: "https://blog.cloudflare.com/introducing-magic-firewall/"
     - title: "Replacing legacy firewalls with Magic Firewall"
       url: "https://blog.cloudflare.com/magic-firewall-ga/"
+  blogTag:
+    slug: "magic-firewall"
+    label: "Magic Firewall"
 ---

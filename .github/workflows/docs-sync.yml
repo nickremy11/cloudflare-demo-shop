@@ -1,0 +1,111 @@
+name: Weekly Cloudflare docs sync
+
+# Keeps src/content/solutions/*.md accurate against live Cloudflare
+# documentation. See README.md → "Keeping content in sync with Cloudflare
+# docs" for the full design and the one-time manual setup this depends on
+# (AIG_TOKEN secret + "Allow auto-merge" repo setting; EMAIL_API_TOKEN +
+# NOTIFY_EMAIL_TO are optional, for the weekly status email).
+#
+# Runs every Monday 08:00 UTC. Only touches a solution page when the
+# Cloudflare docs it cites actually changed since the last run, and only
+# applies a regenerated section once every claim in it is verified against
+# the fetched doc text (see scripts/docs-sync/sync-docs.mjs). If nothing
+# changed upstream, or nothing passes verification, no PR is opened — but a
+# status email still goes out every run if configured, and notable runs (a
+# change, a warning, or a relevant blog/changelog hit) get an entry in
+# scripts/docs-sync/CHANGELOG.md.
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Regenerate every mapped solution, ignoring the doc-hash cache"
+        type: boolean
+        default: false
+      slug:
+        description: "Only check specific solution slug(s), comma-separated (blank = all)"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: docs-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run docs sync
+        id: sync
+        env:
+          AIG_TOKEN: ${{ secrets.AIG_TOKEN }}
+          # Email notification is optional — sync-docs.mjs skips it gracefully
+          # if these two aren't set. CF_ACCOUNT_ID and NOTIFY_EMAIL_FROM have
+          # sensible defaults in the script (this account, docs-sync@remydemo.com)
+          # and don't need to be set unless you want to override them.
+          EMAIL_API_TOKEN: ${{ secrets.EMAIL_API_TOKEN }}
+          NOTIFY_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL_TO }}
+          FORCE: ${{ github.event.inputs.force }}
+          TARGET_SLUG: ${{ github.event.inputs.slug }}
+        run: node scripts/docs-sync/sync-docs.mjs
+
+      - name: Check for content changes
+        id: diff
+        run: |
+          if git diff --quiet -- src/content/solutions scripts/docs-sync/state.json scripts/docs-sync/CHANGELOG.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate build
+        if: steps.diff.outputs.changed == 'true'
+        run: npm run build
+
+      - name: Open PR with the update
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          BRANCH="docs-sync/$(date -u +%Y-%m-%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add src/content/solutions scripts/docs-sync/state.json scripts/docs-sync/CHANGELOG.md
+          git commit -m "docs-sync: weekly Cloudflare docs accuracy check ($(date -u +%Y-%m-%d))"
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create \
+            --title "docs-sync: weekly Cloudflare docs accuracy check ($(date -u +%Y-%m-%d))" \
+            --body-file .docs-sync-summary.md \
+            --base main \
+            --head "$BRANCH")
+          echo "Opened $PR_URL"
+
+          # Requires "Allow auto-merge" enabled in repo Settings → General.
+          # Merges immediately if no required status checks are configured on
+          # main, or waits for them if branch protection requires any.
+          gh pr merge --auto --squash "$PR_URL" || echo "::warning::Could not enable auto-merge — merge $PR_URL manually. See README for the 'Allow auto-merge' repo setting."
+
+      - name: No changes
+        if: steps.diff.outputs.changed == 'false'
+        run: echo "Cloudflare docs unchanged since last run — nothing to update."

@@ -48,4 +48,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/dns-perf-2024/"
     - title: "Foundation DNS for the world's largest networks"
       url: "https://blog.cloudflare.com/foundation-dns/"
+  blogTag:
+    slug: "dns"
+    label: "DNS"
 ---

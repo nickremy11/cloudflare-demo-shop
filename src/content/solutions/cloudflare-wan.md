@@ -36,14 +36,17 @@ demo:
 diveDeeper:
   docs:
     - title: "Cloudflare WAN (Magic WAN) overview"
-      url: "https://developers.cloudflare.com/magic-wan/"
-    - title: "Magic WAN Connector"
-      url: "https://developers.cloudflare.com/magic-wan/configuration/connector/"
-    - title: "Cloud connector integrations"
-      url: "https://developers.cloudflare.com/magic-wan/configuration/cloud-providers/"
+      url: "https://developers.cloudflare.com/cloudflare-wan/"
+    - title: "Cloudflare One Appliance"
+      url: "https://developers.cloudflare.com/cloudflare-wan/configuration/appliance/"
+    - title: "Multi-Cloud Networking on-ramps"
+      url: "https://developers.cloudflare.com/cloudflare-wan/configuration/multi-cloud-networking/"
   blogs:
     - title: "Cloudflare WAN: the network of the future"
       url: "https://blog.cloudflare.com/magic-wan/"
     - title: "How customers replaced MPLS with Cloudflare"
       url: "https://blog.cloudflare.com/magic-wan-ga/"
+  blogTag:
+    slug: "magic-wan"
+    label: "Magic WAN"
 ---

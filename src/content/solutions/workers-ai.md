@@ -48,10 +48,13 @@ diveDeeper:
     - title: "Model catalog"
       url: "https://developers.cloudflare.com/workers-ai/models/"
     - title: "AI bindings from Workers"
-      url: "https://developers.cloudflare.com/workers-ai/get-started/workers-bindings/"
+      url: "https://developers.cloudflare.com/workers-ai/configuration/bindings/"
   blogs:
     - title: "Workers AI is generally available"
       url: "https://blog.cloudflare.com/workers-ai-ga/"
     - title: "Building production AI apps on Cloudflare"
       url: "https://blog.cloudflare.com/ai-week-2024-wrap-up/"
+  blogTag:
+    slug: "workers-ai"
+    label: "Workers AI"
 ---

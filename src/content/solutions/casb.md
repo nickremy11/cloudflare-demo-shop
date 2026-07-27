@@ -36,14 +36,17 @@ demo:
 diveDeeper:
   docs:
     - title: "Cloudflare CASB overview"
-      url: "https://developers.cloudflare.com/cloudflare-one/applications/scan-apps/"
+      url: "https://developers.cloudflare.com/cloudflare-one/cloud-and-saas-findings/"
     - title: "Data Loss Prevention (DLP)"
-      url: "https://developers.cloudflare.com/cloudflare-one/policies/data-loss-prevention/"
+      url: "https://developers.cloudflare.com/cloudflare-one/data-loss-prevention/"
     - title: "Shadow IT Discovery"
-      url: "https://developers.cloudflare.com/cloudflare-one/insights/analytics/shadow-it/"
+      url: "https://developers.cloudflare.com/cloudflare-one/insights/analytics/shadow-it-discovery/"
   blogs:
     - title: "Cloudflare One for AI"
       url: "https://blog.cloudflare.com/cloudflare-one-for-ai/"
     - title: "Detecting AI bots and DLP for AI"
       url: "https://blog.cloudflare.com/dlp-for-ai/"
+  blogTag:
+    slug: "casb"
+    label: "CASB"
 ---

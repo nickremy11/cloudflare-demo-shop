@@ -46,4 +46,7 @@ diveDeeper:
       url: "https://blog.cloudflare.com/load-balancing/"
     - title: "Geo steering for global apps"
       url: "https://blog.cloudflare.com/geo-steering/"
+  blogTag:
+    slug: "loadbalancing"
+    label: "Load Balancing"
 ---
