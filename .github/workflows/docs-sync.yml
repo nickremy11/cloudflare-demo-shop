@@ -59,8 +59,9 @@ jobs:
           AIG_TOKEN: ${{ secrets.AIG_TOKEN }}
           # Email notification is optional — sync-docs.mjs skips it gracefully
           # if these two aren't set. CF_ACCOUNT_ID and NOTIFY_EMAIL_FROM have
-          # sensible defaults in the script (this account, docs-sync@remydemo.com)
-          # and don't need to be set unless you want to override them.
+          # sensible defaults in the script (this account, support@remydemo.com
+          # — the same sender the /email-security/send demo uses) and don't
+          # need to be set unless you want to override them.
           EMAIL_API_TOKEN: ${{ secrets.EMAIL_API_TOKEN }}
           NOTIFY_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL_TO }}
           FORCE: ${{ github.event.inputs.force }}

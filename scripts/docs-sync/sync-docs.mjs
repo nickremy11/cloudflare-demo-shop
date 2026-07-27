@@ -72,7 +72,9 @@ const CHANGELOG_PATH = path.join(__dirname, "CHANGELOG.md");
 const CF_ACCOUNT_ID = process.env.CF_ACCOUNT_ID || "e2e9b1cd0acebaaf2aee23d918eee2b1";
 const EMAIL_API_TOKEN = process.env.EMAIL_API_TOKEN;
 const NOTIFY_EMAIL_TO = process.env.NOTIFY_EMAIL_TO;
-const NOTIFY_EMAIL_FROM = process.env.NOTIFY_EMAIL_FROM || "docs-sync@remydemo.com";
+// Reuses the same sender as the /email-security/send demo — one less thing
+// to onboard, and it doubles as another live example of Email Sending.
+const NOTIFY_EMAIL_FROM = process.env.NOTIFY_EMAIL_FROM || "support@remydemo.com";
 
 const AIG_TOKEN = process.env.AIG_TOKEN;
 const AI_GATEWAY_URL =
@@ -399,7 +401,7 @@ async function sendNotificationEmail(runDateIso, hadChanges, hadWarnings, bodyMa
         },
         body: JSON.stringify({
           to: NOTIFY_EMAIL_TO,
-          from: { address: NOTIFY_EMAIL_FROM, name: "Cloudflare Demo Shop docs-sync" },
+          from: { address: NOTIFY_EMAIL_FROM, name: "Cloudflare Demo Shop" },
           subject,
           html,
           text: bodyMarkdown,

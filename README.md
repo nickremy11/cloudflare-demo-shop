@@ -344,19 +344,21 @@ before being added; do the same before adding a new one.
    run can never auto-merge even if the grounding check has a bug.
 4. **Optional — weekly status email.** Add two more GitHub Actions repo
    secrets:
-   - `EMAIL_API_TOKEN` — a Cloudflare API token scoped to `Email Sending: Edit`
-     for this account. Can reuse the same token already backing the
-     `/email-security/send` demo (`Settings → Environment variables` in the
-     Pages dashboard, or create a fresh one the same way — either is fine,
-     this token can't do anything beyond sending mail from an onboarded
-     domain).
+   - `EMAIL_API_TOKEN` — reuse the same Cloudflare API token (`Email Sending: Edit`)
+     already backing the `/email-security/send` demo. **This has to be added
+     again as its own GitHub Actions secret** (Settings → Secrets and
+     variables → Actions) even though it already exists as a Cloudflare Pages
+     environment variable of the same name — those are two separate stores;
+     GitHub Actions can't read Pages' env vars. Copy the same token value into
+     both places.
    - `NOTIFY_EMAIL_TO` — the address you want the weekly status email sent to.
 
    If either is unset, `sync-docs.mjs` just skips sending and logs a note —
    everything else (PRs, changelog, docs updates) still works. The sender
-   address defaults to `docs-sync@remydemo.com` on the already-onboarded
-   `remydemo.com` domain; override with a `NOTIFY_EMAIL_FROM` secret if you'd
-   rather send from something else.
+   defaults to `support@remydemo.com` — the same address the
+   `/email-security/send` demo sends from — so this doubles as another live
+   example of Email Sending; override with a `NOTIFY_EMAIL_FROM` secret if
+   you'd rather send from something else.
 5. Trigger `workflow_dispatch` once manually to do the first full pass (the
    very first run touches most/all 26 solutions, since `state.json` starts
    empty) and confirm the PR it opens — and the email, if configured — look
