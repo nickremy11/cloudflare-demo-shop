@@ -2,6 +2,20 @@
 
 Local record of every docs-sync run, newest first. Not part of the Astro site build (lives under scripts/docs-sync/, outside src/content and public/) — this is for your own reference, not published.
 
+## 2026-07-28T13:17:01.699Z
+
+## Weekly Cloudflare docs sync
+
+Ran 2026-07-28T13:17:01.699Z against 1 solution(s).
+
+### Changes
+- **waf**: ✅ updated (blurb, solutionPoints, faq, diveDeeper.docs) from 3 source doc(s), 3 citation(s) verified against live docs
+
+---
+_Generated copy is only accepted when every non-obvious claim is backed by a verbatim quote from the cited developers.cloudflare.com page (see `verifyGrounding` in docs-sync-worker/src/index.ts). Anything that fails that check, or drifts too far in length from the current copy, is left untouched and flagged above for manual review instead of being force-applied._
+
+---
+
 ## 2026-07-28T13:13:09.929Z
 
 ## Weekly Cloudflare docs sync
