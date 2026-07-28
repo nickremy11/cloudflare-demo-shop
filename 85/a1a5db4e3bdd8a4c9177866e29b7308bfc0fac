@@ -1,0 +1,19 @@
+src/content/solutions/waf.md
+  s_e8b9ce3bc90c00::t_afc62d3b79ba96 3,17-26,29-36,45-47,49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "85a1a5db4e3bdd8a4c9177866e29b7308bfc0fac",
+  "prompts": {},
+  "sessions": {
+    "s_e8b9ce3bc90c00": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_05b6f5c08ffeCd16xe5x100Yas",
+        "model": "gpt-5.6"
+      },
+      "human_author": "Nick Remy <nremy@cloudflare.com>"
+    }
+  }
+}
