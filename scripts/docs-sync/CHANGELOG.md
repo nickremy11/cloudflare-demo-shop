@@ -2,6 +2,20 @@
 
 Local record of every docs-sync run, newest first. Not part of the Astro site build (lives under scripts/docs-sync/, outside src/content and public/) — this is for your own reference, not published.
 
+## 2026-07-28 (manual revert)
+
+The five runs below this entry were manual `/run?force=true&slug=waf` tests
+while debugging docs-sync-worker (fixing the `response_format.json_schema`
+key name and the `env.EMAIL.send` field name — see git history). The last one
+succeeded and passed grounding, but the generated copy was noticeably weaker
+than the hand-written original (generic, repetitive paraphrasing of the docs
+instead of specific, detail-rich sales copy) — accurate, but a real quality
+regression. `src/content/solutions/waf.md` has been manually reverted to its
+pre-test content in this commit. The pipeline itself is confirmed working
+end-to-end (fetch → generate → verify → commit → email); the prompt likely
+needs further tuning for copy quality before trusting unattended runs against
+the rest of the catalog.
+
 ## 2026-07-28T13:17:01.699Z
 
 ## Weekly Cloudflare docs sync

@@ -1,6 +1,6 @@
 ---
 title: "Web Application Firewall"
-blurb: "The Cloudflare Web Application Firewall (WAF) provides automatic protection from vulnerabilities and the flexibility to create custom rules. Get automatic protection from vulnerabilities and the flexibility to create custom rules."
+blurb: "Block SQL injection, XSS, command injection, and the rest of the OWASP Top 10 with managed rulesets plus your own custom rules — written once, enforced everywhere."
 pillar: "app-security"
 order: 1
 
@@ -14,24 +14,26 @@ diagram:
   caption: "Every request is inspected against managed and custom rulesets before reaching your origin."
 
 solutionPoints:
-  - title: "Custom Rules"
-    detail: "Create your own custom rules to protect your website and your APIs from malicious incoming traffic."
-  - title: "Managed Rules"
-    detail: "Enable the pre-configured managed rulesets to get immediate protection against common attacks."
-  - title: "Rate Limiting Rules"
-    detail: "Define rate limits for incoming requests matching an expression, and the action to take when those rate limits are reached."
-  - title: "Security Analytics"
-    detail: "Displays information about all incoming HTTP requests, including those not affected by security measures."
-  - title: "Security Events"
-    detail: "Review mitigated requests (rule matches) using an intuitive interface."
+  - title: "Cloudflare Managed Ruleset. "
+    detail: "Continuously updated rules that block known exploitation patterns: SQLi, XSS, RCE, LFI, command injection, and emerging CVEs. Cloudflare's security team ships new mitigations the same day a public PoC drops."
+  - title: "OWASP Core Ruleset. "
+    detail: "The industry-standard ModSecurity-style ruleset, tuned and curated by Cloudflare. Set per-domain sensitivity (low / medium / high) and choose between paranoia levels."
+  - title: "Custom rules in a familiar language. "
+    detail: "Write rules in Cloudflare's rules expression language (e.g. <code>http.request.uri.path contains \"/admin\" and ip.geoip.country ne \"US\"</code>) and apply block, challenge, log, or skip actions."
+  - title: "Test before you enforce. "
+    detail: "Every ruleset and rule supports log-only mode. Deploy globally, watch the analytics for false positives, then flip to block once you're confident. Zero-downtime tuning."
+  - title: "Exception handling and bypass. "
+    detail: "Whitelist trusted IPs, internal QA traffic, or specific URLs from individual rules. Fine-grained enough to allow legitimate `SELECT` statements in your marketing CMS without disabling SQLi protection elsewhere."
 
 faq:
-  - question: "What is the Cloudflare Web Application Firewall (WAF)?"
-    answer: "The Cloudflare Web Application Firewall (WAF) provides automatic protection from vulnerabilities and the flexibility to create custom rules."
-  - question: "What are managed rulesets?"
-    answer: "Managed rulesets are pre-configured rulesets that protect against web application exploits such as zero-day vulnerabilities and top-10 attack techniques."
-  - question: "Can I create custom rules?"
-    answer: "Yes, you can create custom rules to block, challenge, or allow requests matching custom expressions."
+  - question: "What happens when there's a new zero-day like Log4Shell?"
+    answer: "Cloudflare's security team writes a mitigation rule and ships it to every zone in the Managed Ruleset, usually within hours of public disclosure. Customers on Cloudflare WAF were protected against Log4Shell, Spring4Shell, and MOVEit before most teams had even read the advisory."
+  - question: "Will the WAF break my legitimate traffic?"
+    answer: "It can, if your app sends weird-looking payloads (e.g. encoded user input that resembles attacks). The mitigation is to start in log mode, watch for false positives in the WAF analytics, and exclude specific rules for specific paths. Cloudflare's tuning UI surfaces top false-positive rules with one-click exceptions."
+  - question: "Can I write rules that combine multiple signals (IP + path + header)?"
+    answer: "Yes. The rules expression language supports boolean logic across any request field — country, ASN, headers, URI path, query string, body content, JA3 fingerprint, bot score, and more. You can build very surgical rules."
+  - question: "Does the WAF inspect request bodies?"
+    answer: "Yes, up to a configurable size limit (default 128KB; higher on Enterprise). POST bodies, JSON payloads, and form data are all inspected for attack signatures."
 
 demo:
   type: "interactive"
@@ -40,11 +42,11 @@ demo:
 
 diveDeeper:
   docs:
-    - title: "Getting Started with Cloudflare WAF"
-      url: "https://developers.cloudflare.com/waf/get-started/"
-    - title: "Managed Rules"
+    - title: "Cloudflare WAF overview"
+      url: "https://developers.cloudflare.com/waf/"
+    - title: "Managed Rulesets"
       url: "https://developers.cloudflare.com/waf/managed-rules/"
-    - title: "Custom Rules"
+    - title: "Custom rules"
       url: "https://developers.cloudflare.com/waf/custom-rules/"
   blogs:
     - title: "How Cloudflare blocked Log4Shell"
@@ -54,9 +56,4 @@ diveDeeper:
   blogTag:
     slug: "web-application-firewall"
     label: "Web Application Firewall"
-lastVerified: "2026-07-28"
-sources:
-  - "https://developers.cloudflare.com/waf/"
-  - "https://developers.cloudflare.com/waf/managed-rules/"
-  - "https://developers.cloudflare.com/waf/custom-rules/"
 ---
