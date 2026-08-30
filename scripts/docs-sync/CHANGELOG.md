@@ -2,6 +2,118 @@
 
 Local record of every docs-sync run, newest first. Not part of the Astro site build (lives under scripts/docs-sync/, outside src/content and public/) — this is for your own reference, not published.
 
+## 2026-08-30T08:04:58.703Z
+
+## Weekly Cloudflare docs sync
+
+Ran 2026-08-30T08:04:58.703Z against 26 solution(s).
+
+### Changes
+- **magic-transit**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1148 (line 1 column 1149))
+- **cloudflare-wan**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1196 (line 1 column 1197))
+- **api-security**: ⚠️ source docs changed but generation/validation failed — left as-is ([
+  {
+    "code": "too_small",
+    "minimum": 3,
+    "type": "array",
+    "inclusive": true,
+    "exact": false,
+    "message": "Array must contain at least 3 element(s)",
+    "path": [
+      "solutionPoints"
+    ]
+  },
+  {
+    "code": "too_small",
+    "minimum": 3,
+    "type": "array",
+    "inclusive": true,
+    "exact": false,
+    "message": "Array must contain at least 3 element(s)",
+    "path": [
+      "faq"
+    ]
+  }
+])
+- **load-balancing**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1222 (line 1 column 1223))
+- **dns**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1057 (line 1 column 1058))
+- **casb**: ⚠️ source docs changed but generation/validation failed — left as-is (2016: Prompt blocked due to security configurations)
+- **turnstile**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1095 (line 1 column 1096))
+- **workers-ai**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1067 (line 1 column 1068))
+- **secure-web-gateway**: ⚠️ source docs changed but generation/validation failed — left as-is ([
+  {
+    "code": "too_small",
+    "minimum": 3,
+    "type": "array",
+    "inclusive": true,
+    "exact": false,
+    "message": "Array must contain at least 3 element(s)",
+    "path": [
+      "solutionPoints"
+    ]
+  },
+  {
+    "code": "too_small",
+    "minimum": 3,
+    "type": "array",
+    "inclusive": true,
+    "exact": false,
+    "message": "Array must contain at least 3 element(s)",
+    "path": [
+      "faq"
+    ]
+  }
+])
+- **magic-firewall**: ⚠️ source docs changed but generation/validation failed — left as-is (2016: Prompt blocked due to security configurations)
+- **ai-gateway**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1062 (line 1 column 1063))
+- **waf**: ⚠️ source docs changed but generation/validation failed — left as-is (2016: Prompt blocked due to security configurations)
+- **workers**: ⚠️ source docs changed but generation/validation failed — left as-is (Expected double-quoted property name in JSON at position 1126 (line 1 column 1127))
+- **cloud-storage**: ⚠️ source docs changed but generation/validation failed — left as-is (2016: Prompt blocked due to security configurations)
+- **zero-trust**: ⚠️ source docs changed but generation/validation failed — left as-is (Unexpected end of JSON input)
+- **cdn-caching**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1130 (line 1 column 1131))
+- **l7-ddos**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1096 (line 1 column 1097))
+- **bot-management**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1077 (line 1 column 1078))
+- **client-side-security**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1270 (line 1 column 1271))
+- **spectrum**: ⚠️ source docs changed but generation/validation failed — left as-is (Unexpected end of JSON input)
+- **browser-isolation**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1211 (line 1 column 1212))
+- **durable-objects**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1175 (line 1 column 1176))
+- **email-security**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1170 (line 1 column 1171))
+- **image-optimization**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1201 (line 1 column 1202))
+- **pages**: ⚠️ source docs changed but generation/validation failed — left as-is (Expected ',' or '}' after property value in JSON at position 1191 (line 1 column 1192))
+- **argo**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1156 (line 1 column 1157))
+
+### Related Cloudflare changelog activity this week
+- [Cloudflare One Appliance, Cloudflare One, Cloudflare WAN - Download the Cloudflare One Virtual Appliance for your hypervisor from the dashboard](https://developers.cloudflare.com/changelog/post/2026-08-24-virtual-appliance-self-serve-download/) — related to `cloudflare-wan`
+- [API Shield - Symmetric key support for JWT validation](https://developers.cloudflare.com/changelog/post/2026-08-25-symmetric-jwt-validation/) — related to `api-security`
+- [Workers AI - Z.ai GLM-5.3 now available on Workers AI](https://developers.cloudflare.com/changelog/post/2026-08-28-glm-5.3-workers-ai/) — related to `workers-ai`
+- [AI Search - New Workers AI text generation models in AI Search](https://developers.cloudflare.com/changelog/post/2026-08-26-new-workers-ai-models/) — related to `workers-ai`
+- [Workers AI - Z.ai GLM-5.3 Flash now available on Workers AI](https://developers.cloudflare.com/changelog/post/2026-08-26-glm-5.3-flash-workers-ai/) — related to `workers-ai`
+- [WAF - WAF Release - 2026-08-26 - Emergency](https://developers.cloudflare.com/changelog/post/2026-08-26-emergency-waf-release/) — related to `waf`
+- [WAF - WAF Release - 2026-08-25](https://developers.cloudflare.com/changelog/post/2026-08-25-waf-release/) — related to `waf`
+- [WAF - WAF Release - Scheduled changes for 2026-09-01](https://developers.cloudflare.com/changelog/post/scheduled-waf-release/) — related to `waf`
+- [Workers AI - Z.ai GLM-5.3 now available on Workers AI](https://developers.cloudflare.com/changelog/post/2026-08-28-glm-5.3-workers-ai/) — related to `workers`
+- [Workers, Durable Objects - Durable Objects can use up to ten Dynamic Workers concurrently](https://developers.cloudflare.com/changelog/post/2026-08-28-durable-objects-dynamic-workers-limit/) — related to `workers`
+- [AI Search - New Workers AI text generation models in AI Search](https://developers.cloudflare.com/changelog/post/2026-08-26-new-workers-ai-models/) — related to `workers`
+- [Cloudflare One Client - Cloudflare One Client for macOS (version 2026.7.1376.0)](https://developers.cloudflare.com/changelog/post/2026-08-28-warp-macos-ga/) — related to `zero-trust`
+- [Cloudflare One Client - Cloudflare One Client for Windows (version 2026.7.1376.0)](https://developers.cloudflare.com/changelog/post/2026-08-28-warp-windows-ga/) — related to `zero-trust`
+- [Cloudflare One Client - Cloudflare One Client for Linux (version 2026.7.1377.0)](https://developers.cloudflare.com/changelog/post/2026-08-28-warp-linux-ga/) — related to `zero-trust`
+- [WAF - WAF Release - 2026-08-26 - Emergency](https://developers.cloudflare.com/changelog/post/2026-08-26-emergency-waf-release/) — related to `bot-management`
+- [WAF - WAF Release - 2026-08-25](https://developers.cloudflare.com/changelog/post/2026-08-25-waf-release/) — related to `bot-management`
+- [WAF - WAF Release - Scheduled changes for 2026-09-01](https://developers.cloudflare.com/changelog/post/scheduled-waf-release/) — related to `bot-management`
+- [Workers, Durable Objects - Durable Objects can use up to ten Dynamic Workers concurrently](https://developers.cloudflare.com/changelog/post/2026-08-28-durable-objects-dynamic-workers-limit/) — related to `durable-objects`
+- [Durable Objects - Prevent Durable Object alarm retries when using `ctx.abort()`](https://developers.cloudflare.com/changelog/post/2026-08-25-durable-object-alarm-abort-no-retry/) — related to `durable-objects`
+
+### New Cloudflare blog posts that might be worth a look
+_Informational only — never auto-added to `diveDeeper.blogs`. Review and add manually if relevant._
+- [How we saved 100 terabytes of memory by optimizing 1.1.1.1’s DNS cache](https://blog.cloudflare.com/dns-cache-memory-optimization-1111/) — tagged "DNS", relevant to `dns`
+- [The Cloudflare Blog – Brought to you by EmDash](https://blog.cloudflare.com/cloudflare-blog-uses-emdash/) — tagged "Cloudflare Workers", relevant to `workers`
+- [BotBase for Operators: A clearer path to joining Cloudflare's directory of bots and agents](https://blog.cloudflare.com/botbase-for-operators/) — tagged "Bot Management", relevant to `bot-management`
+
+---
+_Generated copy is only accepted when every non-obvious claim is backed by a verbatim quote from the cited developers.cloudflare.com page (see `verifyGrounding` in docs-sync-worker/src/index.ts). Anything that fails that check, or drifts too far in length from the current copy, is left untouched and flagged above for manual review instead of being force-applied._
+
+---
+
 ## 2026-08-23T08:03:56.376Z
 
 ## Weekly Cloudflare docs sync
