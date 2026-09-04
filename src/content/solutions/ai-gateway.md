@@ -33,7 +33,7 @@ faq:
 demo:
   type: "interactive"
   component: "AiGatewayDemo"
-  note: "Choose between Cloudflare-hosted Workers AI models and models reached through OpenRouter. Every request uses the same AI Gateway, so observability and controls remain consistent while the upstream model changes."
+  note: "Authenticate with Cloudflare Access, then choose between Cloudflare-hosted Workers AI models and models reached through OpenRouter. Every request carries a verified user identity through the same AI Gateway for per-user observability and spend controls."
 
 diveDeeper:
   docs:

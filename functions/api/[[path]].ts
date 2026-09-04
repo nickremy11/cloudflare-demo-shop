@@ -18,7 +18,6 @@
 //   POST /api/cache/purge                                — Real CF Cache Purge API call
 //   POST /api/turnstile/verify                           — siteverify call
 //   POST /api/chat                                       — AI Gateway → Llama 3.3 70B
-//   POST /api/ai-gateway-demo                            — AI Gateway model picker
 //   POST /api/aboutme-rag                                — Service binding → AI Search / AutoRAG Worker
 //
 // Email Sending demo now lives at /email-security/send (Access-protected —
@@ -63,83 +62,6 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // R2 demo upload constraints — 50MB, restricted file types
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
-
-const AI_GATEWAY_BASE_URL =
-  "https://gateway.ai.cloudflare.com/v1/e2e9b1cd0acebaaf2aee23d918eee2b1/demo-shop-gateway";
-
-const AI_GATEWAY_DEMO_MODELS = {
-  "workers-llama-3-3-70b": {
-    label: "Llama 3.3 70B",
-    provider: "Workers AI",
-    model: "workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-    endpoint: "compat/chat/completions",
-  },
-  "workers-kimi-k2-6": {
-    label: "Kimi K2.6",
-    provider: "Workers AI",
-    model: "workers-ai/@cf/moonshotai/kimi-k2.6",
-    endpoint: "compat/chat/completions",
-  },
-  "workers-deepseek-v4-flash": {
-    label: "DeepSeek V4 Flash",
-    provider: "Workers AI",
-    model: "workers-ai/@cf/deepseek-ai/deepseek-v4-flash-0731",
-    endpoint: "compat/chat/completions",
-  },
-  "openrouter-gpt-5-4-mini": {
-    label: "GPT-5.4 Mini",
-    provider: "OpenRouter",
-    model: "openai/gpt-5.4-mini",
-    endpoint: "openrouter/v1/chat/completions",
-  },
-  "openrouter-gpt-5-6-luna": {
-    label: "GPT-5.6 Luna",
-    provider: "OpenRouter",
-    model: "openai/gpt-5.6-luna",
-    endpoint: "openrouter/v1/chat/completions",
-  },
-  "openrouter-gemini-3-8-flash": {
-    label: "Gemini 3.8 Flash",
-    provider: "OpenRouter",
-    model: "google/gemini-3.8-flash",
-    endpoint: "openrouter/v1/chat/completions",
-  },
-  "openrouter-kimi-k3": {
-    label: "Kimi K3",
-    provider: "OpenRouter",
-    model: "moonshotai/kimi-k3",
-    endpoint: "openrouter/v1/chat/completions",
-  },
-  "openrouter-glm-5-3-flash": {
-    label: "GLM 5.3 Flash",
-    provider: "OpenRouter",
-    model: "z-ai/glm-5.3-flash",
-    endpoint: "openrouter/v1/chat/completions",
-  },
-  "openrouter-glm-5-2-free": {
-    label: "GLM 5.2 (free)",
-    provider: "OpenRouter",
-    model: "z-ai/glm-5.2:free",
-    endpoint: "openrouter/v1/chat/completions",
-  },
-  "openrouter-claude-haiku-4-5": {
-    label: "Claude Haiku 4.5",
-    provider: "OpenRouter",
-    model: "anthropic/claude-haiku-4.5",
-    endpoint: "openrouter/v1/chat/completions",
-  },
-  "openrouter-claude-sonnet-5": {
-    label: "Claude Sonnet 5",
-    provider: "OpenRouter",
-    model: "anthropic/claude-sonnet-5",
-    endpoint: "openrouter/v1/chat/completions",
-  },
-} as const;
-
-type ChatCompletionResult = {
-  choices?: Array<{ message?: { content?: string } }>;
-  usage?: unknown;
-};
 
 const ALLOWED_EXTENSIONS = new Set([
   "pdf", "csv", "png", "jpg", "jpeg", "gif",
@@ -1084,67 +1006,6 @@ you receive has been routed through gateway.ai.cloudflare.com to Workers AI (Lla
     return c.json(result);
   } catch (error: any) {
     return c.json({ error: "Chat failed: " + error.message }, 500);
-  }
-});
-
-// ── AI Gateway provider + model comparison demo ─────────────
-
-app.post("/api/ai-gateway-demo", async (c) => {
-  try {
-    const rawBody: unknown = await c.req.json().catch(() => ({}));
-    const body = rawBody && typeof rawBody === "object"
-      ? rawBody as Record<string, unknown>
-      : {};
-    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-    const modelKey = typeof body.model === "string" ? body.model : "";
-
-    if (!prompt) return c.json({ error: "Prompt required" }, 400);
-    if (prompt.length > 4000) {
-      return c.json({ error: "Prompt must be 4,000 characters or fewer" }, 400);
-    }
-    if (!(modelKey in AI_GATEWAY_DEMO_MODELS)) {
-      return c.json({ error: "Unsupported model" }, 400);
-    }
-    if (!c.env.AIG_TOKEN) {
-      return c.json({ error: "AIG_TOKEN not configured" }, 500);
-    }
-
-    const selected = AI_GATEWAY_DEMO_MODELS[
-      modelKey as keyof typeof AI_GATEWAY_DEMO_MODELS
-    ];
-    const response = await fetch(`${AI_GATEWAY_BASE_URL}/${selected.endpoint}`, {
-      method: "POST",
-      headers: {
-        "cf-aig-authorization": `Bearer ${c.env.AIG_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: selected.model,
-        messages: [{ role: "user", content: prompt }],
-        stream: false,
-      }),
-    });
-
-    if (!response.ok) {
-      const details = (await response.text()).slice(0, 1000);
-      return c.json({
-        error: `${selected.provider} request failed`,
-        status: response.status,
-        details,
-      }, 502);
-    }
-
-    const result = await response.json() as ChatCompletionResult;
-    return c.json({
-      content: result.choices?.[0]?.message?.content ?? "",
-      provider: selected.provider,
-      model: selected.label,
-      modelId: selected.model,
-      usage: result.usage ?? null,
-    });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    return c.json({ error: "AI Gateway demo failed: " + message }, 500);
   }
 });
 

@@ -171,8 +171,9 @@ Set in the Cloudflare Pages dashboard (Settings → Environment variables) or vi
 | `TURNSTILE_SECRET` | secret | Turnstile demo (optional — falls back to CF's test secret) |
 
 The AI Gateway demo's OpenRouter key is stored under the `default` alias in
-the `demo-shop-gateway` provider settings. It is not a Pages secret; the app
-authenticates only to AI Gateway with `AIG_TOKEN`.
+the `demo-shop-gateway` provider settings. The browser demo authenticates to
+`aig.remydemo.com` with Cloudflare Access; `AIG_TOKEN` remains in use by the
+server-side chatbot and Workers AI demo.
 
 Other runtime bindings configured in `wrangler.toml`:
 
