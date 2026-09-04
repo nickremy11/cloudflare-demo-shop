@@ -237,7 +237,7 @@
         } catch (e) {
           if (e instanceof TypeError) {
             this.authRequired = true;
-            this.error = "Authenticate with Cloudflare Access in the new tab, then return here and retry your prompt. If you already signed in, refresh this page and try again.";
+            this.error = "The browser could not read the gateway response. Authenticate with Cloudflare Access if needed. If you are already signed in, the request may have completed but its response is missing credentialed CORS headers.";
           } else {
             this.error = e?.message ?? String(e);
           }
