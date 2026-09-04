@@ -26,7 +26,7 @@
     </div>
     <div class="shrink-0">
       <a
-        href="https://aig.remydemo.com/"
+        href="https://aig.remydemo.com/compat/chat/completions"
         target="_blank"
         rel="noopener noreferrer"
         @click="authStarted = true"
@@ -35,7 +35,7 @@
         Authenticate to AI Gateway
       </a>
       <p x-show="authStarted" class="mt-2 max-w-xs text-xs text-gray-500">
-        Complete Access in the new tab, return here, then send your prompt.
+        Complete Access in the new tab, close it after sign-in, then send your prompt here.
       </p>
     </div>
   </div>
@@ -99,7 +99,7 @@
     <p class="text-sm" x-text="error"></p>
     <a
       x-show="authRequired"
-      href="https://aig.remydemo.com/"
+      href="https://aig.remydemo.com/compat/chat/completions"
       target="_blank"
       rel="noopener noreferrer"
       @click="authStarted = true"
