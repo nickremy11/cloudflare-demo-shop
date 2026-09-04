@@ -33,7 +33,7 @@ faq:
 demo:
   type: "interactive"
   component: "AiGatewayDemo"
-  note: "Every message in the chatbot widget on this page routes through Cloudflare AI Gateway to Workers AI (Llama 3.3 70B). Send a test prompt below or open the chatbot — both share the same Gateway."
+  note: "Choose between Cloudflare-hosted Workers AI models and models reached through OpenRouter. Every request uses the same AI Gateway, so observability and controls remain consistent while the upstream model changes."
 
 diveDeeper:
   docs:

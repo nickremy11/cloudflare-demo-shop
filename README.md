@@ -170,6 +170,10 @@ Set in the Cloudflare Pages dashboard (Settings → Environment variables) or vi
 | `CF_CACHE_PURGE_TOKEN` | secret | CDN cache purge demo (API token with Zone:Cache Purge) |
 | `TURNSTILE_SECRET` | secret | Turnstile demo (optional — falls back to CF's test secret) |
 
+The AI Gateway demo's OpenRouter key is stored under the `default` alias in
+the `demo-shop-gateway` provider settings. It is not a Pages secret; the app
+authenticates only to AI Gateway with `AIG_TOKEN`.
+
 Other runtime bindings configured in `wrangler.toml`:
 
 | Name | Type | Used by |

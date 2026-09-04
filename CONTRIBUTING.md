@@ -473,7 +473,7 @@ Registered in `src/components/DemoSlot.astro`. Reference these in the
 | `DnsDemo` | `/dns` | DoH lookups via `1.1.1.1/dns-query` (browser → CF directly) |
 | `TurnstileDemo` | `/turnstile` | Scenario picker linking to `/turnstile/login?scenario=human\|interactive\|blocked` |
 | `WorkersAiDemo` | `/workers`, `/workers-ai` | Sends prompt through `/api/chat` → AI Gateway → Llama 3.3 70B |
-| `AiGatewayDemo` | `/ai-gateway` | Same chat pipeline; shows the routing explicitly |
+| `AiGatewayDemo` | `/ai-gateway` | Selects Workers AI or OpenRouter models through AI Gateway |
 | `R2Demo` | `/cloud-storage` | Guest+Access upload, malicious scan, pricing calculator |
 | `ChatRoomDemo` | `/durable-objects` | Real-time DO chat room with SQLite, WebSockets, daily reset, and Llama Guard PG moderation |
 
@@ -498,7 +498,8 @@ All in `functions/api/[[path]].ts`.
 | POST | `/api/cache/purge` | none (server uses CF token) | CDN demo purge |
 | GET | `/api/turnstile/config?scenario=human\|interactive\|blocked` | none | Turnstile demo — sitekey for the scenario (server picks the key, not the browser) |
 | POST | `/api/turnstile/verify` | none | Turnstile demo — siteverify, secret picked server-side from the same scenario map |
-| POST | `/api/chat` | none | Chatbot + Workers AI + AI Gateway demos |
+| POST | `/api/chat` | none | Chatbot + Workers AI demo |
+| POST | `/api/ai-gateway-demo` | none | AI Gateway Workers AI/OpenRouter model picker |
 | GET | `/api/chatroom/messages` | none | DO chat room initial history |
 | GET | `/api/chatroom/ws` | none | DO chat room WebSocket upgrade |
 | POST | `/api/chatroom/send` | none | DO chat room send + PG moderation |

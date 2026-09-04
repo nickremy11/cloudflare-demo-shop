@@ -1,21 +1,47 @@
 ---
-// AI Gateway demo — same backend pipeline as the chatbot, but here we
-// explicitly call it out and let the user see token usage / latency.
+// AI Gateway demo — compares Cloudflare-hosted Workers AI models with
+// OpenRouter models while keeping AI Gateway as the single control plane.
 ---
 
 <div x-data="aiGatewayDemo()" class="space-y-4">
   <div class="demo-panel safe">
-    <h3>This entire site uses AI Gateway</h3>
+    <h3>One gateway, multiple model backends</h3>
     <p class="text-sm text-gray-700 mt-2">
-      Open the chat widget in the bottom-right corner — every message is
-      routed through Cloudflare AI Gateway to Workers AI. The same gateway
-      handles caching, rate limiting, request logging, and (in production
-      configs) provider fallback.
+      Choose a model hosted on Cloudflare Workers AI or accessed through
+      OpenRouter. Every request still passes through the same Cloudflare AI
+      Gateway for caching, rate limiting, guardrails, and request logging.
     </p>
     <p class="text-xs text-gray-500 mt-2">
       Route:
-      <code class="bg-silver-50 px-1.5 py-0.5 rounded">browser → /api/chat → AI Gateway → workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast</code>
+      <code class="bg-silver-50 px-1.5 py-0.5 rounded" x-text="routeLabel"></code>
     </p>
+  </div>
+
+  <div class="space-y-2">
+    <label for="ai-gateway-model" class="text-xs font-semibold uppercase tracking-wide text-gray-600">
+      Model backend
+    </label>
+    <select id="ai-gateway-model" x-model="selectedModel" :disabled="loading" class="demo-input">
+      <optgroup label="Cloudflare Workers AI">
+        <option value="workers-llama-3-3-70b">Llama 3.3 70B</option>
+        <option value="workers-kimi-k2-6">Kimi K2.6</option>
+        <option value="workers-deepseek-v4-flash">DeepSeek V4 Flash</option>
+      </optgroup>
+      <optgroup label="OpenRouter">
+        <option value="openrouter-gpt-5-4-mini">GPT-5.4 Mini</option>
+        <option value="openrouter-gpt-5-6-luna">GPT-5.6 Luna</option>
+        <option value="openrouter-gemini-3-8-flash">Gemini 3.8 Flash</option>
+        <option value="openrouter-kimi-k3">Kimi K3</option>
+        <option value="openrouter-glm-5-3-flash">GLM 5.3 Flash</option>
+        <option value="openrouter-glm-5-2-free">GLM 5.2 (free)</option>
+        <option value="openrouter-claude-haiku-4-5">Claude Haiku 4.5</option>
+        <option value="openrouter-claude-sonnet-5">Claude Sonnet 5</option>
+      </optgroup>
+    </select>
+    <div class="flex flex-wrap gap-2 text-xs">
+      <span class="rounded-full bg-orange-50 px-2.5 py-1 font-semibold text-orange-700" x-text="selectedProvider"></span>
+      <span class="rounded-full bg-silver-50 px-2.5 py-1 font-mono text-gray-600" x-text="selectedModelId"></span>
+    </div>
   </div>
 
   <div class="space-y-2">
@@ -38,7 +64,7 @@
 
   <div x-show="response" x-transition class="demo-panel safe">
     <div class="flex items-baseline gap-3 mb-2">
-      <h3 class="!mb-0">Response</h3>
+      <h3 class="!mb-0" x-text="responseHeading"></h3>
       <span class="text-xs text-gray-500" x-text="'Latency: ' + latencyMs + ' ms'"></span>
     </div>
     <div class="whitespace-pre-wrap text-sm leading-relaxed" x-text="response"></div>
@@ -59,6 +85,8 @@
   function aiGatewayDemo() {
     return {
       prompt: "What's the difference between Workers and Lambda?",
+      selectedModel: "workers-llama-3-3-70b",
+      responseModel: "",
       response: "",
       error: "",
       loading: false,
@@ -67,25 +95,62 @@
       lastPrompt: null,
       cachedHit: false,
 
+      models: {
+        "workers-llama-3-3-70b": { provider: "Workers AI", label: "Llama 3.3 70B", id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast" },
+        "workers-kimi-k2-6": { provider: "Workers AI", label: "Kimi K2.6", id: "@cf/moonshotai/kimi-k2.6" },
+        "workers-deepseek-v4-flash": { provider: "Workers AI", label: "DeepSeek V4 Flash", id: "@cf/deepseek-ai/deepseek-v4-flash-0731" },
+        "openrouter-gpt-5-4-mini": { provider: "OpenRouter", label: "GPT-5.4 Mini", id: "openai/gpt-5.4-mini" },
+        "openrouter-gpt-5-6-luna": { provider: "OpenRouter", label: "GPT-5.6 Luna", id: "openai/gpt-5.6-luna" },
+        "openrouter-gemini-3-8-flash": { provider: "OpenRouter", label: "Gemini 3.8 Flash", id: "google/gemini-3.8-flash" },
+        "openrouter-kimi-k3": { provider: "OpenRouter", label: "Kimi K3", id: "moonshotai/kimi-k3" },
+        "openrouter-glm-5-3-flash": { provider: "OpenRouter", label: "GLM 5.3 Flash", id: "z-ai/glm-5.3-flash" },
+        "openrouter-glm-5-2-free": { provider: "OpenRouter", label: "GLM 5.2 (free)", id: "z-ai/glm-5.2:free" },
+        "openrouter-claude-haiku-4-5": { provider: "OpenRouter", label: "Claude Haiku 4.5", id: "anthropic/claude-haiku-4.5" },
+        "openrouter-claude-sonnet-5": { provider: "OpenRouter", label: "Claude Sonnet 5", id: "anthropic/claude-sonnet-5" },
+      },
+
+      get selectedProvider() {
+        return this.models[this.selectedModel]?.provider ?? "";
+      },
+
+      get selectedModelId() {
+        return this.models[this.selectedModel]?.id ?? "";
+      },
+
+      get routeLabel() {
+        const upstream = this.selectedProvider === "OpenRouter"
+          ? "OpenRouter → " + this.selectedModelId
+          : "Workers AI → " + this.selectedModelId;
+        return "browser → /api/ai-gateway-demo → AI Gateway → " + upstream;
+      },
+
+      get responseHeading() {
+        return this.responseModel ? "Response from " + this.responseModel : "Response";
+      },
+
       async send() {
         if (!this.prompt.trim()) return;
         this.loading = true;
         this.response = "";
+        this.responseModel = "";
         this.error = "";
         this.cachedHit = false;
 
+        const requestModel = this.selectedModel;
         const start = performance.now();
         try {
-          const res = await fetch("/api/chat", {
+          const res = await fetch("/api/ai-gateway-demo", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              messages: [{ role: "user", content: this.prompt }],
+              model: requestModel,
+              prompt: this.prompt,
             }),
           });
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-          this.response = data.choices?.[0]?.message?.content ?? "(empty response)";
+          if (!res.ok) throw new Error(data.details || data.error || `HTTP ${res.status}`);
+          this.response = data.content || "(empty response)";
+          this.responseModel = data.model || this.models[requestModel]?.label || "";
 
           const elapsed = Math.round(performance.now() - start);
           this.latencyMs = elapsed;
@@ -93,13 +158,13 @@
           // Heuristic: if this prompt was just sent and the response came
           // back significantly faster, it likely hit the gateway cache.
           if (
-            this.lastPrompt === this.prompt &&
+            this.lastPrompt === requestModel + ":" + this.prompt &&
             this.lastPromptLatency !== null &&
             elapsed < this.lastPromptLatency * 0.4
           ) {
             this.cachedHit = true;
           }
-          this.lastPrompt = this.prompt;
+          this.lastPrompt = requestModel + ":" + this.prompt;
           this.lastPromptLatency = elapsed;
         } catch (e) {
           this.error = e?.message ?? String(e);
