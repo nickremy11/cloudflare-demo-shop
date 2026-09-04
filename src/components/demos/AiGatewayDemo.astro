@@ -35,7 +35,7 @@
         Authenticate to AI Gateway
       </a>
       <p x-show="authStarted" class="mt-2 max-w-xs text-xs text-gray-500">
-        Complete Access in the new tab, close it after sign-in, then send your prompt here.
+        Complete Access in the new tab, then close it and send your prompt here. A request-format error in that tab only means sign-in succeeded.
       </p>
     </div>
   </div>
@@ -95,7 +95,7 @@
   </div>
 
   <div x-show="error" x-transition class="demo-panel danger">
-    <h3 x-text="authRequired ? 'Authentication required' : 'Gateway error'"></h3>
+    <h3 x-text="errorHeading"></h3>
     <p class="text-sm" x-text="error"></p>
     <a
       x-show="authRequired"
@@ -123,6 +123,7 @@
       responseModel: "",
       response: "",
       error: "",
+      errorHeading: "Gateway error",
       authRequired: false,
       authStarted: false,
       loading: false,
@@ -170,6 +171,7 @@
         this.response = "";
         this.responseModel = "";
         this.error = "";
+        this.errorHeading = "Gateway error";
         this.authRequired = false;
         this.cachedHit = false;
 
@@ -187,12 +189,15 @@
               stream: false,
             }),
           });
-          if (res.status === 401 || res.status === 403) {
+          const authChallenge = res.headers.get("www-authenticate") || "";
+          if ((res.status === 401 || res.status === 403) && authChallenge.includes("resource_metadata=")) {
             this.authRequired = true;
+            this.errorHeading = "Authentication required";
             throw new Error("Authenticate with Cloudflare Access in the new tab, then return here and retry your prompt.");
           }
           if (res.redirected || res.headers.get("content-type")?.includes("text/html")) {
             this.authRequired = true;
+            this.errorHeading = "Authentication required";
             throw new Error("Your Cloudflare Access session is missing or expired. Authenticate in the new tab, then retry your prompt.");
           }
           const responseText = await res.text();
@@ -210,12 +215,25 @@
               : `Gateway returned HTTP ${res.status}`);
           }
           if (!res.ok) {
+            const errorCode = data.internalCode || data.error?.[0]?.code;
+            if (errorCode === 2040) {
+              this.errorHeading = "Spend limit configuration error";
+            } else if (res.status === 401) {
+              this.errorHeading = "Provider authentication error";
+            } else if (res.status === 402) {
+              this.errorHeading = "Provider billing error";
+            } else if (res.status === 429) {
+              this.errorHeading = "Rate or spend limit reached";
+            }
             const details = data.error?.metadata?.raw
               || data.error?.message
+              || data.error?.[0]?.message
+              || data.message
+              || data.description
               || data.details
               || (typeof data.error === "string" ? data.error : "")
               || `Gateway returned HTTP ${res.status}`;
-            throw new Error(details);
+            throw new Error(errorCode ? `${details} (code ${errorCode})` : details);
           }
           this.response = data.choices?.[0]?.message?.content || "(empty response)";
           this.responseModel = model.label;
@@ -236,8 +254,8 @@
           this.lastPromptLatency = elapsed;
         } catch (e) {
           if (e instanceof TypeError) {
-            this.authRequired = true;
-            this.error = "The browser could not read the gateway response. Authenticate with Cloudflare Access if needed. If you are already signed in, the request may have completed but its response is missing credentialed CORS headers.";
+            this.errorHeading = "Browser connection error";
+            this.error = "The browser could not read the gateway response. Check the credentialed CORS headers and network connection.";
           } else {
             this.error = e?.message ?? String(e);
           }
