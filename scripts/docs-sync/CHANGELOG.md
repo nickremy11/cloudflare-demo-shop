@@ -2,6 +2,44 @@
 
 Local record of every docs-sync run, newest first. Not part of the Astro site build (lives under scripts/docs-sync/, outside src/content and public/) — this is for your own reference, not published.
 
+## 2026-09-06T08:01:54.238Z
+
+## Weekly Cloudflare docs sync
+
+Ran 2026-09-06T08:01:54.238Z against 26 solution(s).
+
+### Changes
+- **casb**: ⚠️ source docs changed but generation/validation failed — left as-is (2030: Request content blocked due to DLP policy violations)
+- **zero-trust**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1212 (line 1 column 1213))
+- **image-optimization**: ⚠️ source docs changed but generation/validation failed — left as-is (Unterminated string in JSON at position 1180 (line 1 column 1181))
+
+### Related Cloudflare changelog activity this week
+- [Cloudflare One Appliance, Cloudflare One, Cloudflare WAN - Define custom applications for breakout and prioritized traffic from the Cloudflare One Appliance dashboard](https://developers.cloudflare.com/changelog/post/2026-09-02-appliance-custom-application-traffic-steering/) — related to `cloudflare-wan`
+- [Cloudflare One Appliance, Cloudflare One, Cloudflare WAN - Configure DHCP options from the dashboard on Cloudflare One Appliance](https://developers.cloudflare.com/changelog/post/2026-09-02-appliance-dhcp-options-ui/) — related to `cloudflare-wan`
+- [Cloudflare Tunnel, Cloudflare One, Cloudflare WAN, Cloudflare Mesh - Create multiple Cloudflare Tunnel and Cloudflare Mesh routes at once](https://developers.cloudflare.com/changelog/post/2026-09-02-tunnel-mesh-bulk-route-creation/) — related to `cloudflare-wan`
+- [AI Gateway - AI Gateway consolidates monthly usage invoice line items and standardizes model names](https://developers.cloudflare.com/changelog/post/2026-09-01-billing-and-model-names/) — related to `secure-web-gateway`
+- [AI Gateway - AI Gateway consolidates monthly usage invoice line items and standardizes model names](https://developers.cloudflare.com/changelog/post/2026-09-01-billing-and-model-names/) — related to `ai-gateway`
+- [WAF - WAF Release - 2026-09-01](https://developers.cloudflare.com/changelog/post/2026-09-01-waf-release/) — related to `waf`
+- [WAF - WAF Release - Scheduled changes for 2026-09-08](https://developers.cloudflare.com/changelog/post/scheduled-waf-release/) — related to `waf`
+- [Workers - Deploy larger Workers — up to 64 MiB for both free and paid plans](https://developers.cloudflare.com/changelog/post/2026-09-04-increased-worker-size-limit/) — related to `workers`
+- [Workers - Python Workers now support WSGI web frameworks like Django and Flask](https://developers.cloudflare.com/changelog/post/2026-09-02-python-workers-web-framework-support/) — related to `workers`
+- [D1 - D1 enforces free tier daily query limits](https://developers.cloudflare.com/changelog/post/2026-09-01-d1-free-tier-limit-enforcement/) — related to `cloud-storage`
+- [Cloudflare One Appliance, Cloudflare One, Cloudflare WAN - Define custom applications for breakout and prioritized traffic from the Cloudflare One Appliance dashboard](https://developers.cloudflare.com/changelog/post/2026-09-02-appliance-custom-application-traffic-steering/) — related to `zero-trust`
+- [Cloudflare One Appliance, Cloudflare One, Cloudflare WAN - Configure DHCP options from the dashboard on Cloudflare One Appliance](https://developers.cloudflare.com/changelog/post/2026-09-02-appliance-dhcp-options-ui/) — related to `zero-trust`
+- [Cloudflare Tunnel, Cloudflare One, Cloudflare WAN, Cloudflare Mesh - Create multiple Cloudflare Tunnel and Cloudflare Mesh routes at once](https://developers.cloudflare.com/changelog/post/2026-09-02-tunnel-mesh-bulk-route-creation/) — related to `zero-trust`
+- [WAF - WAF Release - 2026-09-01](https://developers.cloudflare.com/changelog/post/2026-09-01-waf-release/) — related to `bot-management`
+- [WAF - WAF Release - Scheduled changes for 2026-09-08](https://developers.cloudflare.com/changelog/post/scheduled-waf-release/) — related to `bot-management`
+- [Cloudflare Images - New in Images: text rasterization and updates to the binding](https://developers.cloudflare.com/changelog/post/2026-09-02-images-binding-updates/) — related to `image-optimization`
+
+### New Cloudflare blog posts that might be worth a look
+_Informational only — never auto-added to `diveDeeper.blogs`. Review and add manually if relevant._
+- [Introducing Adaptive Intelligence: Undermining the economics of every bot attack](https://blog.cloudflare.com/introducing-adaptive-intelligence/) — tagged "Bot Management", relevant to `bot-management`
+
+---
+_Generated copy is only accepted when every non-obvious claim is backed by a verbatim quote from the cited developers.cloudflare.com page (see `verifyGrounding` in docs-sync-worker/src/index.ts). Anything that fails that check, or drifts too far in length from the current copy, is left untouched and flagged above for manual review instead of being force-applied._
+
+---
+
 ## 2026-08-30T08:04:58.703Z
 
 ## Weekly Cloudflare docs sync
