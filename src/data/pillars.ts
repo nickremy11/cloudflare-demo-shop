@@ -29,7 +29,7 @@ export const PILLARS: Pillar[] = [
     label: "App Security & Performance",
     badge: "App Sec",
     blurb:
-      "Protect and accelerate every public-facing application — WAF, DDoS, bot management, CDN, DNS, and beyond.",
+      "Protect and accelerate every public-facing application — WAF, DDoS, bot protection, CDN, DNS, and beyond.",
     order: 2,
   },
   {

@@ -1,6 +1,6 @@
 ---
-// Bot Management & Rate Limiting demo.
-// - Reads the _cfbm cookie (set by functions/_middleware.js) for the current bot score
+// Bot Protection & Rate Limiting demo.
+// - Reads the custom _cfbm demo cookie set by functions/_middleware.js
 // - Lets the user hit /api/rate-limit-test repeatedly to trigger a 429
 ---
 
@@ -8,12 +8,12 @@
   <!-- ───── Bot score panel ───── -->
   <div>
     <h3 class="text-sm font-semibold text-pine-700 uppercase tracking-wide mb-2">
-      Your current bot management score
+      Your current bot score
     </h3>
     <p class="text-sm text-gray-600 mb-3">
-      Read from the <code class="bg-silver-50 px-1.5 py-0.5 rounded text-xs">_cfbm</code> cookie
-      set by Cloudflare on each request to this site. 1 = definitely bot,
-      99 = definitely human. The site middleware injects this so we can show it on the page.
+       Read from this site's custom <code class="bg-silver-50 px-1.5 py-0.5 rounded text-xs">_cfbm</code>
+       demo cookie. The middleware copies Cloudflare's request signal into it so client-side code can display
+       the result. 1 = definitely automated; 30–99 = likely human.
     </p>
     <div class="demo-columns">
       <div class="demo-panel safe">

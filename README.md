@@ -16,7 +16,7 @@ Live: <https://remydemo.com>
 ## Pillars
 
 - **SASE / Workspace Security** — Zero Trust, SWG, Browser Isolation, CASB, Email Security
-- **App Security & Performance** — WAF, Bot Management & Rate Limiting, API Security, Client-Side Security, L7 DDoS, Turnstile, CDN & Caching, Argo Smart Routing, Load Balancing, Image Optimization, DNS
+- **App Security & Performance** — WAF, Bot Protection & Rate Limiting, API Security, Client-Side Security, L7 DDoS, Turnstile, CDN & Caching, Argo Smart Routing, Load Balancing, Image Optimization, DNS
 - **Developer Platform** — Workers, Workers AI, Cloud Storage (D1/R2/KV), AI Gateway, Pages, Durable Objects
 - **Network Security** — Magic Transit, Cloudflare WAN, Magic Firewall, Spectrum
 

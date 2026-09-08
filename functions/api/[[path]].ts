@@ -948,7 +948,7 @@ SASE / Workspace Security:
 
 App Security & Performance:
   - /waf                   — WAF (interactive demo)
-  - /bot-management        — Bot Management & Rate Limiting (interactive)
+  - /bot-protection        — Bot Protection & Rate Limiting (interactive)
   - /api-security          — API Security
   - /client-side-security  — Client-Side Security (Page Shield)
   - /l7-ddos               — Layer 7 DDoS Protection

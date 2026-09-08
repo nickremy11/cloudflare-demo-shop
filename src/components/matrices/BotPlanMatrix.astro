@@ -1,7 +1,6 @@
 ---
-// Bot management plan/feature comparison matrix.
-// Sourced from developers.cloudflare.com/bots/plans/* — kept deliberately
-// free of prices, since those change independently of feature availability.
+// Bot protection plan/feature comparison matrix. Sourced from the current
+// product plan and feature pages; prices are intentionally omitted.
 
 interface Tier {
   key: string;
@@ -15,25 +14,25 @@ const TIERS: Tier[] = [
     key: "bfm",
     product: "Bot Fight Mode",
     plan: "Free",
-    blurb: "One-click hygiene against obvious bots. Challenge action only, no configuration.",
+    blurb: "Domain-wide protection for simple bots and headless browsers. Fixed challenge with no WAF custom-rule exceptions.",
   },
   {
     key: "sbfm-pro",
     product: "Super Bot Fight Mode",
     plan: "Pro",
-    blurb: "Choose allow, block, or challenge for definitely-automated traffic, plus a Bot Report.",
+    blurb: "Configurable actions for definitely automated and verified traffic, plus a 24-hour Bot Report.",
   },
   {
     key: "sbfm-biz",
     product: "Super Bot Fight Mode",
     plan: "Business (or Enterprise without the add-on)",
-    blurb: "Adds detection of likely-automated bots and a dedicated Bot Analytics tool.",
+    blurb: "Adds many sophisticated and likely automated bots, plus the dedicated Bot Analytics dashboard.",
   },
   {
     key: "bm",
-    product: "Bot Management",
+    product: "Enterprise Bot Management",
     plan: "Enterprise add-on",
-    blurb: "Per-request 1–99 bot score, custom rules, fingerprinting, and origin forwarding.",
+    blurb: "Granular scores, advanced signals, custom rules, richer analytics, and new bot intelligence tools.",
   },
 ];
 
@@ -49,44 +48,59 @@ interface Row {
 
 const ROWS: Row[] = [
   {
-    feature: "Detects simple bots & headless browsers",
+    feature: "Simple bots and headless browsers",
     detail: "Cloud-hosting-provider traffic, scripted clients, unmasked headless Chromium.",
     values: [true, true, true, true],
   },
   {
-    feature: "Detects sophisticated, ML-evasive bots",
-    detail: "Bots that mimic human behavior closely enough to fool simple heuristics.",
+    feature: "Many sophisticated bots",
+    detail: "Broader machine-learning detection beyond simple known patterns.",
     values: [false, false, true, true],
   },
   {
-    feature: "Choose the action (allow / block / challenge)",
-    detail: "Free issues a fixed challenge; paid tiers let you pick per bot category.",
-    values: ["Challenge only", true, true, true],
+    feature: "Domain-specific anomaly detection",
+    detail: "Detection tuned to unusual behavior on the customer's own domain.",
+    values: [false, false, false, true],
   },
   {
-    feature: "Block or challenge definitely-automated traffic",
-    detail: "Score band representing obvious automation.",
-    values: [true, true, true, "Via custom rules"],
+    feature: "Fixed computational challenge",
+    detail: "Bot Fight Mode's only response to traffic matching known bot patterns.",
+    values: ["Only action", false, false, false],
   },
   {
-    feature: "Block or challenge likely-automated traffic",
-    detail: "Score band for harder-to-detect automation — not available on Pro.",
-    values: [false, false, true, "Via custom rules"],
+    feature: "Configure definitely automated traffic",
+    detail: "Choose allow, block, or challenge for score-1 automation.",
+    values: [false, true, true, "Custom rules"],
   },
   {
-    feature: "Verified-bot allow / block controls",
-    detail: "Explicit control over Googlebot, Bingbot, uptime monitors, etc.",
-    values: [false, true, true, true],
+    feature: "Configure likely automated traffic",
+    detail: "Choose an action for the score 2-29 grouping or write a custom threshold.",
+    values: [false, false, true, "Custom rules"],
+  },
+  {
+    feature: "Verified bot and agent controls",
+    detail: "Control validated search crawlers, monitoring tools, and signed agents.",
+    values: [false, true, true, "Categories / rules"],
+  },
+  {
+    feature: "Path, IP, method, and request-level scope",
+    detail: "Apply bot policy to selected traffic instead of one domain-wide configuration.",
+    values: ["Domain-wide", "Domain-wide", "Domain-wide", true],
+  },
+  {
+    feature: "WAF Skip exceptions",
+    detail: "Exempt approved traffic from Super Bot Fight Mode; Bot Fight Mode cannot be skipped.",
+    values: [false, true, true, "Use custom rules"],
   },
   {
     feature: "Static resource protection",
-    detail: "Exempt images, CSS, and other static file types from bot checks.",
+    detail: "Include images, CSS, JavaScript, documents, fonts, and other listed file types.",
     values: [false, true, true, true],
   },
   {
     feature: "JavaScript Detections",
-    detail: "Client-side signals injected to catch bots that don't run JS.",
-    values: ["Forced on", true, true, true],
+    detail: "Invisible browser-side signals; automatic on Free and optional on paid bot products.",
+    values: ["Always on", "Optional", "Optional", "Optional + field"],
   },
   {
     feature: "Optimize for WordPress",
@@ -94,14 +108,9 @@ const ROWS: Row[] = [
     values: [false, true, true, true],
   },
   {
-    feature: "WAF custom-rule exceptions (Skip action)",
-    detail: "Runs on the Ruleset Engine, so you can carve out approved automated traffic.",
-    values: [false, true, true, true],
-  },
-  {
-    feature: "Bot traffic analytics",
-    detail: "Depth of reporting on what's hitting your domain.",
-    values: ["—", "Bot Report", "Bot Analytics tool", "Bot Analytics + BotBase"],
+    feature: "Bot traffic visibility",
+    detail: "Free actions appear in Security Events; paid tiers add progressively richer analysis.",
+    values: ["Security Events", "24h Bot Report", "72h views / 30d history", "7d views / 30d history"],
   },
   {
     feature: "Granular 1–99 bot score in custom rules",
@@ -109,28 +118,68 @@ const ROWS: Row[] = [
     values: [false, false, false, true],
   },
   {
-    feature: "JA3 / JA4 fingerprinting & bot tags",
-    detail: "Identify clients by TLS handshake signature or named bot tag.",
+    feature: "Advanced Bot Management fields",
+    detail: "JA3/JA4, detection IDs, signed agent, corporate proxy, static-resource, and JS result fields.",
     values: [false, false, false, true],
   },
   {
-    feature: "Detection IDs (target individual bots)",
-    detail: "Write rules against a specific detection, not just a score band.",
+    feature: "Bot tags in Logpush",
+    detail: "Add context about why a request received its bot score.",
     values: [false, false, false, true],
   },
   {
-    feature: "Restrict scope by path, IP, and more",
-    detail: "Apply bot logic surgically instead of domain-wide.",
+    feature: "Use bot data outside WAF custom rules",
+    detail: "Consume or forward signals with Workers, rate limiting, Transform Rules, Snippets, analytics, or logs.",
     values: [false, false, false, true],
   },
   {
-    feature: "Forward bot score to origin",
-    detail: "Send the score to your app/SIEM via Transform Rules or Snippets.",
+    feature: "BotBase directory",
+    detail: "Search Cloudflare's bot and agent directory, inspect classifications, and copy detection IDs.",
     values: [false, false, false, true],
   },
   {
-    feature: "AI bot controls (block, AI Labyrinth, robots.txt)",
-    detail: "Presets to manage AI crawlers, agents, and training scrapers.",
+    feature: "Attribution Business Insights",
+    detail: "Compare crawler volume with referral value over 24 hours, 7 days, or 30 days.",
+    values: [false, false, false, true],
+  },
+  {
+    feature: "Bot Feedback Loop",
+    detail: "Report false positives and negatives to improve future machine-learning models.",
+    values: [false, false, false, true],
+  },
+  {
+    feature: "Machine-learning model auto-updates",
+    detail: "Opt into the newest maintained Enterprise Bot Management model as versions are released.",
+    values: [false, false, false, true],
+  },
+  {
+    feature: "Bot detection alerts",
+    detail: "Notifications for anomalous bot spikes; included with accounts that have an Enterprise zone.",
+    values: [false, false, "Enterprise zones", true],
+  },
+  {
+    feature: "Account Abuse Protection",
+    detail: "Early Access fraud signals for login and registration abuse; contact the account team.",
+    values: [false, false, false, "Early Access"],
+  },
+  {
+    feature: "AI behavior policies",
+    detail: "Allow or block Search, Agent, and Training behavior across the zone or on pages with ads.",
+    values: [true, true, true, true],
+  },
+  {
+    feature: "AI Crawl Control",
+    detail: "Monitor AI traffic, control individual crawlers, and track robots.txt compliance.",
+    values: [true, true, true, true],
+  },
+  {
+    feature: "AI Labyrinth",
+    detail: "Add invisible nofollow honeypot links for unauthorized crawlers that ignore guidance.",
+    values: [true, true, true, true],
+  },
+  {
+    feature: "Managed robots.txt for AI crawlers",
+    detail: "Publish or merge advisory AI crawler instructions; blocking policies provide enforcement.",
     values: [true, true, true, true],
   },
 ];
@@ -138,8 +187,8 @@ const ROWS: Row[] = [
 
 <div class="bot-matrix">
   <p class="text-gray-700 leading-relaxed mb-6">
-    All four products run on the same underlying bot-detection engine — what
-    changes per plan is <strong>how deep the detection goes</strong>, how much
+    Cloudflare provides bot protection on every plan. What changes is
+    <strong>how deep the detection goes</strong>, how much
     <strong>control</strong> you get over the action taken, and how much
     <strong>visibility</strong> you have into what got caught.
   </p>
@@ -214,9 +263,9 @@ const ROWS: Row[] = [
   </div>
 
   <div class="callout-warning">
-    <strong>Heads up:</strong> Bot Fight Mode (Free) has no explicit verified-bot
-    controls, so it can occasionally challenge or block Googlebot and similar
-    crawlers. Run it in log mode first, or confirm your verified-bots allowance
-    before enabling it in production.
+    <strong>Free-plan limitation:</strong> Bot Fight Mode has no log mode, custom
+    exceptions, or explicit verified-bot control. Review its actions in Security
+    Events after enablement. If legitimate automation is challenged, disable it
+    or move to Super Bot Fight Mode for configurable actions and WAF Skip exceptions.
   </div>
 </div>

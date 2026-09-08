@@ -244,13 +244,27 @@
         "label": "DDoS"
       }
     },
-    "bot-management": {
+    "bot-protection": {
       "productNames": [
         "Bots",
         "WAF"
       ],
       "docs": [
         "https://developers.cloudflare.com/bots/",
+        "https://developers.cloudflare.com/bots/plans/",
+        "https://developers.cloudflare.com/bots/plans/free/",
+        "https://developers.cloudflare.com/bots/plans/pro/",
+        "https://developers.cloudflare.com/bots/plans/biz-and-ent/",
+        "https://developers.cloudflare.com/bots/plans/bm-subscription/",
+        "https://developers.cloudflare.com/bots/bot-analytics/",
+        "https://developers.cloudflare.com/bots/botbase/",
+        "https://developers.cloudflare.com/bots/attribution-business-insights/",
+        "https://developers.cloudflare.com/bots/concepts/feedback-loop/",
+        "https://developers.cloudflare.com/bots/reference/alerts/",
+        "https://developers.cloudflare.com/bots/account-abuse-protection/",
+        "https://developers.cloudflare.com/bots/reference/bot-management-variables/",
+        "https://developers.cloudflare.com/bots/additional-configurations/block-ai-bots/",
+        "https://developers.cloudflare.com/ai-crawl-control/",
         "https://developers.cloudflare.com/waf/rate-limiting-rules/",
         "https://developers.cloudflare.com/bots/concepts/bot-score/"
       ],

@@ -451,7 +451,7 @@ The 26 existing slugs. **Don't reuse these.**
 `zero-trust`, `secure-web-gateway`, `browser-isolation`, `casb`, `email-security`
 
 **App Security & Performance:**
-`waf`, `bot-management`, `api-security`, `client-side-security`, `l7-ddos`,
+`waf`, `bot-protection`, `api-security`, `client-side-security`, `l7-ddos`,
 `turnstile`, `cdn-caching`, `argo`, `load-balancing`, `image-optimization`, `dns`
 
 **Developer Platform:**
@@ -468,7 +468,7 @@ Registered in `src/components/DemoSlot.astro`. Reference these in the
 | Component | Used by | What it does |
 |---|---|---|
 | `WafDemo` | `/waf` | Fires SQLi/XSS/cmdi/header attacks at `/api/waf/testattack` |
-| `BotRateDemo` | `/bot-management` | Shows `_cfbm` cookie, rate-limit burst tester |
+| `BotRateDemo` | `/bot-protection` | Shows the custom `_cfbm` demo cookie and rate-limit burst tester |
 | `CdnCacheDemo` | `/cdn-caching` | Fetches diagram + shows cache headers/TTFB + real purge |
 | `DnsDemo` | `/dns` | DoH lookups via `1.1.1.1/dns-query` (browser → CF directly) |
 | `TurnstileDemo` | `/turnstile` | Scenario picker linking to `/turnstile/login?scenario=human\|interactive\|blocked` |
