@@ -99,8 +99,18 @@ const ROWS: Row[] = [
   },
   {
     feature: "JavaScript Detections",
-    detail: "Invisible browser-side signals; automatic on Free and optional on paid bot products.",
-    values: ["Always on", "Optional", "Optional", "Optional + field"],
+    detail: "One-time browser-side signals; Precursor disables and supersedes JSD when enabled.",
+    values: ["Automatic without Precursor", "Optional", "Optional", "Optional + field"],
+  },
+  {
+    feature: "Precursor session-based detection",
+    detail: "Continuously evaluates behavior, updates session state, and can re-verify visitors as behavior changes.",
+    values: [true, true, true, true],
+  },
+  {
+    feature: "Precursor modes and scoped rules",
+    detail: "Choose Minimize Friction or Maximize Security globally and override the mode by path or hostname.",
+    values: [true, true, true, true],
   },
   {
     feature: "Optimize for WordPress",
